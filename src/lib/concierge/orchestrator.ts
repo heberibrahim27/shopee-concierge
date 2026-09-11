@@ -45,10 +45,15 @@ const MAX_SEARCH_TERMS = 4;
 const SHORTLIST_FOR_VISUAL_COMPARISON = 8; // controla custo/latência da comparação visual
 
 /**
- * Reordena os candidatos colocando os itemIds confirmados pelo modelo
- * avançado primeiro (marcados como "modelo_identificado", já que agora
- * têm confirmação extra), mantendo o resto do ranking como estava depois
- * — pra sempre ter opção de sobra caso os IDs confirmados sejam poucos.
+ * Quando o modelo avançado (perito) confirma um match, o roteador já
+ * escalou justamente porque o ranking econômico estava em dúvida — então
+ * os candidatos que o perito NÃO confirmou são um "não, esse eu não
+ * confio" implícito (ele viu a foto e as mesmas opções, e não escolheu).
+ * Por isso aqui a lista final vira só os confirmados (reordenados pela
+ * preferência do perito), em vez de completar até 3 com sobra do ranking
+ * antigo — melhor mandar 1 opção certa do que 3 quando 2 são de categoria
+ * errada (foi exatamente o bug relatado: bateder de argamassa certo +
+ * 2 misturadores de bebida errados só pra "completar 3").
  */
 function applyExpertVerdict(
   candidates: RankedCandidate[],
@@ -56,18 +61,14 @@ function applyExpertVerdict(
 ): RankedCandidate[] {
   if (bestCandidateIds.length === 0) return candidates;
   const idSet = new Set(bestCandidateIds);
-  const confirmed: RankedCandidate[] = [];
-  const rest: RankedCandidate[] = [];
-  for (const c of candidates) {
-    if (idSet.has(c.offer.itemId)) {
-      confirmed.push({ ...c, matchType: "modelo_identificado" });
-    } else {
-      rest.push(c);
-    }
-  }
+  const confirmed: RankedCandidate[] = candidates
+    .filter((c) => idSet.has(c.offer.itemId))
+    .map((c) => ({ ...c, matchType: "modelo_identificado" as const }));
   // preserva a ordem em que o modelo avançado listou os IDs confirmados
   confirmed.sort((a, b) => bestCandidateIds.indexOf(a.offer.itemId) - bestCandidateIds.indexOf(b.offer.itemId));
-  return [...confirmed, ...rest];
+  // se por algum motivo nenhum id confirmado bateu com a lista atual
+  // (não devia acontecer, mas não custa ser defensivo), não fica sem nada
+  return confirmed.length > 0 ? confirmed : candidates;
 }
 
 /**
