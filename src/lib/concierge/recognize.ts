@@ -23,6 +23,19 @@ export interface ImageObservation {
   perguntaEsclarecimento?: string; // pergunta curta a fazer antes de buscar, se houver ambiguidade real
   termosDeBusca: string[]; // 2-4 termos de busca pra tentar na Shopee (específico -> genérico)
   faixaPrecoEstimadaBRL?: { min: number; max: number }; // estimativa de faixa de preço em reais, só quando dá pra chutar com alguma confiança pelo tipo/acabamento do produto — usada só pra não sugerir opção 5x mais cara/barata, nunca tratada como spec confirmada
+  /**
+   * Preço em reais que aparece ESCRITO e legível na própria foto (ex: a
+   * pessoa manda um print de um anúncio/vitrine já mostrando "R$147,25") —
+   * diferente de faixaPrecoEstimadaBRL, que é um CHUTE pelo tipo de produto.
+   * Quando presente, é um sinal muito mais forte (é o preço que a pessoa
+   * está de olho, não uma estimativa) e o ranking passa a penalizar bem
+   * mais forte candidatos fora dessa faixa (ver rank.ts) — evita sugerir
+   * produto 2-3x mais caro que o que a pessoa mostrou (bug real: mandou
+   * print de um conversor de TV a R$147 e o bot sugeriu 3 opções entre
+   * R$197 e R$399, todas mais caras, porque não havia preço-âncora nenhum
+   * puxando o ranking pro valor certo).
+   */
+  precoVisivelNaFotoBRL?: number;
 
   // Campos novos (roteador de confiança):
   categoria?: string; // categoria geral do produto (ex: "tenis", "cafeteira")
@@ -37,8 +50,8 @@ export interface ImageObservation {
 }
 
 const SYSTEM_PROMPT = `Você ajuda a identificar produtos a partir de uma foto para buscar equivalentes na Shopee (Brasil).
-Responda em JSON estrito com os campos: observado, hipotese, naoIdentificado (array), exigenciaUsuario (opcional), perguntaEsclarecimento (opcional, só se realmente necessário), termosDeBusca (array de 2 a 4 termos curtos em português, do mais específico ao mais genérico, pra usar como keyword de busca), faixaPrecoEstimadaBRL (opcional, objeto {min, max} em reais — só inclua se der pra estimar uma faixa plausível pelo tipo/acabamento/complexidade aparente do produto; se não der pra estimar com alguma confiança, omita esse campo), categoria (curta, ex: "tenis", "cafeteira"), marca (opcional, só se estiver visível/legível na foto), modelo (opcional, só se estiver visível/legível na foto), cor (opcional), textoVisivel (array de texto/logo legível na foto, opcional), confiancaCategoria, confiancaMarca, confiancaModelo e confiancaGeral (todos números de 0 a 1 — confiancaMarca/confiancaModelo devem ser 0 ou omitidos quando marca/modelo não foram identificados).
-Regras: nunca invente marca, modelo, dimensão ou material que não esteja visível ou dito pelo usuário — isso vai em naoIdentificado, e a confiança correspondente deve ser baixa/zero. Só inclua perguntaEsclarecimento se a foto tiver mais de um objeto plausível, ou se a compatibilidade/tamanho for essencial e não puder ser assumida. faixaPrecoEstimadaBRL é uma estimativa grosseira pra evitar sugestões muito fora da faixa, nunca uma promessa de preço. confiancaGeral reflete o quanto você confia na identificação como um todo (categoria + marca/modelo quando aplicável) — seja honesto e conservador, não infle esse número.`;
+Responda em JSON estrito com os campos: observado, hipotese, naoIdentificado (array), exigenciaUsuario (opcional), perguntaEsclarecimento (opcional, só se realmente necessário), termosDeBusca (array de 2 a 4 termos curtos em português, do mais específico ao mais genérico, pra usar como keyword de busca), precoVisivelNaFotoBRL (opcional, número em reais — SÓ quando a própria foto mostra um preço escrito e legível, como um print de anúncio/vitrine/etiqueta de preço, ex: "R$147,25" vira 147.25; nunca invente um valor que não esteja escrito na foto), faixaPrecoEstimadaBRL (opcional, objeto {min, max} em reais — se precoVisivelNaFotoBRL estiver presente, use uma faixa ESTREITA ancorada nele, tipo min=70% e max=130% desse valor; senão, só inclua se der pra estimar uma faixa plausível pelo tipo/acabamento/complexidade aparente do produto, e nesse caso pode ser uma faixa mais larga; se não der pra estimar com nenhuma confiança, omita o campo), categoria (curta, ex: "tenis", "cafeteira"), marca (opcional, só se estiver visível/legível na foto), modelo (opcional, só se estiver visível/legível na foto), cor (opcional), textoVisivel (array de texto/logo legível na foto, opcional), confiancaCategoria, confiancaMarca, confiancaModelo e confiancaGeral (todos números de 0 a 1 — confiancaMarca/confiancaModelo devem ser 0 ou omitidos quando marca/modelo não foram identificados).
+Regras: nunca invente marca, modelo, dimensão ou material que não esteja visível ou dito pelo usuário — isso vai em naoIdentificado, e a confiança correspondente deve ser baixa/zero. Só inclua perguntaEsclarecimento se a foto tiver mais de um objeto plausível, ou se a compatibilidade/tamanho for essencial e não puder ser assumida. faixaPrecoEstimadaBRL (sem preço visível) é uma estimativa grosseira pra evitar sugestões muito fora da faixa, nunca uma promessa de preço. confiancaGeral reflete o quanto você confia na identificação como um todo (categoria + marca/modelo quando aplicável) — seja honesto e conservador, não infle esse número.`;
 
 export async function recognizeProductImage(params: {
   imageUrl: string;
@@ -83,6 +96,10 @@ export async function recognizeProductImage(params: {
     exigenciaUsuario: parsed.exigenciaUsuario,
     perguntaEsclarecimento: parsed.perguntaEsclarecimento,
     termosDeBusca: parsed.termosDeBusca ?? [],
+    precoVisivelNaFotoBRL:
+      typeof parsed.precoVisivelNaFotoBRL === "number" && Number.isFinite(parsed.precoVisivelNaFotoBRL) && parsed.precoVisivelNaFotoBRL > 0
+        ? parsed.precoVisivelNaFotoBRL
+        : undefined,
     faixaPrecoEstimadaBRL:
       parsed.faixaPrecoEstimadaBRL &&
       typeof parsed.faixaPrecoEstimadaBRL.min === "number" &&

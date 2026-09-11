@@ -48,6 +48,13 @@ export function rankCandidates(
   });
 
   const faixa = observation.faixaPrecoEstimadaBRL;
+  // Quando a própria foto mostrava um preço legível (print de anúncio,
+  // etiqueta), a faixa é ancorada num fato, não num chute — por isso a
+  // penalidade por estar fora dela é bem mais forte (evita sugerir produto
+  // 2-3x mais caro que o preço que a pessoa mostrou só porque tem mais
+  // venda/nota; ver comentário em recognize.ts sobre o bug real que motivou isso)
+  const priceIsAnchoredToVisiblePrice = typeof observation.precoVisivelNaFotoBRL === "number";
+  const PRICE_PENALTY_MULTIPLIER = priceIsAnchoredToVisiblePrice ? 40 : 15;
 
   const ranked = deduped.map((offer) => {
     const rating = parseFloat(offer.ratingStar || "0");
@@ -74,9 +81,9 @@ export function rankCandidates(
     let pricePenalty = 0;
     if (faixa && price > 0) {
       if (price < faixa.min) {
-        pricePenalty = ((faixa.min - price) / faixa.min) * 15;
+        pricePenalty = ((faixa.min - price) / faixa.min) * PRICE_PENALTY_MULTIPLIER;
       } else if (price > faixa.max) {
-        pricePenalty = ((price - faixa.max) / faixa.max) * 15;
+        pricePenalty = ((price - faixa.max) / faixa.max) * PRICE_PENALTY_MULTIPLIER;
       }
     }
 
@@ -93,4 +100,63 @@ export function rankCandidates(
   });
 
   return ranked.sort((a, b) => b.score - a.score);
+}
+
+export interface HighlightedCandidate {
+  label: string;
+  candidate: RankedCandidate;
+}
+
+/**
+ * Em vez de mandar os 3 melhores pelo score composto (que mistura relevância,
+ * nota, venda e preço num número só — e por isso tendia a mandar 3 opções
+ * parecidas, todas rotuladas só como "alternativa equivalente"), o Ibrahim
+ * pediu pra mandar 3 opções com critério CLARO e diferente cada uma, pra
+ * pessoa entender na hora por que aquela opção foi escolhida:
+ *   1) menor preço
+ *   2) melhor nota (desempate por quantidade de venda)
+ *   3) mais vendida
+ * Sempre dentro do conjunto já filtrado por relevância (o `ranked` recebido
+ * aqui já veio de rankCandidates, que descarta "nao_relacionado" e itens sem
+ * venda mínima) — nunca escolhe o mais barato/mais vendido geral, só entre o
+ * que já faz sentido pra foto mandada.
+ * Evita repetir o mesmo produto em duas categorias: se o mais barato também
+ * for o mais vendido, por exemplo, a categoria "mais vendida" pula pro
+ * próximo da lista que ainda não foi usado — assim a pessoa sempre recebe
+ * até 3 produtos distintos, não o mesmo produto 2-3 vezes.
+ */
+export function pickHighlightedCandidates(ranked: RankedCandidate[]): HighlightedCandidate[] {
+  const used = new Set<string>();
+
+  const pick = (
+    label: string,
+    compare: (a: RankedCandidate, b: RankedCandidate) => number
+  ): HighlightedCandidate | null => {
+    const pool = ranked.filter((r) => !used.has(r.offer.itemId));
+    if (pool.length === 0) return null;
+    const best = [...pool].sort(compare)[0];
+    used.add(best.offer.itemId);
+    return { label, candidate: best };
+  };
+
+  const highlights: HighlightedCandidate[] = [];
+
+  const porPreco = pick(
+    "💰 Melhor preço",
+    (a, b) => parseFloat(a.offer.priceMin) - parseFloat(b.offer.priceMin)
+  );
+  if (porPreco) highlights.push(porPreco);
+
+  const porNota = pick("⭐ Melhor avaliada", (a, b) => {
+    const ratingA = parseFloat(a.offer.ratingStar || "0");
+    const ratingB = parseFloat(b.offer.ratingStar || "0");
+    if (ratingB !== ratingA) return ratingB - ratingA;
+    return b.offer.sales - a.offer.sales;
+  });
+  if (porNota) highlights.push(porNota);
+
+  const porVendas = pick("🔥 Mais vendida", (a, b) => b.offer.sales - a.offer.sales);
+  if (porVendas) highlights.push(porVendas);
+
+  return highlights;
 }
