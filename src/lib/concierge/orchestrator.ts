@@ -31,13 +31,19 @@ import { recognizeProductImage } from "./recognize";
 import { searchProductsByKeyword } from "../shopee/queries";
 import { rankCandidates, RankedCandidate } from "./rank";
 import { compareCandidatesVisually } from "./compare";
-import { buildReplyMessage } from "./reply";
+import { buildReplyMessage, ReplyPart } from "./reply";
 import { decideEscalation } from "./confidenceRouter";
 import { consultExpertVision } from "./expertVision";
 
 export interface OrchestratorResult {
   chatId: string;
   replyText: string | null; // null = não é assunto do concierge, não responder
+  /**
+   * Quando presente, é a resposta a mandar (na ordem do array) — usada pra
+   * mandar a foto real de cada produto (ver reply.ts). Quando ausente, quem
+   * chama usa só `replyText` (caso simples: pergunta, aviso, pedido de foto).
+   */
+  replyParts?: ReplyPart[];
 }
 
 const SEARCH_LIMIT_PER_TERM = 20;
@@ -186,7 +192,7 @@ async function processPhotoMessage(
     // modelo econômico mesmo assim (melhor esforço, nunca trava a resposta)
   }
 
-  const replyText = await buildReplyMessage({ candidates, chatId: msg.chatId });
+  const replyParts = await buildReplyMessage({ candidates, chatId: msg.chatId });
 
   console.log(
     "[concierge][observability]",
@@ -208,7 +214,7 @@ async function processPhotoMessage(
   // encerra a sessão do concierge — próxima interação exige novo gatilho
   setSession({ chatId: msg.chatId, status: "idle", updatedAt: Date.now() });
 
-  return { chatId: msg.chatId, replyText };
+  return { chatId: msg.chatId, replyText: null, replyParts };
 }
 
 export async function handleIncomingMessage(

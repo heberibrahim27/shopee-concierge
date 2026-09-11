@@ -8,26 +8,41 @@ const MATCH_LABEL: Record<MatchType, string> = {
 };
 
 /**
- * Monta a mensagem de resposta com até 3 opções, cada uma com link
- * de afiliado próprio (subId identifica canal/sessão pra depois medir
- * cliques por conversa).
+ * Uma "parte" da resposta, na ordem em que devem ser enviadas pro chat.
+ * "image" manda a foto real do produto (offer.imageUrl) com a legenda —
+ * pedido do Ibrahim pra ver o produto, não só ler o nome/link — e "text"
+ * é usado quando não há imagem disponível ou não há candidato nenhum.
+ */
+export type ReplyPart =
+  | { type: "text"; text: string }
+  | { type: "image"; imageUrl: string; caption: string };
+
+/**
+ * Monta a resposta com até 3 opções, cada uma como uma mensagem de imagem
+ * (foto real do produto na Shopee) com legenda contendo nome, preço, tipo
+ * de correspondência e link de afiliado próprio (subId identifica
+ * canal/sessão pra depois medir cliques por conversa).
  *
  * subIds: token curto e simples (a Shopee rejeita valores compostos/longos).
  */
 export async function buildReplyMessage(params: {
   candidates: RankedCandidate[];
   chatId: string;
-}): Promise<string> {
+}): Promise<ReplyPart[]> {
   const top = params.candidates.slice(0, 3);
 
   if (top.length === 0) {
-    return (
-      "Não achei uma opção boa o suficiente pra essa foto ainda. " +
-      "Pode mandar outro ângulo, uma foto da etiqueta, ou me dizer marca/tamanho se souber?"
-    );
+    return [
+      {
+        type: "text",
+        text:
+          "Não achei uma opção boa o suficiente pra essa foto ainda. " +
+          "Pode mandar outro ângulo, uma foto da etiqueta, ou me dizer marca/tamanho se souber?",
+      },
+    ];
   }
 
-  const lines: string[] = [];
+  const parts: ReplyPart[] = [];
   for (const [i, candidate] of top.entries()) {
     const { offer, matchType } = candidate;
     const subId = `s${i + 1}`;
@@ -49,10 +64,14 @@ export async function buildReplyMessage(params: {
     const rating = parseFloat(offer.ratingStar || "0");
     const notaTexto = offer.sales >= 10 && rating > 0 ? `, nota ${offer.ratingStar}` : "";
 
-    lines.push(
-      `${i + 1}. ${offer.productName} — R$${offer.priceMin} (${MATCH_LABEL[matchType]}${notaTexto})\n${link}`
+    const caption = `${offer.productName} — R$${offer.priceMin} (${MATCH_LABEL[matchType]}${notaTexto})\n${link}`;
+
+    parts.push(
+      offer.imageUrl
+        ? { type: "image", imageUrl: offer.imageUrl, caption }
+        : { type: "text", text: caption }
     );
   }
 
-  return `Achei essas opções na Shopee:\n\n${lines.join("\n\n")}`;
+  return parts;
 }
