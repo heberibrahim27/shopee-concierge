@@ -86,9 +86,27 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await handleIncomingMessage(incoming);
+
+    // manda em ordem (não em paralelo) pra chegar no WhatsApp na sequência
+    // certa: texto simples primeiro (ex: pergunta), senão as partes da
+    // resposta com produto (foto + legenda de cada opção, ver reply.ts)
     if (result.replyText) {
       await connector.sendText({ chatId: result.chatId, text: result.replyText });
     }
+    if (result.replyParts) {
+      for (const part of result.replyParts) {
+        if (part.type === "image") {
+          await connector.sendImage({
+            chatId: result.chatId,
+            imageUrl: part.imageUrl,
+            caption: part.caption,
+          });
+        } else {
+          await connector.sendText({ chatId: result.chatId, text: part.text });
+        }
+      }
+    }
+
     await forwardPromise;
     return NextResponse.json({ ok: true });
   } catch (err) {
