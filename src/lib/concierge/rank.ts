@@ -47,6 +47,43 @@ export function rankCandidates(
     return true;
   });
 
+  // Classifica o tipo de correspondência ANTES de pontuar, num passo próprio,
+  // pra também poder descartar aqui quem nem bate o termo de busca mais
+  // específico — não só quem a comparação visual rejeitou. Isso importa
+  // sobretudo quando a comparação visual NÃO roda (sem OPENAI_API_KEY, erro
+  // de API, JSON inválido etc.) — bug real (11/09/2026): mandou foto de uma
+  // lata de cera de carnaúba cuja embalagem tem escrito "ACABAMENTOS", esse
+  // termo genérico virou keyword de busca, e como o fallback textual antigo
+  // classificava QUALQUER não-match como "semelhante_visual" (nunca
+  // descartava), uma torneira e uma moldura de teto (ambos produtos de
+  // "acabamento" de construção, sem nenhuma relação com cera) entraram no
+  // ranking normalmente e venceram nas categorias nota/venda.
+  const classified = deduped
+    .map((offer) => {
+      const visual = visualComparisons?.get(offer.itemId);
+      let matchType: MatchType | "nao_relacionado";
+      if (visual) {
+        matchType = visual.matchType;
+      } else {
+        // Sem comparação visual real, só dá pra confiar no termo de busca
+        // MAIS específico (o primeiro da lista, ver recognize.ts — o resto
+        // é "genérico -> específico" invertido, então termos[1+] podem ser
+        // palavras soltas tipo "acabamento", que aparecem escritas em
+        // produtos de categorias inteiramente diferentes). Bater só um
+        // termo genérico não vira mais "semelhante_visual" (antes entrava
+        // no ranking mesmo sem nenhuma relação real) — sem bater o termo
+        // específico, o candidato é descartado (nao_relacionado).
+        const nome = offer.productName.toLowerCase();
+        const termoEspecifico = observation.termosDeBusca[0]?.toLowerCase();
+        matchType =
+          termoEspecifico && nome.includes(termoEspecifico) ? "alternativa_funcional" : "nao_relacionado";
+      }
+      return { offer, matchType };
+    })
+    .filter(
+      (c): c is { offer: ShopeeProductOffer; matchType: MatchType } => c.matchType !== "nao_relacionado"
+    );
+
   const faixa = observation.faixaPrecoEstimadaBRL;
   // Quando a própria foto mostrava um preço legível (print de anúncio,
   // etiqueta), a faixa é ancorada num fato, não num chute — por isso a
@@ -56,19 +93,10 @@ export function rankCandidates(
   const priceIsAnchoredToVisiblePrice = typeof observation.precoVisivelNaFotoBRL === "number";
   const PRICE_PENALTY_MULTIPLIER = priceIsAnchoredToVisiblePrice ? 40 : 15;
 
-  const ranked = deduped.map((offer) => {
+  const ranked = classified.map(({ offer, matchType }) => {
     const rating = parseFloat(offer.ratingStar || "0");
     const commission = parseFloat(offer.commission || "0");
     const price = parseFloat(offer.priceMin || "0");
-
-    const visual = visualComparisons?.get(offer.itemId);
-    const matchType: MatchType = visual
-      ? (visual.matchType as MatchType)
-      : observation.termosDeBusca.some((t) =>
-          offer.productName.toLowerCase().includes(t.toLowerCase())
-        )
-      ? "alternativa_funcional"
-      : "semelhante_visual";
 
     // bônus por tipo de correspondência (a comparação visual é o sinal
     // mais forte de relevância — precisa pesar mais que nota/comissão)
@@ -124,15 +152,31 @@ export interface HighlightedCandidate {
  * for o mais vendido, por exemplo, a categoria "mais vendida" pula pro
  * próximo da lista que ainda não foi usado — assim a pessoa sempre recebe
  * até 3 produtos distintos, não o mesmo produto 2-3 vezes.
+ *
+ * IMPORTANTE (bug real, 11/09/2026): as 3 categorias só escolhem dentro dos
+ * candidatos com relevância CONFIRMADA (modelo_identificado ou
+ * alternativa_funcional) — nunca entre TODO o `ranked` recebido. Antes,
+ * "melhor avaliada"/"mais vendida" ignoravam o tipo de correspondência e
+ * escolhiam só por nota/venda no pool inteiro; como isso não olha pro
+ * matchBonus (só o score composto olhava), um produto de categoria errada
+ * mas muito popular (torneira, moldura de teto) vencia fácil um produto
+ * certo só que de nicho (cera de carnaúba). Só cai pro pool inteiro,
+ * incluindo "semelhante_visual", se não sobrar NENHUM confirmado — melhor
+ * mostrar algo incerto (rotulado como tal em reply.ts) do que nada.
  */
 export function pickHighlightedCandidates(ranked: RankedCandidate[]): HighlightedCandidate[] {
+  const confirmados = ranked.filter(
+    (r) => r.matchType === "modelo_identificado" || r.matchType === "alternativa_funcional"
+  );
+  const base = confirmados.length > 0 ? confirmados : ranked;
+
   const used = new Set<string>();
 
   const pick = (
     label: string,
     compare: (a: RankedCandidate, b: RankedCandidate) => number
   ): HighlightedCandidate | null => {
-    const pool = ranked.filter((r) => !used.has(r.offer.itemId));
+    const pool = base.filter((r) => !used.has(r.offer.itemId));
     if (pool.length === 0) return null;
     const best = [...pool].sort(compare)[0];
     used.add(best.offer.itemId);
