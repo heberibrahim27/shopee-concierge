@@ -80,3 +80,8 @@ npm run test:search -- "fone de ouvido bluetooth"
    opções que só batem a palavra-chave mas não o produto). Isso
    substituiu o match só por texto que gerava sugestões fora de
    contexto (categoria certa, mas estilo/preço bem diferentes).
+
+
+## Deploy (permanente)
+
+Este repositório está conectado a um projeto Vercel com deploy automático a cada push na branch `main` — não precisa mais copiar variáveis de ambiente a cada atualização de código.
