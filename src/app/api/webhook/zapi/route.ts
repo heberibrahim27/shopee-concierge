@@ -21,7 +21,7 @@ import { isDuplicate } from "@/lib/dedupe";
 
 const connector = createZApiConnector();
 
-async function forwardToBancaZap(rawBody: unknown): Promise<void> {
+async function forwardToBancaZap(rawBody: unknown, ownHost: string | null): Promise<void> {
   const url = process.env.BANCAZAP_FORWARD_WEBHOOK_URL;
   if (!url) {
     console.warn(
@@ -29,6 +29,29 @@ async function forwardToBancaZap(rawBody: unknown): Promise<void> {
     );
     return;
   }
+
+  // Proteção contra loop infinito: se essa variável estiver (por engano)
+  // apontando pro PRÓPRIO domínio deste projeto, repassar criaria uma
+  // mensagem chamando a si mesma pra sempre (cada repasse gera um novo
+  // POST nesta mesma rota, que repassa de novo, e de novo...). Isso já
+  // aconteceu na prática (detectado via trace de "External APIs" na
+  // Vercel: uma chamada de saída com destino no próprio domínio do
+  // projeto) — em vez de só confiar que a variável está certa, o código
+  // passa a se recusar a repassar pro próprio host, sempre.
+  let targetHost: string | null = null;
+  try {
+    targetHost = new URL(url).host;
+  } catch {
+    console.error("[concierge] BANCAZAP_FORWARD_WEBHOOK_URL não é uma URL válida — repasse pulado.");
+    return;
+  }
+  if (ownHost && targetHost === ownHost) {
+    console.error(
+      `[concierge] BANCAZAP_FORWARD_WEBHOOK_URL está apontando pro próprio domínio (${targetHost}) — repasse CANCELADO pra evitar loop infinito. Corrija essa variável na Vercel (precisa ser a URL do backend real do BancaZAP, ex: bzapprime.com.br).`
+    );
+    return;
+  }
+
   try {
     await fetch(url, {
       method: "POST",
@@ -43,10 +66,11 @@ async function forwardToBancaZap(rawBody: unknown): Promise<void> {
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.json();
+  const ownHost = req.headers.get("host");
 
   // repassa SEMPRE, pra qualquer evento — o BancaZAP continua recebendo
   // exatamente o que recebia antes, independente do que o concierge faz
-  const forwardPromise = forwardToBancaZap(rawBody);
+  const forwardPromise = forwardToBancaZap(rawBody, ownHost);
 
   const incoming = connector.parseIncoming(rawBody);
   if (!incoming) {
