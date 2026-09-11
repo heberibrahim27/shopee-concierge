@@ -13,9 +13,20 @@
  * expertVision.ts) antes de responder. Isso só entra quando o modelo
  * econômico não teve certeza suficiente — a maioria das fotos deve
  * continuar resolvida só com ele, que é bem mais barato.
+ *
+ * SEM BANCO DE DADOS, DE PROPÓSITO: a sessão (getSession/setSession) é só
+ * um Map em memória — nenhum dado de cliente precisa ficar guardado, o
+ * objetivo aqui é só indicar o link. O problema é que esse Map não
+ * sobrevive entre instâncias serverless diferentes da Vercel, então o
+ * fluxo em 2 mensagens ("Quero encontrar" → esperar → foto solta) pode
+ * falhar silenciosamente se a segunda mensagem cair numa instância que
+ * não viu a primeira. Por isso o caminho GARANTIDO é a foto já chegar
+ * com o gatilho na própria legenda (1 mensagem só, resolvida inteira
+ * numa única invocação, sem depender de nada guardado entre mensagens);
+ * o fluxo de 2 mensagens continua funcionando como bônus melhor-esforço.
  */
 import { IncomingMessage } from "../channel/types";
-import { getSession, setSession, isTriggerPhrase } from "./session";
+import { getSession, setSession, isTriggerPhrase, ConciergeSession } from "./session";
 import { recognizeProductImage } from "./recognize";
 import { searchProductsByKeyword } from "../shopee/queries";
 import { rankCandidates, RankedCandidate } from "./rank";
@@ -59,6 +70,124 @@ function applyExpertVerdict(
   return [...confirmed, ...rest];
 }
 
+/**
+ * Processa uma mensagem que já tem foto (seja o caminho garantido — foto
+ * com o gatilho na legenda, resolvido numa invocação só — seja o caminho
+ * melhor-esforço de 2 mensagens que depende da sessão em memória ter
+ * sobrevivido). Não depende de nada além do que chega em `msg`.
+ */
+async function processPhotoMessage(
+  msg: IncomingMessage,
+  session: ConciergeSession
+): Promise<OrchestratorResult> {
+  setSession({ ...session, status: "processing" });
+
+  const observation = await recognizeProductImage({
+    imageUrl: msg.imageUrl ?? "",
+    userText: msg.text,
+  });
+
+  if (observation.perguntaEsclarecimento) {
+    setSession({
+      ...session,
+      status: "awaiting_clarification",
+      observation,
+      pendingQuestion: observation.perguntaEsclarecimento,
+    });
+    return { chatId: msg.chatId, replyText: observation.perguntaEsclarecimento };
+  }
+
+  const terms = observation.termosDeBusca.slice(0, MAX_SEARCH_TERMS);
+  const results = await Promise.all(
+    terms.map((keyword) =>
+      searchProductsByKeyword({ keyword, limit: SEARCH_LIMIT_PER_TERM })
+    )
+  );
+
+  // 1ª passada: ranking heurístico (texto/nota/venda) só pra reduzir a
+  // lista bruta a um shortlist pequeno antes de gastar com comparação
+  // visual real (que é o sinal que realmente decide o que é parecido)
+  const preliminary = rankCandidates(results.flat(), observation);
+  const shortlist = preliminary.slice(0, SHORTLIST_FOR_VISUAL_COMPARISON).map((r) => r.offer);
+
+  const visualComparisons = msg.imageUrl
+    ? await compareCandidatesVisually({
+        photoUrl: msg.imageUrl,
+        observation,
+        candidates: shortlist,
+      })
+    : undefined;
+
+  let candidates = rankCandidates(shortlist, observation, visualComparisons);
+
+  // Roteador de confiança: só escala pro modelo avançado quando o
+  // resultado do modelo econômico não é confiável o suficiente.
+  const decision = decideEscalation(observation, candidates);
+  let escalatedConfidence: number | undefined;
+  let expertNeededClarification = false;
+
+  if (decision.escalate && msg.imageUrl) {
+    const verdict = await consultExpertVision({
+      photoUrl: msg.imageUrl,
+      observation,
+      candidates,
+    });
+    escalatedConfidence = verdict.confidence;
+
+    if (verdict.status === "match" && verdict.bestCandidateIds.length > 0) {
+      candidates = applyExpertVerdict(candidates, verdict.bestCandidateIds);
+    } else if (verdict.needsUserClarification && verdict.suggestedQuestion) {
+      expertNeededClarification = true;
+      setSession({
+        ...session,
+        status: "awaiting_clarification",
+        observation,
+        pendingQuestion: verdict.suggestedQuestion,
+      });
+      // observabilidade mínima (sem banco ainda — ver plano de logs)
+      console.log(
+        "[concierge][observability]",
+        JSON.stringify({
+          requestId: msg.messageId,
+          confiancaGeral: observation.confiancaGeral,
+          escalou: true,
+          motivoEscalonamento: decision.motivo,
+          modeloAvancado: "expert",
+          confiancaFinal: escalatedConfidence,
+          precisouEsclarecimento: true,
+        })
+      );
+      return { chatId: msg.chatId, replyText: verdict.suggestedQuestion };
+    }
+    // status "uncertain" sem pergunta útil: segue com o ranking do
+    // modelo econômico mesmo assim (melhor esforço, nunca trava a resposta)
+  }
+
+  const replyText = await buildReplyMessage({ candidates, chatId: msg.chatId });
+
+  console.log(
+    "[concierge][observability]",
+    JSON.stringify({
+      requestId: msg.messageId,
+      confiancaGeral: observation.confiancaGeral,
+      categoria: observation.categoria,
+      termosPesquisa: terms,
+      quantidadeResultadosShopee: results.flat().length,
+      escalou: decision.escalate,
+      motivoEscalonamento: decision.motivo,
+      modeloAvancado: decision.escalate ? "expert" : undefined,
+      confiancaFinal: escalatedConfidence ?? observation.confiancaGeral,
+      precisouEsclarecimento: expertNeededClarification,
+      produtosEnviados: candidates.slice(0, 3).map((c) => c.offer.itemId),
+    })
+  );
+
+  // encerra a sessão do concierge — próxima interação exige novo gatilho
+  setSession({ chatId: msg.chatId, status: "idle", updatedAt: Date.now() });
+
+  return { chatId: msg.chatId, replyText };
+}
+
 export async function handleIncomingMessage(
   msg: IncomingMessage
 ): Promise<OrchestratorResult> {
@@ -75,10 +204,23 @@ export async function handleIncomingMessage(
     if (!isTriggerPhrase(msg.text)) {
       return { chatId: msg.chatId, replyText: null };
     }
+
+    // Caminho GARANTIDO: gatilho + foto já chegaram juntos (foto com
+    // "Quero encontrar" na legenda) — resolve tudo nesta única invocação,
+    // sem depender de nenhum estado guardado entre mensagens.
+    if (msg.imageUrl) {
+      return processPhotoMessage(msg, session);
+    }
+
+    // Só o texto do gatilho chegou — pede a foto e marca a sessão como
+    // bônus melhor-esforço (pode falhar se a próxima mensagem cair numa
+    // instância serverless diferente; por isso a orientação já reforça
+    // o caminho garantido pra próxima vez).
     setSession({ ...session, status: "awaiting_photo" });
     return {
       chatId: msg.chatId,
-      replyText: "Pode mandar a foto do que você tá procurando. Eu acho as melhores opções na Shopee.",
+      replyText:
+        "Pode mandar a foto do que você tá procurando (se puder, já escreva \"quero encontrar\" na legenda da foto — assim eu garanto que não vou perder o pedido). Eu acho as melhores opções na Shopee.",
     };
   }
 
@@ -90,112 +232,7 @@ export async function handleIncomingMessage(
       };
     }
 
-    setSession({ ...session, status: "processing" });
-
-    const observation = await recognizeProductImage({
-      imageUrl: msg.imageUrl ?? "",
-      userText: msg.text,
-    });
-
-    if (observation.perguntaEsclarecimento) {
-      setSession({
-        ...session,
-        status: "awaiting_clarification",
-        observation,
-        pendingQuestion: observation.perguntaEsclarecimento,
-      });
-      return { chatId: msg.chatId, replyText: observation.perguntaEsclarecimento };
-    }
-
-    const terms = observation.termosDeBusca.slice(0, MAX_SEARCH_TERMS);
-    const results = await Promise.all(
-      terms.map((keyword) =>
-        searchProductsByKeyword({ keyword, limit: SEARCH_LIMIT_PER_TERM })
-      )
-    );
-
-    // 1ª passada: ranking heurístico (texto/nota/venda) só pra reduzir a
-    // lista bruta a um shortlist pequeno antes de gastar com comparação
-    // visual real (que é o sinal que realmente decide o que é parecido)
-    const preliminary = rankCandidates(results.flat(), observation);
-    const shortlist = preliminary.slice(0, SHORTLIST_FOR_VISUAL_COMPARISON).map((r) => r.offer);
-
-    const visualComparisons = msg.imageUrl
-      ? await compareCandidatesVisually({
-          photoUrl: msg.imageUrl,
-          observation,
-          candidates: shortlist,
-        })
-      : undefined;
-
-    let candidates = rankCandidates(shortlist, observation, visualComparisons);
-
-    // Roteador de confiança: só escala pro modelo avançado quando o
-    // resultado do modelo econômico não é confiável o suficiente.
-    const decision = decideEscalation(observation, candidates);
-    let escalatedConfidence: number | undefined;
-    let expertNeededClarification = false;
-
-    if (decision.escalate && msg.imageUrl) {
-      const verdict = await consultExpertVision({
-        photoUrl: msg.imageUrl,
-        observation,
-        candidates,
-      });
-      escalatedConfidence = verdict.confidence;
-
-      if (verdict.status === "match" && verdict.bestCandidateIds.length > 0) {
-        candidates = applyExpertVerdict(candidates, verdict.bestCandidateIds);
-      } else if (verdict.needsUserClarification && verdict.suggestedQuestion) {
-        expertNeededClarification = true;
-        setSession({
-          ...session,
-          status: "awaiting_clarification",
-          observation,
-          pendingQuestion: verdict.suggestedQuestion,
-        });
-        // observabilidade mínima (sem banco ainda — ver plano de logs)
-        console.log(
-          "[concierge][observability]",
-          JSON.stringify({
-            requestId: msg.messageId,
-            confiancaGeral: observation.confiancaGeral,
-            escalou: true,
-            motivoEscalonamento: decision.motivo,
-            modeloAvancado: "expert",
-            confiancaFinal: escalatedConfidence,
-            precisouEsclarecimento: true,
-          })
-        );
-        return { chatId: msg.chatId, replyText: verdict.suggestedQuestion };
-      }
-      // status "uncertain" sem pergunta útil: segue com o ranking do
-      // modelo econômico mesmo assim (melhor esforço, nunca trava a resposta)
-    }
-
-    const replyText = await buildReplyMessage({ candidates, chatId: msg.chatId });
-
-    console.log(
-      "[concierge][observability]",
-      JSON.stringify({
-        requestId: msg.messageId,
-        confiancaGeral: observation.confiancaGeral,
-        categoria: observation.categoria,
-        termosPesquisa: terms,
-        quantidadeResultadosShopee: results.flat().length,
-        escalou: decision.escalate,
-        motivoEscalonamento: decision.motivo,
-        modeloAvancado: decision.escalate ? "expert" : undefined,
-        confiancaFinal: escalatedConfidence ?? observation.confiancaGeral,
-        precisouEsclarecimento: expertNeededClarification,
-        produtosEnviados: candidates.slice(0, 3).map((c) => c.offer.itemId),
-      })
-    );
-
-    // encerra a sessão do concierge — próxima interação exige novo gatilho
-    setSession({ chatId: msg.chatId, status: "idle", updatedAt: Date.now() });
-
-    return { chatId: msg.chatId, replyText };
+    return processPhotoMessage(msg, session);
   }
 
   return { chatId: msg.chatId, replyText: null };
