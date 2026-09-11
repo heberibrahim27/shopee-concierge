@@ -81,11 +81,25 @@ async function processPhotoMessage(
   msg: IncomingMessage,
   session: ConciergeSession
 ): Promise<OrchestratorResult> {
-  setSession({ ...session, status: "processing" });
+  // Foto efetiva: a que chegou agora, ou (se essa mensagem é a resposta de
+  // uma pergunta de esclarecimento sem foto nova) a foto original guardada
+  // na sessão. Sem isso, uma resposta só em texto ("SDS", por exemplo)
+  // chamaria o reconhecimento sem imagem nenhuma.
+  const effectiveImageUrl = msg.imageUrl ?? session.imageUrl;
+
+  // Se é resposta de esclarecimento, dá pro reconhecimento o contexto da
+  // pergunta feita + a resposta da pessoa, em vez de só o texto solto —
+  // assim ele reavalia com a informação nova, não do zero.
+  const effectiveUserText =
+    session.status === "awaiting_clarification" && session.pendingQuestion
+      ? `Pergunta feita antes: "${session.pendingQuestion}". Resposta da pessoa agora: "${msg.text ?? ""}".`
+      : msg.text;
+
+  setSession({ ...session, status: "processing", imageUrl: effectiveImageUrl });
 
   const observation = await recognizeProductImage({
-    imageUrl: msg.imageUrl ?? "",
-    userText: msg.text,
+    imageUrl: effectiveImageUrl ?? "",
+    userText: effectiveUserText,
   });
 
   if (observation.perguntaEsclarecimento) {
@@ -94,8 +108,12 @@ async function processPhotoMessage(
       status: "awaiting_clarification",
       observation,
       pendingQuestion: observation.perguntaEsclarecimento,
+      imageUrl: effectiveImageUrl,
     });
-    return { chatId: msg.chatId, replyText: observation.perguntaEsclarecimento };
+    return {
+      chatId: msg.chatId,
+      replyText: `${observation.perguntaEsclarecimento}\n\n(se eu não responder rápido, manda de novo a foto com "quero encontrar" + sua resposta na legenda, tipo: "quero encontrar, SDS")`,
+    };
   }
 
   const terms = observation.termosDeBusca.slice(0, MAX_SEARCH_TERMS);
@@ -111,9 +129,9 @@ async function processPhotoMessage(
   const preliminary = rankCandidates(results.flat(), observation);
   const shortlist = preliminary.slice(0, SHORTLIST_FOR_VISUAL_COMPARISON).map((r) => r.offer);
 
-  const visualComparisons = msg.imageUrl
+  const visualComparisons = effectiveImageUrl
     ? await compareCandidatesVisually({
-        photoUrl: msg.imageUrl,
+        photoUrl: effectiveImageUrl,
         observation,
         candidates: shortlist,
       })
@@ -127,9 +145,9 @@ async function processPhotoMessage(
   let escalatedConfidence: number | undefined;
   let expertNeededClarification = false;
 
-  if (decision.escalate && msg.imageUrl) {
+  if (decision.escalate && effectiveImageUrl) {
     const verdict = await consultExpertVision({
-      photoUrl: msg.imageUrl,
+      photoUrl: effectiveImageUrl,
       observation,
       candidates,
     });
@@ -144,6 +162,7 @@ async function processPhotoMessage(
         status: "awaiting_clarification",
         observation,
         pendingQuestion: verdict.suggestedQuestion,
+        imageUrl: effectiveImageUrl,
       });
       // observabilidade mínima (sem banco ainda — ver plano de logs)
       console.log(
@@ -158,7 +177,10 @@ async function processPhotoMessage(
           precisouEsclarecimento: true,
         })
       );
-      return { chatId: msg.chatId, replyText: verdict.suggestedQuestion };
+      return {
+        chatId: msg.chatId,
+        replyText: `${verdict.suggestedQuestion}\n\n(se eu não responder rápido, manda de novo a foto com "quero encontrar" + sua resposta na legenda, tipo: "quero encontrar, SDS")`,
+      };
     }
     // status "uncertain" sem pergunta útil: segue com o ranking do
     // modelo econômico mesmo assim (melhor esforço, nunca trava a resposta)

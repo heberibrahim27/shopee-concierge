@@ -25,6 +25,13 @@ export interface ConciergeSession {
   /** Observações estruturadas acumuladas nesta conversa (ver recognize.ts) */
   observation?: unknown;
   pendingQuestion?: string;
+  /**
+   * URL da foto original (a que gerou a pergunta de esclarecimento).
+   * Guardada aqui pra quando a resposta do esclarecimento chegar como
+   * texto puro (sem foto de novo) — sem isso, o reconhecimento seria
+   * chamado sem nenhuma imagem, o que não funciona.
+   */
+  imageUrl?: string;
   updatedAt: number;
 }
 
