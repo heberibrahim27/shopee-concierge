@@ -26,10 +26,19 @@ export interface OutgoingMessage {
   text: string;
 }
 
+export interface OutgoingImageMessage {
+  chatId: string;
+  imageUrl: string;
+  /** Legenda da imagem — a Z-API (e o WhatsApp) mostra junto com a foto */
+  caption?: string;
+}
+
 export interface ChannelConnector {
   readonly name: string;
   /** Converte o payload bruto do webhook do canal em IncomingMessage normalizado */
   parseIncoming(rawBody: unknown): IncomingMessage | null;
   /** Envia uma resposta de texto para o chat */
   sendText(msg: OutgoingMessage): Promise<void>;
+  /** Envia uma imagem (com legenda opcional) — usado pra mandar a foto do produto */
+  sendImage(msg: OutgoingImageMessage): Promise<void>;
 }

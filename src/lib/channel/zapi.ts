@@ -10,7 +10,7 @@
  * ajuste parseIncoming conforme os payloads reais que chegarem no seu
  * endpoint (log o rawBody nas primeiras mensagens de teste).
  */
-import { ChannelConnector, IncomingMessage, OutgoingMessage } from "./types";
+import { ChannelConnector, IncomingMessage, OutgoingImageMessage, OutgoingMessage } from "./types";
 
 interface ZApiEnv {
   instanceId: string;
@@ -80,6 +80,29 @@ export function createZApiConnector(): ChannelConnector {
       if (!resp.ok) {
         const body = await resp.text();
         throw new Error(`Falha ao enviar mensagem via Z-API (${resp.status}): ${body}`);
+      }
+    },
+
+    async sendImage(msg: OutgoingImageMessage): Promise<void> {
+      const env = getZApiEnv();
+      const url = `https://api.z-api.io/instances/${env.instanceId}/token/${env.token}/send-image`;
+
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Client-Token": env.clientToken,
+        },
+        body: JSON.stringify({
+          phone: msg.chatId,
+          image: msg.imageUrl,
+          caption: msg.caption,
+        }),
+      });
+
+      if (!resp.ok) {
+        const body = await resp.text();
+        throw new Error(`Falha ao enviar imagem via Z-API (${resp.status}): ${body}`);
       }
     },
   };
