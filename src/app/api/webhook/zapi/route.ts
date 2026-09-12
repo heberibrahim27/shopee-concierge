@@ -1,14 +1,25 @@
 /**
  * Endpoint que a Z-API chama a cada mensagem recebida no número.
  *
- * IMPORTANTE (isolamento do BancaZAP): esta instância Z-API já tinha um
+ * HISTÓRICO (isolamento do BancaZAP): esta instância Z-API já tinha um
  * webhook real configurado em "Ao receber" apontando pro backend do
  * BancaZAP (bzapprime.com.br) — confirmado em 10/09/2026 direto no painel
- * da Z-API. Pra não quebrar isso, este endpoint SEMPRE repassa o payload
- * bruto pro webhook original do BancaZAP (fire-and-forget, não bloqueia
- * nem depende da resposta dele), além de rodar a lógica do concierge.
- * Isso é o que permite trocar o campo "Ao receber" da Z-API pra apontar
- * só pra cá, sem tirar nada do BancaZAP do ar.
+ * da Z-API. Pra não quebrar isso, este endpoint repassava SEMPRE o payload
+ * bruto pro webhook original do BancaZAP (fire-and-forget), além de rodar
+ * a lógica do concierge — permitindo trocar o campo "Ao receber" da Z-API
+ * pra apontar só pra cá sem tirar o BancaZAP do ar.
+ *
+ * REPASSE DESATIVADO (12/09/2026, decisão do Ibrahim): esse número virou o
+ * canal público do Shopee Concierge (divulgado na bio do Instagram
+ * @descontoschegando). Gente estranha mandando foto de produto fazia o bot
+ * do BancaZAP também tentar processar a mensagem como print de bilhete de
+ * aposta (ex: respondia "Não consegui usar esse arquivo como print de
+ * bilhete... Envie uma imagem JPG, PNG ou WEBP legível do bilhete"),
+ * gerando resposta duplicada/confusa pro público do Concierge. Ver
+ * `BANCAZAP_FORWARD_DISABLED` abaixo — o aviso automático de sinais pro
+ * grupo "BancaZAP Prime | Sinais VIP" é um fluxo de SAÍDA separado,
+ * disparado pelo próprio backend do BancaZAP quando uma aposta liquida, e
+ * não depende deste repasse — continua funcionando normalmente.
  *
  * BANCAZAP_FORWARD_WEBHOOK_URL precisa estar configurada com a URL
  * completa que estava em "Ao receber" antes da troca (com o token na
@@ -21,7 +32,19 @@ import { isDuplicate } from "@/lib/dedupe";
 
 const connector = createZApiConnector();
 
+// Chave única do desligamento (ver comentário no topo do arquivo). Pra
+// reativar o repasse de mensagens recebidas pro bot do BancaZAP, é só virar
+// pra `false` — não afeta em nada o aviso de sinais pro grupo VIP.
+const BANCAZAP_FORWARD_DISABLED = true;
+
 async function forwardToBancaZap(rawBody: unknown, ownHost: string | null): Promise<void> {
+  if (BANCAZAP_FORWARD_DISABLED) {
+    console.warn(
+      "[concierge] repasse pro BancaZAP DESATIVADO (número agora é o canal público do Shopee Concierge) — ver BANCAZAP_FORWARD_DISABLED em route.ts."
+    );
+    return;
+  }
+
   const url = process.env.BANCAZAP_FORWARD_WEBHOOK_URL;
   if (!url) {
     console.warn(
