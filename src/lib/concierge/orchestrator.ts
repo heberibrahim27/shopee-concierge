@@ -3,10 +3,10 @@
  * Recebe uma IncomingMessage já normalizada (não sabe se veio de Z-API,
  * Instagram, etc.) e devolve o texto a responder + o chatId de destino.
  *
- * Isolamento do BancaZAP: mensagens que não têm o gatilho e não estão
- * numa sessão já aberta do concierge são simplesmente ignoradas aqui —
- * elas continuam sendo tratadas por qualquer automação normal que já
- * exista pro número (fora deste projeto).
+ * Número dedicado (12/09/2026): qualquer foto recebida fora de uma sessão
+ * aberta já dispara a busca direto, sem precisar de gatilho em texto — ver
+ * comentário em handleIncomingMessage. Mensagem de texto solta (sem foto e
+ * sem sessão aberta) que não seja o gatilho continua sendo ignorada aqui.
  *
  * Roteador de confiança: depois do ranking normal (modelo econômico),
  * decide se escala pro modelo avançado (ver confidenceRouter.ts +
@@ -118,7 +118,7 @@ async function processPhotoMessage(
     });
     return {
       chatId: msg.chatId,
-      replyText: `${observation.perguntaEsclarecimento}\n\n(se eu não responder rápido, manda de novo a foto com "quero encontrar" + sua resposta na legenda, tipo: "quero encontrar, SDS")`,
+      replyText: `${observation.perguntaEsclarecimento}\n\n(se eu não responder rápido, manda de novo a foto junto com sua resposta na legenda, tipo: "SDS")`,
     };
   }
 
@@ -185,7 +185,7 @@ async function processPhotoMessage(
       );
       return {
         chatId: msg.chatId,
-        replyText: `${verdict.suggestedQuestion}\n\n(se eu não responder rápido, manda de novo a foto com "quero encontrar" + sua resposta na legenda, tipo: "quero encontrar, SDS")`,
+        replyText: `${verdict.suggestedQuestion}\n\n(se eu não responder rápido, manda de novo a foto junto com sua resposta na legenda, tipo: "SDS")`,
       };
     }
     // status "uncertain" sem pergunta útil: segue com o ranking do
@@ -227,29 +227,36 @@ export async function handleIncomingMessage(
 
   const session = getSession(msg.chatId);
 
-  // Gatilho explícito liga o fluxo do concierge — fora dele, ignorar
-  // (tráfego normal do BancaZAP no mesmo número não é afetado)
+  // Número dedicado ao concierge (12/09/2026): antes esse número era
+  // compartilhado com o BancaZAP, e o gatilho de texto "QUERO ENCONTRAR"
+  // existia pra não competir com a lógica dele. Agora que o repasse pro
+  // BancaZAP foi desativado (ver route.ts, BANCAZAP_FORWARD_DISABLED) e o
+  // número é só a vitrine pública (Instagram @descontoschegando), qualquer
+  // foto recebida já dispara a busca direto, sem precisar de texto nenhum
+  // na legenda — é a experiência que a pessoa espera ao ver "manda a foto
+  // do produto" na bio. isTriggerPhrase/CONCIERGE_TRIGGER_PHRASE continuam
+  // existindo só pra quem manda o gatilho em texto puro (sem foto ainda).
   if (session.status === "idle") {
-    if (!isTriggerPhrase(msg.text)) {
-      return { chatId: msg.chatId, replyText: null };
-    }
-
-    // Caminho GARANTIDO: gatilho + foto já chegaram juntos (foto com
-    // "Quero encontrar" na legenda) — resolve tudo nesta única invocação,
-    // sem depender de nenhum estado guardado entre mensagens.
+    // Caminho principal: qualquer foto, com ou sem legenda, já resolve
+    // tudo nesta única invocação — sem depender de nenhum estado guardado
+    // entre mensagens.
     if (msg.imageUrl) {
       return processPhotoMessage(msg, session);
     }
 
-    // Só o texto do gatilho chegou — pede a foto e marca a sessão como
-    // bônus melhor-esforço (pode falhar se a próxima mensagem cair numa
-    // instância serverless diferente; por isso a orientação já reforça
-    // o caminho garantido pra próxima vez).
+    if (!isTriggerPhrase(msg.text)) {
+      return { chatId: msg.chatId, replyText: null };
+    }
+
+    // Só o texto do gatilho chegou (sem foto ainda) — pede a foto e marca
+    // a sessão como bônus melhor-esforço (pode falhar se a próxima
+    // mensagem cair numa instância serverless diferente; a resposta já
+    // deixa claro que não precisa repetir nada além da foto).
     setSession({ ...session, status: "awaiting_photo" });
     return {
       chatId: msg.chatId,
       replyText:
-        "Pode mandar a foto do que você tá procurando (se puder, já escreva \"quero encontrar\" na legenda da foto — assim eu garanto que não vou perder o pedido). Eu acho as melhores opções na Shopee.",
+        "Pode mandar a foto do que você tá procurando. Eu acho as melhores opções na Shopee.",
     };
   }
 
