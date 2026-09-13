@@ -26,6 +26,7 @@ import type { ChannelConnector } from "../channel/types";
 import { getSession, setSession, isTriggerPhrase, ConciergeSession } from "./session";
 import { recognizeProductImage, ImageObservation } from "./recognize";
 import { searchProductsByKeyword } from "../shopee/queries";
+import type { ShopeeProductOffer } from "../shopee/types";
 import { rankCandidates, RankedCandidate } from "./rank";
 import { compareCandidatesVisually, VisualCompareOutcome } from "./compare";
 import { recordVisualCompareOutcome, isVisualCompareDegraded } from "./visualHealth";
@@ -258,6 +259,55 @@ export function shouldRetryWithSuggestedTerm(params: {
 }
 
 /**
+ * Monta a lista que o perito realmente vai receber. A comparação visual
+ * econômica pode rejeitar todos os itens e deixar `candidates` vazio; nesse
+ * caso ainda precisamos enviar ao modelo avançado o shortlist anterior ao
+ * filtro para que ele faça uma segunda avaliação de verdade.
+ *
+ * Os metadados sintéticos existem apenas para satisfazer RankedCandidate —
+ * consultExpertVision usa somente `offer`. Esses itens só podem voltar para
+ * a resposta quando o perito confirmar explicitamente um itemId.
+ */
+export function selectExpertCandidates(params: {
+  candidates: RankedCandidate[];
+  preVisualShortlist: ShopeeProductOffer[];
+}): RankedCandidate[] {
+  if (params.candidates.length > 0) return params.candidates;
+  return params.preVisualShortlist.map((offer) => ({
+    offer,
+    matchType: "semelhante_visual",
+    score: 0,
+  }));
+}
+
+/**
+ * Ponto único de chamada do perito, com a dependência injetável para o
+ * teste de regressão comprovar o payload sem consumir a API da OpenAI.
+ */
+export async function consultExpertWithFallback(
+  params: {
+    photoUrl: string;
+    observation: ImageObservation;
+    candidates: RankedCandidate[];
+    preVisualShortlist: ShopeeProductOffer[];
+  },
+  consult: typeof consultExpertVision = consultExpertVision
+): Promise<{
+  verdict: ExpertVerdict;
+  expertCandidates: RankedCandidate[];
+  usedPreVisualShortlist: boolean;
+}> {
+  const expertCandidates = selectExpertCandidates(params);
+  const usedPreVisualShortlist = params.candidates.length === 0 && expertCandidates.length > 0;
+  const verdict = await consult({
+    photoUrl: params.photoUrl,
+    observation: params.observation,
+    candidates: expertCandidates,
+  });
+  return { verdict, expertCandidates, usedPreVisualShortlist };
+}
+
+/**
  * Roda uma pesquisa completa (ranking + escalonamento + resposta) a partir
  * de um `ImageObservation` já pronto e de uma lista de termos de busca —
  * compartilhado pelo caminho de foto e pelo caminho de texto puro.
@@ -280,6 +330,7 @@ async function searchRankAndCompare(params: {
   imageUrl?: string;
 }): Promise<{
   candidates: RankedCandidate[];
+  preVisualShortlist: ShopeeProductOffer[];
   visualOutcome: VisualCompareOutcome;
   matchCount: number;
   shortlistSize: number;
@@ -302,6 +353,7 @@ async function searchRankAndCompare(params: {
   if (!imageUrl || shortlist.length === 0) {
     return {
       candidates: rankCandidates(shortlist, observation),
+      preVisualShortlist: shortlist,
       visualOutcome: { status: "sem_candidatos" },
       matchCount: 0,
       shortlistSize: shortlist.length,
@@ -313,6 +365,7 @@ async function searchRankAndCompare(params: {
   if (await isVisualCompareDegraded()) {
     return {
       candidates: rankCandidates(shortlist, observation),
+      preVisualShortlist: shortlist,
       visualOutcome: { status: "sem_candidatos" },
       matchCount: 0,
       shortlistSize: shortlist.length,
@@ -326,6 +379,7 @@ async function searchRankAndCompare(params: {
 
   return {
     candidates: rankCandidates(shortlist, observation, matches),
+    preVisualShortlist: shortlist,
     visualOutcome: outcome,
     matchCount: matches.size,
     shortlistSize: shortlist.length,
@@ -366,15 +420,38 @@ async function searchAndReply(params: {
   let escalatedConfidence: number | undefined;
   let expertNeededClarification: { question: string } | null = null;
   let buscaReaberta = false;
+  let expertCandidateCount = 0;
+  let expertUsedPreVisualShortlist = false;
 
   if (decision.escalate && imageUrl) {
-    const verdict = await consultExpertVision({ photoUrl: imageUrl, observation, candidates });
+    const expertResult = await consultExpertWithFallback({
+      photoUrl: imageUrl,
+      observation,
+      candidates,
+      preVisualShortlist: round1.preVisualShortlist,
+    });
+    const { verdict, expertCandidates } = expertResult;
+    expertCandidateCount = expertCandidates.length;
+    expertUsedPreVisualShortlist = expertResult.usedPreVisualShortlist;
     escalatedConfidence = verdict.confidence;
 
     if (verdict.needsUserClarification && verdict.suggestedQuestion) {
       expertNeededClarification = { question: verdict.suggestedQuestion };
     } else {
-      candidates = resolveEscalatedCandidates({ candidates, verdict, semSinalVisual });
+      // Um match explícito pode recuperar itens rejeitados pelo modelo
+      // econômico. Se o perito ficar incerto ou devolver IDs que não existem
+      // no shortlist enviado, preservamos a lista pós-filtro (inclusive vazia).
+      const expertConfirmedKnownCandidate =
+        verdict.status === "match" &&
+        verdict.bestCandidateIds.some((id) =>
+          expertCandidates.some((candidate) => candidate.offer.itemId === id)
+        );
+      const candidatesForVerdict = expertConfirmedKnownCandidate ? expertCandidates : candidates;
+      candidates = resolveEscalatedCandidates({
+        candidates: candidatesForVerdict,
+        verdict,
+        semSinalVisual,
+      });
 
       const retryTerm = shouldRetryWithSuggestedTerm({
         candidatesAfterVerdict: candidates,
@@ -405,6 +482,8 @@ async function searchAndReply(params: {
         escalou: true,
         motivoEscalonamento: decision.motivo,
         modeloAvancado: "expert",
+        candidatosEnviadosAoPerito: expertCandidateCount,
+        peritoUsouShortlistPreVisual: expertUsedPreVisualShortlist,
         confiancaFinal: escalatedConfidence,
         precisouEsclarecimento: true,
       })
@@ -429,6 +508,8 @@ async function searchAndReply(params: {
       escalou: decision.escalate,
       motivoEscalonamento: decision.motivo,
       modeloAvancado: decision.escalate ? "expert" : undefined,
+      candidatosEnviadosAoPerito: decision.escalate ? expertCandidateCount : undefined,
+      peritoUsouShortlistPreVisual: decision.escalate ? expertUsedPreVisualShortlist : undefined,
       confiancaFinal: escalatedConfidence ?? observation.confiancaGeral,
       precisouEsclarecimento: false,
       buscaReaberta,

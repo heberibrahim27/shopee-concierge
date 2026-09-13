@@ -8,6 +8,7 @@
     "start": "next start",
     "test:search": "tsx scripts/test-search.ts",
     "test:router": "tsx scripts/test-confidence-router.ts",
+    "test:expert-fallback": "tsx scripts/test-expert-candidate-fallback.ts",
     "test:deals": "tsx scripts/test-deal-scoring.ts",
     "source:deals": "tsx scripts/source-deals.ts"
   },
