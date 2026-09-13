@@ -7,7 +7,7 @@
  *
  * Roda com: npx tsx scripts/test-search-retry.ts
  */
-import { shouldRetryWithSuggestedTerm } from "../src/lib/concierge/orchestrator";
+import { buildRetrySearchTerms, shouldRetryWithSuggestedTerm } from "../src/lib/concierge/orchestrator";
 import { RankedCandidate } from "../src/lib/concierge/rank";
 import { ShopeeProductOffer } from "../src/lib/shopee/types";
 
@@ -83,6 +83,20 @@ check(
     alreadyRetried: true,
   }) === null
 );
+
+const retryTerms = buildRetrySearchTerms(
+  "short masculino treino 2 em 1 branco com compressão interna preta",
+  ["bermuda branca", "bermuda masculina", "bermuda de treino"]
+);
+check("retry mantém primeiro o termo exato do perito", retryTerms[0] === "short masculino treino 2 em 1 branco com compressão interna preta");
+check("retry tenta a versão curta antes dos termos antigos", retryTerms[1] === "short masculino treino 2 em 1 branco");
+check("retry respeita o máximo de quatro buscas", retryTerms.length === 4);
+
+const cappedTerms = buildRetrySearchTerms(
+  "mochila grande impermeável escolar feminina reforçada preta viagem",
+  ["mochila escolar"]
+);
+check("termo longo sem conector é limitado a sete palavras", cappedTerms[1] === "mochila grande impermeável escolar feminina reforçada preta");
 
 if (failed) {
   console.error("\nAlgum caso falhou.");

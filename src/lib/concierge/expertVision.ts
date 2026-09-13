@@ -51,7 +51,7 @@ Responda em JSON estrito com um destes formatos:
 {"status":"match","best_candidate_ids":["id1","id2"],"confidence":0.0-1.0,"reason":"frase curta"}
 ou, se precisar de uma informação do cliente pra decidir:
 {"status":"uncertain","confidence":0.0-1.0,"needs_user_clarification":true,"suggested_question":"pergunta curta e natural para o cliente"}
-ou, se NENHUM candidato remotamente corresponde à foto (a busca trouxe produto de categoria/estilo errado) e você suspeita que um termo de busca diferente encontraria o produto certo, sem precisar perguntar nada ao cliente:
+ou, se NENHUM candidato remotamente corresponde à foto (a busca trouxe produto de categoria/estilo errado) e você suspeita que um termo de busca diferente encontraria o produto certo, sem precisar perguntar nada ao cliente. O termo deve usar linguagem comum de anúncio da Shopee, ter no máximo 7 palavras e evitar qualificadores excessivos:
 {"status":"uncertain","confidence":0.0-1.0,"needs_user_clarification":false,"suggested_search_term":"termo curto e específico em português pra tentar de novo"}`;
 
 /**

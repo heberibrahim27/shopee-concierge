@@ -259,6 +259,39 @@ export function shouldRetryWithSuggestedTerm(params: {
 }
 
 /**
+ * A busca da Shopee pode retornar zero quando recebe uma descrição longa e
+ * específica demais. Mantemos o termo exato do perito, mas tentamos logo em
+ * seguida uma versão curta antes de voltar aos termos antigos. Qualificadores
+ * introduzidos por "com/sem/para" costumam ser o trecho que torna a consulta
+ * restritiva demais; se não houver esse marcador, limitamos a sete palavras.
+ */
+export function buildRetrySearchTerms(
+  suggestedTerm: string,
+  originalTerms: string[],
+  limit = MAX_SEARCH_TERMS
+): string[] {
+  const exact = suggestedTerm.trim().replace(/\s+/g, " ");
+  const tokens = exact.split(" ").filter(Boolean);
+  const qualifierIndex = tokens.findIndex(
+    (token, index) => index >= 3 && ["com", "sem", "para"].includes(token.toLocaleLowerCase("pt-BR"))
+  );
+  const compactTokens = qualifierIndex >= 3 ? tokens.slice(0, qualifierIndex) : tokens.slice(0, 7);
+  const compact = compactTokens.join(" ");
+
+  const terms: string[] = [];
+  const seen = new Set<string>();
+  for (const term of [exact, compact, ...originalTerms]) {
+    const normalized = term.trim().replace(/\s+/g, " ");
+    const key = normalized.toLocaleLowerCase("pt-BR");
+    if (!normalized || seen.has(key)) continue;
+    seen.add(key);
+    terms.push(normalized);
+    if (terms.length >= limit) break;
+  }
+  return terms;
+}
+
+/**
  * Preserva os primeiros resultados utilizáveis da Shopee antes de qualquer
  * filtro textual ou visual. Os termos de busca vêm do mais específico para o
  * mais genérico e a API já responde por relevância, então manter essa ordem
@@ -495,7 +528,7 @@ async function searchAndReply(params: {
   let expertSuggestedSearchTerm: string | undefined;
   let retryDiagnostics:
     | {
-        term: string;
+        terms: string[];
         resultCount: number;
         shortlistSize: number;
         visualOutcome: VisualCompareOutcome;
@@ -546,9 +579,10 @@ async function searchAndReply(params: {
       });
       if (retryTerm) {
         buscaReaberta = true;
+        const retryTerms = buildRetrySearchTerms(retryTerm, terms);
         const round2 = await searchRankAndCompare({
           observation,
-          terms: [retryTerm, ...terms].slice(0, MAX_SEARCH_TERMS),
+          terms: retryTerms,
           imageUrl,
         });
         if (!round2.degraded) {
@@ -570,7 +604,7 @@ async function searchAndReply(params: {
           }
 
           retryDiagnostics = {
-            term: retryTerm,
+            terms: retryTerms,
             resultCount: round2.resultCount,
             shortlistSize: round2.shortlistSize,
             visualOutcome: round2.visualOutcome,
