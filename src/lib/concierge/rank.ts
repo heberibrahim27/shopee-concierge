@@ -27,6 +27,58 @@ export interface RankedCandidate {
 
 const MIN_SALES = 5; // remove itens sem histórico de venda nenhuma
 
+/**
+ * Grupos de material/uso mutuamente incompatíveis — heurística leve por
+ * palavra-chave (não é extração de atributo de verdade), adicionada em
+ * 13/09/2026 por sugestão do debate técnico com o ChatGPT sobre o bug da
+ * bermuda jeans aparecendo pra uma foto de bermuda tactel: contagem de
+ * palavras pra medir "especificidade" do termo de busca se mostrou fraca
+ * (foi tentada e revertida, ver histórico deste arquivo/confidenceRouter),
+ * e similaridade textual pura (embeddings) também não resolveria — "bermuda
+ * tactel" e "bermuda jeans" ficam parecidos pra qualquer medida de texto,
+ * mesmo sendo produtos incompatíveis. Em vez disso, quando o fallback
+ * textual é a ÚNICA coisa decidindo (nenhum sinal visual real), um
+ * candidato que bate um material/uso de um GRUPO DIFERENTE do observado na
+ * foto é descartado na hora, mesmo que o termo de busca bata — bloqueio
+ * duro por atributo, não só por similaridade de texto.
+ */
+const MATERIAL_GROUPS: string[][] = [
+  ["tactel", "dry fit", "dryfit", "poliester", "poliéster", "elastano", "lycra", "microfibra", "esportiv"],
+  ["jeans", "sarja", "brim", "denim"],
+  ["couro", "courino", "sintetico", "sintético"],
+  ["algodao", "algodão", "moletom", "suede", "malha"],
+];
+
+const USO_GROUPS: string[][] = [
+  ["esportivo", "esportiva", "academia", "corrida", "treino", "fitness"],
+  ["casual", "dia a dia", "passeio"],
+  ["social", "formal", "trabalho", "terno"],
+  ["praia", "banho", "piscina"],
+];
+
+function groupIndexOf(text: string | undefined, groups: string[][]): number | null {
+  if (!text) return null;
+  const lower = text.toLowerCase();
+  for (let i = 0; i < groups.length; i++) {
+    if (groups[i].some((kw) => lower.includes(kw))) return i;
+  }
+  return null;
+}
+
+/**
+ * true quando o produto claramente pertence a um grupo DIFERENTE do
+ * atributo observado na foto (os dois batem grupos conhecidos, mas
+ * grupos diferentes) — quando qualquer um dos dois lados não bate nenhum
+ * grupo conhecido, não dá pra afirmar conflito (nem por isso é considerado
+ * compatível "à toa": o candidato ainda depende do termo de busca bater).
+ */
+function hasAttributeConflict(observedValue: string | undefined, productName: string, groups: string[][]): boolean {
+  const observedGroup = groupIndexOf(observedValue, groups);
+  if (observedGroup === null) return false;
+  const productGroup = groupIndexOf(productName, groups);
+  return productGroup !== null && productGroup !== observedGroup;
+}
+
 export function rankCandidates(
   candidates: ShopeeProductOffer[],
   observation: ImageObservation,
@@ -108,8 +160,13 @@ export function rankCandidates(
         // sozinho, e o resultado do perito é que decide se mostra algo.
         const nome = offer.productName.toLowerCase();
         const termoEspecifico = observation.termosDeBusca[0]?.toLowerCase();
-        matchType =
-          termoEspecifico && nome.includes(termoEspecifico) ? "alternativa_funcional" : "nao_relacionado";
+        const bateuTermo = Boolean(termoEspecifico && nome.includes(termoEspecifico));
+        // Bloqueio duro por atributo (13/09/2026, ver MATERIAL_GROUPS/
+        // USO_GROUPS acima) — bater o termo de busca não basta mais se o
+        // material ou uso observado na foto conflita com o do produto.
+        const conflitoMaterial = hasAttributeConflict(observation.materialProvavel, offer.productName, MATERIAL_GROUPS);
+        const conflitoUso = hasAttributeConflict(observation.usoOuEstilo, offer.productName, USO_GROUPS);
+        matchType = bateuTermo && !conflitoMaterial && !conflitoUso ? "alternativa_funcional" : "nao_relacionado";
       }
       return { offer, matchType };
     })

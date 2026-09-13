@@ -47,10 +47,27 @@ export interface ImageObservation {
   confiancaMarca?: number; // 0-1 (0 ou ausente se marca não identificada)
   confiancaModelo?: number; // 0-1 (0 ou ausente se modelo não identificado)
   confiancaGeral?: number; // 0-1 — sinal principal usado pelo roteador de confiança
+
+  /**
+   * Atributos estruturados adicionados em 13/09/2026 (sugestão do debate
+   * técnico com o ChatGPT sobre o bug da bermuda jeans aparecendo pra uma
+   * foto de bermuda tactel): quando a comparação visual real não roda
+   * (sem sinal visual nenhum, ver compare.ts/rank.ts), o fallback textual
+   * antigo só batia substring do termo de busca no nome do produto — sinal
+   * fraco demais, que deixava passar produtos de material/uso claramente
+   * incompatíveis só por compartilharem palavras genéricas ("bermuda
+   * branca"). Esses 2 campos alimentam um bloqueio duro em rank.ts: um
+   * candidato cujo nome bate um material/uso de um GRUPO diferente do
+   * observado na foto é descartado, mesmo que o termo de busca bata.
+   * Só preenchidos quando dá pra estimar com alguma confiança pela foto —
+   * nunca inventados.
+   */
+  materialProvavel?: string; // material/acabamento aparente (ex: "tactel", "jeans", "couro", "algodão")
+  usoOuEstilo?: string; // uso/estilo aparente (ex: "esportivo", "casual", "social", "praia")
 }
 
 const SYSTEM_PROMPT = `Você ajuda a identificar produtos a partir de uma foto para buscar equivalentes na Shopee (Brasil).
-Responda em JSON estrito com os campos: observado, hipotese, naoIdentificado (array), exigenciaUsuario (opcional), perguntaEsclarecimento (opcional, só se realmente necessário), termosDeBusca (array de 2 a 4 termos curtos em português, do mais específico ao mais genérico, pra usar como keyword de busca), precoVisivelNaFotoBRL (opcional, número em reais — SÓ quando a própria foto mostra um preço escrito e legível, como um print de anúncio/vitrine/etiqueta de preço, ex: "R$147,25" vira 147.25; nunca invente um valor que não esteja escrito na foto), faixaPrecoEstimadaBRL (opcional, objeto {min, max} em reais — se precoVisivelNaFotoBRL estiver presente, use uma faixa ESTREITA ancorada nele, tipo min=70% e max=130% desse valor; senão, só inclua se der pra estimar uma faixa plausível pelo tipo/acabamento/complexidade aparente do produto, e nesse caso pode ser uma faixa mais larga; se não der pra estimar com nenhuma confiança, omita o campo), categoria (curta, ex: "tenis", "cafeteira"), marca (opcional, só se estiver visível/legível na foto), modelo (opcional, só se estiver visível/legível na foto), cor (opcional), textoVisivel (array de texto/logo legível na foto, opcional), confiancaCategoria, confiancaMarca, confiancaModelo e confiancaGeral (todos números de 0 a 1 — confiancaMarca/confiancaModelo devem ser 0 ou omitidos quando marca/modelo não foram identificados).
+Responda em JSON estrito com os campos: observado, hipotese, naoIdentificado (array), exigenciaUsuario (opcional), perguntaEsclarecimento (opcional, só se realmente necessário), termosDeBusca (array de 2 a 4 termos curtos em português, do mais específico ao mais genérico, pra usar como keyword de busca), precoVisivelNaFotoBRL (opcional, número em reais — SÓ quando a própria foto mostra um preço escrito e legível, como um print de anúncio/vitrine/etiqueta de preço, ex: "R$147,25" vira 147.25; nunca invente um valor que não esteja escrito na foto), faixaPrecoEstimadaBRL (opcional, objeto {min, max} em reais — se precoVisivelNaFotoBRL estiver presente, use uma faixa ESTREITA ancorada nele, tipo min=70% e max=130% desse valor; senão, só inclua se der pra estimar uma faixa plausível pelo tipo/acabamento/complexidade aparente do produto, e nesse caso pode ser uma faixa mais larga; se não der pra estimar com nenhuma confiança, omita o campo), categoria (curta, ex: "tenis", "cafeteira"), marca (opcional, só se estiver visível/legível na foto), modelo (opcional, só se estiver visível/legível na foto), cor (opcional), textoVisivel (array de texto/logo legível na foto, opcional), materialProvavel (opcional, curto, ex: "tactel", "jeans", "couro", "algodão" — só quando der pra estimar pela textura/aparência da foto), usoOuEstilo (opcional, curto, ex: "esportivo", "casual", "social", "praia" — só quando der pra estimar pelo contexto/corte aparente), confiancaCategoria, confiancaMarca, confiancaModelo e confiancaGeral (todos números de 0 a 1 — confiancaMarca/confiancaModelo devem ser 0 ou omitidos quando marca/modelo não foram identificados).
 Regras: nunca invente marca, modelo, dimensão ou material que não esteja visível ou dito pelo usuário — isso vai em naoIdentificado, e a confiança correspondente deve ser baixa/zero. Só inclua perguntaEsclarecimento se a foto tiver mais de um objeto plausível, ou se a compatibilidade/tamanho for essencial e não puder ser assumida. faixaPrecoEstimadaBRL (sem preço visível) é uma estimativa grosseira pra evitar sugestões muito fora da faixa, nunca uma promessa de preço. confiancaGeral reflete o quanto você confia na identificação como um todo (categoria + marca/modelo quando aplicável) — seja honesto e conservador, não infle esse número.`;
 
 export async function recognizeProductImage(params: {
@@ -111,6 +128,12 @@ export async function recognizeProductImage(params: {
     modelo: typeof parsed.modelo === "string" && parsed.modelo.trim() ? parsed.modelo : undefined,
     cor: typeof parsed.cor === "string" ? parsed.cor : undefined,
     textoVisivel: Array.isArray(parsed.textoVisivel) ? parsed.textoVisivel : undefined,
+    materialProvavel:
+      typeof parsed.materialProvavel === "string" && parsed.materialProvavel.trim()
+        ? parsed.materialProvavel
+        : undefined,
+    usoOuEstilo:
+      typeof parsed.usoOuEstilo === "string" && parsed.usoOuEstilo.trim() ? parsed.usoOuEstilo : undefined,
     confiancaCategoria: clampConfidence(parsed.confiancaCategoria),
     confiancaMarca: clampConfidence(parsed.confiancaMarca),
     confiancaModelo: clampConfidence(parsed.confiancaModelo),

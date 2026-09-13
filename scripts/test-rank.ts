@@ -165,6 +165,59 @@ check(
 // ("sem sinal visual... -> escala") e scripts/test-escalation-outcome.ts
 // (o que o orquestrador faz com o veredito do perito nesse cenário).
 
+// --- Correção adicional de 13/09/2026 (debate técnico com o ChatGPT):
+// quando a foto TEM material/uso estruturado extraído (materialProvavel/
+// usoOuEstilo, ver recognize.ts), o mesmo cenário acima já é bloqueado
+// AQUI mesmo, no fallback textual — sem precisar esperar a escalada pro
+// perito. "tactel" (grupo esportivo) e "rascada"/jeans (categoria/estilo
+// bem diferente) não compartilham grupo de material conhecido... o nome
+// do produto não tem a palavra "jeans" escrita, mas tem "rascada", que não
+// está em nenhum grupo — nesse caso o bloqueio por MATERIAL não pega (os
+// dois lados precisam bater um grupo conhecido pra contar como conflito).
+// Por isso o teste abaixo usa um produto que bate um grupo conhecido
+// (jeans) de propósito, pra provar que o bloqueio funciona quando a
+// informação estrutural existe dos dois lados — a defesa por escalada
+// continua sendo a rede de segurança pros casos (como o de cima) em que
+// não dá pra inferir isso com confiança.
+const candidatesBermudaJeansExplicita: ShopeeProductOffer[] = [
+  offer({
+    itemId: "bermuda-jeans-explicita",
+    productName: "Bermuda Jeans Branca Masculina Rasgada Slim",
+    sales: 217,
+    ratingStar: "4.7",
+  }),
+];
+
+const rankedComMaterial = rankCandidates(
+  candidatesBermudaJeansExplicita,
+  { ...observationBermuda2Palavras, materialProvavel: "tactel" },
+  new Map()
+);
+
+check(
+  "com materialProvavel extraído da foto, bermuda jeans é bloqueada mesmo batendo o termo genérico",
+  rankedComMaterial.length === 0
+);
+
+// mesma ideia pro eixo de uso/estilo (ex: uma sandália de praia pra uma
+// busca de "sapato social preto" batendo só a cor)
+const rankedComUso = rankCandidates(
+  [offer({ itemId: "chinelo-praia", productName: "Chinelo de Praia Preto Havaianas Slim", sales: 900, ratingStar: "4.8" })],
+  {
+    observado: "sapato social preto de couro",
+    hipotese: "sapato social",
+    naoIdentificado: [],
+    termosDeBusca: ["preto"],
+    usoOuEstilo: "social",
+  },
+  new Map()
+);
+
+check(
+  "com usoOuEstilo extraído da foto, chinelo de praia é bloqueado mesmo batendo só a cor",
+  rankedComUso.length === 0
+);
+
 if (failed) {
   console.error("\nAlgum caso falhou.");
   process.exit(1);
