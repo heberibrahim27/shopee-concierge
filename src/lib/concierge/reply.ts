@@ -142,3 +142,76 @@ async function buildThreeCriteriaReply(candidates: RankedCandidate[]): Promise<R
   parts.push({ type: "text", text: TEXTO_FECHAMENTO });
   return parts;
 }
+
+/**
+ * Quais itens foram REALMENTE mostrados numa resposta (deduzido pelas
+ * mesmas regras de buildReplyMessage) — usado só pra registrar no
+ * `lastSearch` da sessão, pra um pedido de refinamento futuro não repetir
+ * um produto já mostrado. Não decide nada de negócio, só espelha o que
+ * buildReplyMessage já decidiu mostrar.
+ */
+export function computeShownItemIds(candidates: RankedCandidate[]): string[] {
+  const clearPick = detectClearPick(candidates);
+  if (clearPick) {
+    const highlights = pickHighlightedCandidates(candidates).filter(
+      (h) => h.candidate.offer.itemId !== clearPick.offer.itemId
+    );
+    if (highlights.length > 0) {
+      return [clearPick.offer.itemId, ...highlights.slice(0, 2).map((h) => h.candidate.offer.itemId)];
+    }
+  }
+  return pickHighlightedCandidates(candidates).map((h) => h.candidate.offer.itemId);
+}
+
+export type RefinementIntent = "barata" | "qualidade" | "parecida";
+
+/**
+ * Resposta a um pedido de refinamento ("mais barata"/"melhor
+ * qualidade"/"mais parecida com a foto"), pedido explícito do Ibrahim
+ * (13/09/2026) — reusa os candidatos já rankeados da busca anterior (sem
+ * bater na Shopee de novo), só troca o critério de escolha, e nunca repete
+ * um item já mostrado.
+ *
+ * "mais parecida": os candidatos já vêm ordenados por relevância/match
+ * visual (rank.ts) — o próximo da lista ainda não mostrado já É a próxima
+ * opção mais parecida, sem precisar rodar comparação visual de novo.
+ */
+export async function buildRefinementReply(params: {
+  candidates: RankedCandidate[];
+  excludeItemIds: Set<string>;
+  intent: RefinementIntent;
+}): Promise<{ parts: ReplyPart[]; shownItemIds: string[] }> {
+  const pool = params.candidates.filter((c) => !params.excludeItemIds.has(c.offer.itemId));
+  if (pool.length === 0) return { parts: [], shownItemIds: [] };
+
+  let ordered: RankedCandidate[];
+  let label: string;
+  if (params.intent === "barata") {
+    ordered = [...pool].sort((a, b) => parseFloat(a.offer.priceMin) - parseFloat(b.offer.priceMin));
+    label = "💰 MAIS BARATA";
+  } else if (params.intent === "qualidade") {
+    ordered = [...pool].sort((a, b) => {
+      const ratingA = parseFloat(a.offer.ratingStar || "0");
+      const ratingB = parseFloat(b.offer.ratingStar || "0");
+      if (ratingB !== ratingA) return ratingB - ratingA;
+      return b.offer.sales - a.offer.sales;
+    });
+    label = "⭐ MELHOR QUALIDADE";
+  } else {
+    ordered = pool; // já ordenado por relevância/match visual (rank.ts)
+    label = "🔎 MAIS PARECIDA";
+  }
+
+  const chosen = ordered[0];
+  const link = await linkFor(chosen.offer, "r1");
+  const parts: ReplyPart[] = [
+    toPart(chosen.offer, buildCaption(label, chosen, link)),
+    { type: "text", text: TEXTO_FECHAMENTO },
+  ];
+
+  return { parts, shownItemIds: [chosen.offer.itemId] };
+}
+
+export const TEXTO_SEM_MAIS_OPCOES =
+  "Já mostrei as melhores opções que encontrei nessa busca. 🔎\n\n" +
+  "Se quiser, manda outra foto ou o nome de outro produto que eu procuro de novo.";

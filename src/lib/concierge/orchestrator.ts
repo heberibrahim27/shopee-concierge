@@ -28,7 +28,14 @@ import { recognizeProductImage, ImageObservation } from "./recognize";
 import { searchProductsByKeyword } from "../shopee/queries";
 import { rankCandidates, RankedCandidate } from "./rank";
 import { compareCandidatesVisually } from "./compare";
-import { buildReplyMessage, ReplyPart } from "./reply";
+import {
+  buildReplyMessage,
+  buildRefinementReply,
+  computeShownItemIds,
+  ReplyPart,
+  RefinementIntent,
+  TEXTO_SEM_MAIS_OPCOES,
+} from "./reply";
 import { decideEscalation } from "./confidenceRouter";
 import { consultExpertVision } from "./expertVision";
 import { CONCIERGE_CONFIG } from "./config";
@@ -89,6 +96,30 @@ function isIgnorableText(text: string | undefined): boolean {
   if (!text) return true;
   const normalized = normalizeText(text);
   return normalized.length < 3 || TEXTOS_IGNORADOS.has(normalized);
+}
+
+/**
+ * Detecta pedido de refinamento ("mais barata"/"melhor qualidade"/"mais
+ * parecida") — bug real reportado pelo Ibrahim (13/09/2026): a mensagem de
+ * fechamento (TEXTO_FECHAMENTO em reply.ts) oferece essas 3 opções, mas até
+ * agora nenhum código tratava a resposta — caía direto em processTextQuery
+ * e virava uma busca literal sem sentido na Shopee (ex: "mais parecida"
+ * puxando um livro com "parecidas" no título).
+ *
+ * Só dispara quando a sessão tem `lastSearch` (busca recente pra refinar) —
+ * ver handleIncomingMessage. Match por substring simples (normalizado, sem
+ * acento) é suficiente aqui: são poucas frases-gatilho, e a pessoa
+ * geralmente responde curto ("quero mais barata", "tem mais parecida?").
+ */
+export function detectRefinementIntent(text: string | undefined): RefinementIntent | null {
+  if (!text) return null;
+  const normalized = normalizeText(text);
+  if (normalized.includes("barat")) return "barata";
+  if (normalized.includes("qualidade") || normalized.includes("melhor avaliad")) return "qualidade";
+  if (normalized.includes("parecid") || normalized.includes("similar") || normalized.includes("igual")) {
+    return "parecida";
+  }
+  return null;
 }
 
 /**
@@ -324,8 +355,21 @@ async function processPhotoMessage(
       throw err;
     }
 
-    // encerra a sessão do concierge — próxima interação exige novo gatilho
-    await setSession({ chatId: msg.chatId, status: "idle", updatedAt: Date.now() });
+    // Sessão volta pra idle (próxima foto/gatilho abre um fluxo novo), mas
+    // guarda a busca (candidatos rankeados + o que já foi mostrado) pra
+    // permitir um pedido de refinamento logo em seguida ("mais barata"/
+    // "melhor qualidade"/"mais parecida") sem bater na Shopee de novo — ver
+    // detectRefinementIntent/processRefinement mais abaixo.
+    await setSession({
+      chatId: msg.chatId,
+      status: "idle",
+      updatedAt: Date.now(),
+      lastSearch: {
+        candidates: outcome.candidates,
+        shownItemIds: computeShownItemIds(outcome.candidates),
+        imageUrl: effectiveImageUrl,
+      },
+    });
 
     return { chatId: msg.chatId, replyText: null, replyParts: outcome.replyParts };
   } finally {
@@ -350,11 +394,23 @@ async function processTextQuery(msg: IncomingMessage): Promise<OrchestratorResul
     termosDeBusca: [keyword],
   };
 
-  const { replyParts } = await searchAndReply({
+  const { replyParts, candidates } = await searchAndReply({
     observation,
     terms: [keyword],
     chatId: msg.chatId,
     messageId: msg.messageId,
+  });
+
+  // Mesma lógica de processPhotoMessage: guarda a busca pra permitir
+  // refinamento ("mais barata" etc.) numa próxima mensagem sem foto nenhuma.
+  await setSession({
+    chatId: msg.chatId,
+    status: "idle",
+    updatedAt: Date.now(),
+    lastSearch: {
+      candidates,
+      shownItemIds: computeShownItemIds(candidates),
+    },
   });
 
   return {
@@ -362,6 +418,53 @@ async function processTextQuery(msg: IncomingMessage): Promise<OrchestratorResul
     replyText: `Também consigo procurar assim. 🔎\n\nVou buscar ${keyword} e separar as melhores opções pra você.`,
     replyParts,
   };
+}
+
+/**
+ * Responde a um pedido de refinamento ("mais barata"/"melhor qualidade"/
+ * "mais parecida") reaproveitando os candidatos já rankeados da busca
+ * anterior guardados em `session.lastSearch` — ver buildRefinementReply em
+ * reply.ts. Sem isso, essa resposta caía em processTextQuery e virava uma
+ * busca literal sem sentido na Shopee (bug real reportado pelo Ibrahim em
+ * 13/09/2026, ver TEXTO_FECHAMENTO em reply.ts).
+ */
+async function processRefinement(
+  msg: IncomingMessage,
+  session: ConciergeSession,
+  intent: RefinementIntent
+): Promise<OrchestratorResult> {
+  const lastSearch = session.lastSearch;
+  if (!lastSearch) {
+    // não deveria acontecer (só chamamos isso quando lastSearch existe no
+    // chamador), mas por segurança cai pro fluxo de busca por texto normal
+    // em vez de travar a resposta
+    return processTextQuery(msg);
+  }
+
+  const { parts, shownItemIds } = await buildRefinementReply({
+    candidates: lastSearch.candidates as RankedCandidate[],
+    excludeItemIds: new Set(lastSearch.shownItemIds),
+    intent,
+  });
+
+  if (parts.length === 0) {
+    // já mostramos tudo que tinha nessa busca — encerra o refinamento em
+    // vez de repetir um produto já visto
+    await setSession({ chatId: msg.chatId, status: "idle", updatedAt: Date.now() });
+    return { chatId: msg.chatId, replyText: TEXTO_SEM_MAIS_OPCOES };
+  }
+
+  await setSession({
+    chatId: msg.chatId,
+    status: "idle",
+    updatedAt: Date.now(),
+    lastSearch: {
+      ...lastSearch,
+      shownItemIds: [...lastSearch.shownItemIds, ...shownItemIds],
+    },
+  });
+
+  return { chatId: msg.chatId, replyText: null, replyParts: parts };
 }
 
 export async function handleIncomingMessage(
@@ -398,6 +501,17 @@ export async function handleIncomingMessage(
         chatId: msg.chatId,
         replyText: "📸 Manda uma foto do produto que você procura.\n\nEu identifico o que é e busco na Shopee as melhores opções pra você. 🛍️",
       };
+    }
+
+    // Pedido de refinamento da busca anterior (13/09/2026, bug real
+    // reportado pelo Ibrahim) — precisa ser checado ANTES da busca de texto
+    // genérica abaixo, senão "mais parecida" vira uma pesquisa literal sem
+    // sentido na Shopee em vez de reaproveitar a busca já feita.
+    if (session.lastSearch) {
+      const intent = detectRefinementIntent(msg.text);
+      if (intent) {
+        return processRefinement(msg, session, intent);
+      }
     }
 
     // Texto puro que não é o gatilho e não é conversa fiada (13/09/2026):
