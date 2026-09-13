@@ -5,8 +5,9 @@
  *
  * Número dedicado (12/09/2026): qualquer foto recebida fora de uma sessão
  * aberta já dispara a busca direto, sem precisar de gatilho em texto — ver
- * comentário em handleIncomingMessage. Mensagem de texto solta (sem foto e
- * sem sessão aberta) que não seja o gatilho continua sendo ignorada aqui.
+ * comentário em handleIncomingMessage. Texto puro (sem foto e sem sessão
+ * aberta) que não seja o gatilho agora também dispara uma busca por nome
+ * de produto (13/09/2026, pedido do Ibrahim) — ver processTextQuery.
  *
  * Roteador de confiança: depois do ranking normal (modelo econômico),
  * decide se escala pro modelo avançado (ver confidenceRouter.ts +
@@ -14,26 +15,23 @@
  * econômico não teve certeza suficiente — a maioria das fotos deve
  * continuar resolvida só com ele, que é bem mais barato.
  *
- * SEM BANCO DE DADOS, DE PROPÓSITO: a sessão (getSession/setSession) é só
- * um Map em memória — nenhum dado de cliente precisa ficar guardado, o
- * objetivo aqui é só indicar o link. O problema é que esse Map não
- * sobrevive entre instâncias serverless diferentes da Vercel, então o
- * fluxo em 2 mensagens ("Quero encontrar" → esperar → foto solta) pode
- * falhar silenciosamente se a segunda mensagem cair numa instância que
- * não viu a primeira. Por isso o caminho GARANTIDO é a foto já chegar
- * com o gatilho na própria legenda (1 mensagem só, resolvida inteira
- * numa única invocação, sem depender de nada guardado entre mensagens);
- * o fluxo de 2 mensagens continua funcionando como bônus melhor-esforço.
+ * Sessão persistida no Supabase (13/09/2026, ver session.ts +
+ * db/conciergeSessions.ts) — antes era um Map em memória que não
+ * sobrevivia entre instâncias serverless da Vercel, fazendo a conversa
+ * "resetar" quando a resposta demorava um pouco mais. Continua sendo 1
+ * linha por conversa (nunca um histórico), então não "enche o banco".
  */
 import { IncomingMessage } from "../channel/types";
+import type { ChannelConnector } from "../channel/types";
 import { getSession, setSession, isTriggerPhrase, ConciergeSession } from "./session";
-import { recognizeProductImage } from "./recognize";
+import { recognizeProductImage, ImageObservation } from "./recognize";
 import { searchProductsByKeyword } from "../shopee/queries";
 import { rankCandidates, RankedCandidate } from "./rank";
 import { compareCandidatesVisually } from "./compare";
 import { buildReplyMessage, ReplyPart } from "./reply";
 import { decideEscalation } from "./confidenceRouter";
 import { consultExpertVision } from "./expertVision";
+import { CONCIERGE_CONFIG } from "./config";
 
 export interface OrchestratorResult {
   chatId: string;
@@ -49,6 +47,49 @@ export interface OrchestratorResult {
 const SEARCH_LIMIT_PER_TERM = 20;
 const MAX_SEARCH_TERMS = 4;
 const SHORTLIST_FOR_VISUAL_COMPARISON = 8; // controla custo/latência da comparação visual
+
+// Aviso de "procurando" só é mandado se a busca por foto ainda não tiver
+// terminado depois desse tempo — pedido do Ibrahim: não vale a pena mandar
+// esse aviso quando o resultado já vem rápido (13/09/2026).
+const INTERIM_NOTICE_DELAY_MS = 4000;
+const TEXTO_BUSCANDO =
+  "🔎 Já estou procurando esse produto na Shopee.\n\nVou comparar preço, avaliações e vendas pra separar as melhores opções.";
+
+// Textos puros que não devem virar busca de produto (13/09/2026) — sem essa
+// lista, qualquer "oi"/"obrigado" mandado pro número viraria uma pesquisa
+// de produto sem sentido nenhum na Shopee.
+const TEXTOS_IGNORADOS = new Set([
+  "oi",
+  "ola",
+  "olá",
+  "bom dia",
+  "boa tarde",
+  "boa noite",
+  "obrigado",
+  "obrigada",
+  "valeu",
+  "blz",
+  "beleza",
+  "ok",
+  "okay",
+  "tchau",
+  "tudo bem",
+  "tudo bom",
+]);
+
+function normalizeText(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, ""); // remove acentos pra comparar com TEXTOS_IGNORADOS
+}
+
+function isIgnorableText(text: string | undefined): boolean {
+  if (!text) return true;
+  const normalized = normalizeText(text);
+  return normalized.length < 3 || TEXTOS_IGNORADOS.has(normalized);
+}
 
 /**
  * Quando o modelo avançado (perito) confirma um match, o roteador já
@@ -78,14 +119,113 @@ function applyExpertVerdict(
 }
 
 /**
+ * Roda uma pesquisa completa (ranking + escalonamento + resposta) a partir
+ * de um `ImageObservation` já pronto e de uma lista de termos de busca —
+ * compartilhado pelo caminho de foto e pelo caminho de texto puro.
+ */
+async function searchAndReply(params: {
+  observation: ImageObservation;
+  terms: string[];
+  imageUrl?: string;
+  chatId: string;
+  messageId: string;
+}): Promise<{ replyParts: ReplyPart[]; candidates: RankedCandidate[] }> {
+  const { observation, terms, imageUrl, chatId, messageId } = params;
+
+  const results = await Promise.all(
+    terms.map((keyword) => searchProductsByKeyword({ keyword, limit: SEARCH_LIMIT_PER_TERM }))
+  );
+
+  // 1ª passada: ranking heurístico (texto/nota/venda) só pra reduzir a
+  // lista bruta a um shortlist pequeno antes de gastar com comparação
+  // visual real (que é o sinal que realmente decide o que é parecido)
+  const preliminary = rankCandidates(results.flat(), observation);
+  const shortlist = preliminary.slice(0, SHORTLIST_FOR_VISUAL_COMPARISON).map((r) => r.offer);
+
+  const visualComparisons = imageUrl
+    ? await compareCandidatesVisually({ photoUrl: imageUrl, observation, candidates: shortlist })
+    : undefined;
+
+  let candidates = rankCandidates(shortlist, observation, visualComparisons);
+
+  const decision = decideEscalation(observation, candidates);
+  let escalatedConfidence: number | undefined;
+  let expertNeededClarification: { question: string } | null = null;
+
+  if (decision.escalate && imageUrl) {
+    const verdict = await consultExpertVision({ photoUrl: imageUrl, observation, candidates });
+    escalatedConfidence = verdict.confidence;
+
+    if (verdict.status === "match" && verdict.bestCandidateIds.length > 0) {
+      candidates = applyExpertVerdict(candidates, verdict.bestCandidateIds);
+    } else if (verdict.needsUserClarification && verdict.suggestedQuestion) {
+      expertNeededClarification = { question: verdict.suggestedQuestion };
+    }
+    // status "uncertain" sem pergunta útil: segue com o ranking do
+    // modelo econômico mesmo assim (melhor esforço, nunca trava a resposta)
+  }
+
+  if (expertNeededClarification) {
+    console.log(
+      "[concierge][observability]",
+      JSON.stringify({
+        requestId: messageId,
+        confiancaGeral: observation.confiancaGeral,
+        escalou: true,
+        motivoEscalonamento: decision.motivo,
+        modeloAvancado: "expert",
+        confiancaFinal: escalatedConfidence,
+        precisouEsclarecimento: true,
+      })
+    );
+    // sinaliza esclarecimento via replyParts vazio + campo especial não
+    // existe — tratado pelo chamador (processPhotoMessage) checando antes
+    throw new ClarificationNeeded(expertNeededClarification.question);
+  }
+
+  const replyParts = await buildReplyMessage({ candidates, chatId });
+
+  console.log(
+    "[concierge][observability]",
+    JSON.stringify({
+      requestId: messageId,
+      confiancaGeral: observation.confiancaGeral,
+      categoria: observation.categoria,
+      termosPesquisa: terms,
+      quantidadeResultadosShopee: results.flat().length,
+      escalou: decision.escalate,
+      motivoEscalonamento: decision.motivo,
+      modeloAvancado: decision.escalate ? "expert" : undefined,
+      confiancaFinal: escalatedConfidence ?? observation.confiancaGeral,
+      precisouEsclarecimento: false,
+      produtosEnviados: candidates.slice(0, 3).map((c) => c.offer.itemId),
+    })
+  );
+
+  return { replyParts, candidates };
+}
+
+/** Sinal interno pra "precisa perguntar antes de responder" sair de dentro de searchAndReply. */
+class ClarificationNeeded extends Error {
+  constructor(public question: string) {
+    super(question);
+  }
+}
+
+/**
  * Processa uma mensagem que já tem foto (seja o caminho garantido — foto
  * com o gatilho na legenda, resolvido numa invocação só — seja o caminho
- * melhor-esforço de 2 mensagens que depende da sessão em memória ter
+ * melhor-esforço de 2 mensagens que depende da sessão persistida ter
  * sobrevivido). Não depende de nada além do que chega em `msg`.
+ *
+ * `connector`, quando presente, é usado só pra mandar o aviso de "🔎 já
+ * estou procurando" se a busca demorar mais que INTERIM_NOTICE_DELAY_MS —
+ * o retorno da função continua sendo a resposta final de qualquer forma.
  */
 async function processPhotoMessage(
   msg: IncomingMessage,
-  session: ConciergeSession
+  session: ConciergeSession,
+  connector?: ChannelConnector
 ): Promise<OrchestratorResult> {
   // Foto efetiva: a que chegou agora, ou (se essa mensagem é a resposta de
   // uma pergunta de esclarecimento sem foto nova) a foto original guardada
@@ -101,131 +241,139 @@ async function processPhotoMessage(
       ? `Pergunta feita antes: "${session.pendingQuestion}". Resposta da pessoa agora: "${msg.text ?? ""}".`
       : msg.text;
 
-  setSession({ ...session, status: "processing", imageUrl: effectiveImageUrl });
+  await setSession({ ...session, status: "processing", imageUrl: effectiveImageUrl });
 
-  const observation = await recognizeProductImage({
-    imageUrl: effectiveImageUrl ?? "",
-    userText: effectiveUserText,
-  });
-
-  if (observation.perguntaEsclarecimento) {
-    setSession({
-      ...session,
-      status: "awaiting_clarification",
-      observation,
-      pendingQuestion: observation.perguntaEsclarecimento,
-      imageUrl: effectiveImageUrl,
-    });
-    return {
-      chatId: msg.chatId,
-      replyText: `${observation.perguntaEsclarecimento}\n\n(se eu não responder rápido, manda de novo a foto junto com sua resposta na legenda, tipo: "SDS")`,
-    };
+  let interimTimer: ReturnType<typeof setTimeout> | undefined;
+  if (connector) {
+    interimTimer = setTimeout(() => {
+      connector
+        .sendText({ chatId: msg.chatId, text: TEXTO_BUSCANDO })
+        .catch((err) => console.error("[concierge] falha ao mandar aviso de busca em andamento:", err));
+    }, INTERIM_NOTICE_DELAY_MS);
   }
 
-  const terms = observation.termosDeBusca.slice(0, MAX_SEARCH_TERMS);
-  const results = await Promise.all(
-    terms.map((keyword) =>
-      searchProductsByKeyword({ keyword, limit: SEARCH_LIMIT_PER_TERM })
-    )
-  );
-
-  // 1ª passada: ranking heurístico (texto/nota/venda) só pra reduzir a
-  // lista bruta a um shortlist pequeno antes de gastar com comparação
-  // visual real (que é o sinal que realmente decide o que é parecido)
-  const preliminary = rankCandidates(results.flat(), observation);
-  const shortlist = preliminary.slice(0, SHORTLIST_FOR_VISUAL_COMPARISON).map((r) => r.offer);
-
-  const visualComparisons = effectiveImageUrl
-    ? await compareCandidatesVisually({
-        photoUrl: effectiveImageUrl,
-        observation,
-        candidates: shortlist,
-      })
-    : undefined;
-
-  let candidates = rankCandidates(shortlist, observation, visualComparisons);
-
-  // Roteador de confiança: só escala pro modelo avançado quando o
-  // resultado do modelo econômico não é confiável o suficiente.
-  const decision = decideEscalation(observation, candidates);
-  let escalatedConfidence: number | undefined;
-  let expertNeededClarification = false;
-
-  if (decision.escalate && effectiveImageUrl) {
-    const verdict = await consultExpertVision({
-      photoUrl: effectiveImageUrl,
-      observation,
-      candidates,
+  try {
+    const observation = await recognizeProductImage({
+      imageUrl: effectiveImageUrl ?? "",
+      userText: effectiveUserText,
     });
-    escalatedConfidence = verdict.confidence;
 
-    if (verdict.status === "match" && verdict.bestCandidateIds.length > 0) {
-      candidates = applyExpertVerdict(candidates, verdict.bestCandidateIds);
-    } else if (verdict.needsUserClarification && verdict.suggestedQuestion) {
-      expertNeededClarification = true;
-      setSession({
+    // Foto ilegível (13/09/2026): quando a IA praticamente não conseguiu
+    // observar nada de útil (nem categoria, nem pergunta de esclarecimento
+    // pra tentar avançar), é melhor pedir uma foto melhor do que rodar uma
+    // busca com dado quase vazio — caso diferente de "ambíguo" (esse
+    // continua indo pra pergunta de esclarecimento ou pro roteador de
+    // confiança normalmente).
+    const imagemIlegivel =
+      !observation.perguntaEsclarecimento &&
+      !observation.categoria &&
+      (!observation.observado || observation.observado.trim().length < 3);
+
+    if (imagemIlegivel) {
+      await setSession({ chatId: msg.chatId, status: "idle", updatedAt: Date.now() });
+      return {
+        chatId: msg.chatId,
+        replyText:
+          "Não consegui identificar bem o produto nessa foto. 📸\n\n" +
+          "Tenta mandar uma foto um pouco mais próxima ou mostrando melhor o produto.\n\n" +
+          "Se tiver etiqueta, marca ou modelo, uma foto disso ajuda bastante.",
+      };
+    }
+
+    if (observation.perguntaEsclarecimento) {
+      await setSession({
         ...session,
         status: "awaiting_clarification",
         observation,
-        pendingQuestion: verdict.suggestedQuestion,
+        pendingQuestion: observation.perguntaEsclarecimento,
         imageUrl: effectiveImageUrl,
       });
-      // observabilidade mínima (sem banco ainda — ver plano de logs)
-      console.log(
-        "[concierge][observability]",
-        JSON.stringify({
-          requestId: msg.messageId,
-          confiancaGeral: observation.confiancaGeral,
-          escalou: true,
-          motivoEscalonamento: decision.motivo,
-          modeloAvancado: "expert",
-          confiancaFinal: escalatedConfidence,
-          precisouEsclarecimento: true,
-        })
-      );
+      const identificado = observation.categoria ?? observation.hipotese;
+      const prefixo = identificado ? `👀 Parece ser ${identificado}.\n\n` : "👀 Quero ter certeza antes de procurar.\n\n";
       return {
         chatId: msg.chatId,
-        replyText: `${verdict.suggestedQuestion}\n\n(se eu não responder rápido, manda de novo a foto junto com sua resposta na legenda, tipo: "SDS")`,
+        replyText: `${prefixo}Só preciso confirmar uma coisa antes de procurar:\n\n${observation.perguntaEsclarecimento}`,
       };
     }
-    // status "uncertain" sem pergunta útil: segue com o ranking do
-    // modelo econômico mesmo assim (melhor esforço, nunca trava a resposta)
+
+    const terms = observation.termosDeBusca.slice(0, MAX_SEARCH_TERMS);
+
+    let outcome: { replyParts: ReplyPart[]; candidates: RankedCandidate[] };
+    try {
+      outcome = await searchAndReply({
+        observation,
+        terms,
+        imageUrl: effectiveImageUrl,
+        chatId: msg.chatId,
+        messageId: msg.messageId,
+      });
+    } catch (err) {
+      if (err instanceof ClarificationNeeded) {
+        await setSession({
+          ...session,
+          status: "awaiting_clarification",
+          observation,
+          pendingQuestion: err.question,
+          imageUrl: effectiveImageUrl,
+        });
+        return {
+          chatId: msg.chatId,
+          replyText: `👀 Acho que encontrei, mas quero ter certeza.\n\n${err.question}`,
+        };
+      }
+      throw err;
+    }
+
+    // encerra a sessão do concierge — próxima interação exige novo gatilho
+    await setSession({ chatId: msg.chatId, status: "idle", updatedAt: Date.now() });
+
+    return { chatId: msg.chatId, replyText: null, replyParts: outcome.replyParts };
+  } finally {
+    if (interimTimer) clearTimeout(interimTimer);
   }
+}
 
-  const replyParts = await buildReplyMessage({ candidates, chatId: msg.chatId });
+/**
+ * Busca direto por nome de produto, sem foto nenhuma (13/09/2026, pedido
+ * do Ibrahim: "também consigo procurar assim"). Mais simples que o
+ * caminho de foto — sem reconhecimento de imagem nem comparação visual,
+ * já que não há foto pra comparar — mas reaproveita o mesmo ranking e a
+ * mesma montagem de resposta.
+ */
+async function processTextQuery(msg: IncomingMessage): Promise<OrchestratorResult> {
+  const keyword = (msg.text ?? "").trim();
 
-  console.log(
-    "[concierge][observability]",
-    JSON.stringify({
-      requestId: msg.messageId,
-      confiancaGeral: observation.confiancaGeral,
-      categoria: observation.categoria,
-      termosPesquisa: terms,
-      quantidadeResultadosShopee: results.flat().length,
-      escalou: decision.escalate,
-      motivoEscalonamento: decision.motivo,
-      modeloAvancado: decision.escalate ? "expert" : undefined,
-      confiancaFinal: escalatedConfidence ?? observation.confiancaGeral,
-      precisouEsclarecimento: expertNeededClarification,
-      produtosEnviados: candidates.slice(0, 3).map((c) => c.offer.itemId),
-    })
-  );
+  const observation: ImageObservation = {
+    observado: "",
+    hipotese: "",
+    naoIdentificado: [],
+    termosDeBusca: [keyword],
+  };
 
-  // encerra a sessão do concierge — próxima interação exige novo gatilho
-  setSession({ chatId: msg.chatId, status: "idle", updatedAt: Date.now() });
+  const { replyParts } = await searchAndReply({
+    observation,
+    terms: [keyword],
+    chatId: msg.chatId,
+    messageId: msg.messageId,
+  });
 
-  return { chatId: msg.chatId, replyText: null, replyParts };
+  return {
+    chatId: msg.chatId,
+    replyText: `Também consigo procurar assim. 🔎\n\nVou buscar ${keyword} e separar as melhores opções pra você.`,
+    replyParts,
+  };
 }
 
 export async function handleIncomingMessage(
-  msg: IncomingMessage
+  msg: IncomingMessage,
+  connector?: ChannelConnector
 ): Promise<OrchestratorResult> {
   // nunca reagir a mensagens enviadas pelo próprio bot (evita loop)
   if (msg.fromMe) {
     return { chatId: msg.chatId, replyText: null };
   }
 
-  const session = getSession(msg.chatId);
+  const session = await getSession(msg.chatId);
 
   // Número dedicado ao concierge (12/09/2026): antes esse número era
   // compartilhado com o BancaZAP, e o gatilho de texto "QUERO ENCONTRAR"
@@ -241,34 +389,35 @@ export async function handleIncomingMessage(
     // tudo nesta única invocação — sem depender de nenhum estado guardado
     // entre mensagens.
     if (msg.imageUrl) {
-      return processPhotoMessage(msg, session);
+      return processPhotoMessage(msg, session, connector);
     }
 
-    if (!isTriggerPhrase(msg.text)) {
-      return { chatId: msg.chatId, replyText: null };
+    if (isTriggerPhrase(msg.text)) {
+      await setSession({ ...session, status: "awaiting_photo" });
+      return {
+        chatId: msg.chatId,
+        replyText: "📸 Manda uma foto do produto que você procura.\n\nEu identifico o que é e busco na Shopee as melhores opções pra você. 🛍️",
+      };
     }
 
-    // Só o texto do gatilho chegou (sem foto ainda) — pede a foto e marca
-    // a sessão como bônus melhor-esforço (pode falhar se a próxima
-    // mensagem cair numa instância serverless diferente; a resposta já
-    // deixa claro que não precisa repetir nada além da foto).
-    setSession({ ...session, status: "awaiting_photo" });
-    return {
-      chatId: msg.chatId,
-      replyText:
-        "Pode mandar a foto do que você tá procurando. Eu acho as melhores opções na Shopee.",
-    };
+    // Texto puro que não é o gatilho e não é conversa fiada (13/09/2026):
+    // trata como busca direta por nome de produto.
+    if (!isIgnorableText(msg.text)) {
+      return processTextQuery(msg);
+    }
+
+    return { chatId: msg.chatId, replyText: null };
   }
 
   if (session.status === "awaiting_photo" || session.status === "awaiting_clarification") {
     if (!msg.imageUrl && session.status === "awaiting_photo") {
       return {
         chatId: msg.chatId,
-        replyText: "Ainda preciso da foto — pode mandar?",
+        replyText: "Só falta a foto 📸\nManda aqui que eu procuro pra você.",
       };
     }
 
-    return processPhotoMessage(msg, session);
+    return processPhotoMessage(msg, session, connector);
   }
 
   return { chatId: msg.chatId, replyText: null };
