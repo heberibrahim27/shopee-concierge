@@ -67,7 +67,7 @@ export async function generateAffiliateShortLink(params: {
   const { originUrl, subIds = [] } = params;
 
   const mutation = `
-    mutation GenLink($originUrl: String!, $subIds: [String]) {
+    mutation GenLink($originUrl: String!, $subIds: [String!]) {
       generateShortLink(input: { originUrl: $originUrl, subIds: $subIds }) {
         shortLink
         longLink
