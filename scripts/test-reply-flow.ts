@@ -94,7 +94,10 @@ async function main() {
     "resposta com destaque claro tem uma imagem RECOMENDADA",
     replyClear.some((p) => p.type === "image" && (p as { caption: string }).caption.includes("RECOMENDADA"))
   );
-  check("resposta com destaque claro termina com o fechamento padrão", clearTexts.some((t) => t.includes("uma mais barata")));
+  check(
+    "resposta com destaque claro pergunta se corresponde ao que a pessoa procura",
+    clearTexts.some((t) => t.includes("É isso mesmo que você procura") && t.includes("falta alguma característica"))
+  );
 
   // Cenário 2: dois candidatos próximos em score — sem destaque claro, cai
   // no fluxo de 3 critérios (comportamento anterior)
@@ -110,6 +113,10 @@ async function main() {
   check(
     "resposta sem destaque usa os rótulos em maiúsculo",
     replyNormal.some((p) => p.type === "image" && (p as { caption: string }).caption.includes("MENOR PREÇO"))
+  );
+  check(
+    "resposta sem destaque também pede confirmação das características",
+    normalTexts.some((t) => t.includes("É isso mesmo que você procura") && t.includes("ajusto a busca"))
   );
 
   // Cenário 3: nenhum candidato — mensagem de "não encontrei" nova

@@ -41,6 +41,12 @@ export interface LastSearchContext {
   candidates: unknown[]; // RankedCandidate[] (tipo fica em concierge/rank.ts, sem depender daqui)
   shownItemIds: string[];
   imageUrl?: string;
+  /** A última resposta terminou perguntando se as opções correspondem à foto. */
+  awaitingResultConfirmation?: boolean;
+  /** Busca textual original, usada para acrescentar uma característica informada depois. */
+  queryText?: string;
+  /** A pessoa respondeu apenas "não" e ainda precisa dizer qual detalhe faltou. */
+  awaitingCharacteristicDetail?: boolean;
 }
 
 export interface ConciergeSessionRow {

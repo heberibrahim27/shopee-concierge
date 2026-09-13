@@ -37,7 +37,8 @@ import {
   ReplyPart,
   RefinementIntent,
   TEXTO_SEM_MAIS_OPCOES,
-  TEXTO_CONFIRMAR_REFINAMENTO,
+  TEXTO_RESULTADO_CONFIRMADO,
+  TEXTO_PEDIR_CARACTERISTICA,
   TEXTO_MODO_SEGURO_VISUAL,
 } from "./reply";
 import { decideEscalation } from "./confidenceRouter";
@@ -105,8 +106,8 @@ function isIgnorableText(text: string | undefined): boolean {
 /**
  * Detecta pedido de refinamento ("mais barata"/"melhor qualidade"/"mais
  * parecida") — bug real reportado pelo Ibrahim (13/09/2026): a mensagem de
- * fechamento (TEXTO_FECHAMENTO em reply.ts) oferece essas 3 opções, mas até
- * agora nenhum código tratava a resposta — caía direto em processTextQuery
+ * conversa também aceita esses 3 pedidos, mas inicialmente nenhum código
+ * tratava a resposta — caía direto em processTextQuery
  * e virava uma busca literal sem sentido na Shopee (ex: "mais parecida"
  * puxando um livro com "parecidas" no título).
  *
@@ -126,36 +127,50 @@ export function detectRefinementIntent(text: string | undefined): RefinementInte
   return null;
 }
 
-// Bug real (13/09/2026): o Ibrahim respondeu só "Quero" ao fechamento que
-// oferece as 3 opções de refinamento, sem dizer QUAL — isso não batia
-// detectRefinementIntent (não tem "barat"/"qualidade"/"parecid" nenhum) e
-// caía direto em processTextQuery, virando uma busca literal por "Quero" na
-// Shopee. Uma confirmação genérica como essa, quando existe uma busca
-// recente pra refinar (session.lastSearch), merece uma pergunta de volta —
-// não uma pesquisa sem sentido.
-const CONFIRMACOES_AMBIGUAS = new Set([
-  "quero",
+// Confirmações curtas são interpretadas dentro do contexto da pergunta que
+// encerra a resposta: "É isso mesmo que você procura?". Sem isso, "sim"
+// seria ignorado como conversa genérica ou poderia virar busca textual.
+const CONFIRMACOES_POSITIVAS = new Set([
   "sim",
-  "quero sim",
-  "quero uma",
-  "quero isso",
   "isso",
   "isso mesmo",
-  "essa",
-  "esse",
-  "pode",
-  "pode sim",
-  "manda",
-  "manda ai",
-  "manda ver",
-  "manda essa",
-  "claro",
-  "positivo",
+  "e isso",
+  "exato",
+  "exatamente",
+  "certo",
+  "perfeito",
 ]);
 
-export function isAmbiguousRefinementConfirmation(text: string | undefined): boolean {
+export function isPositiveResultConfirmation(text: string | undefined): boolean {
   if (!text) return false;
-  return CONFIRMACOES_AMBIGUAS.has(normalizeText(text));
+  return CONFIRMACOES_POSITIVAS.has(normalizeText(text).replace(/[.!?]+$/g, "").trim());
+}
+
+export function isNegativeResultConfirmation(text: string | undefined): boolean {
+  if (!text) return false;
+  const normalized = normalizeText(text).replace(/[.!?]+$/g, "").trim();
+  return normalized === "nao" || normalized === "nao e isso" || normalized === "nada a ver";
+}
+
+/**
+ * Detecta quando a pessoa já informa o detalhe que faltou na opção mostrada.
+ * Esse texto deve complementar a foto anterior, não virar uma busca isolada.
+ */
+export function isCharacteristicCorrection(text: string | undefined): boolean {
+  if (!text) return false;
+  const normalized = normalizeText(text);
+  return [
+    "falta",
+    "tem que",
+    "precisa ser",
+    "quero com",
+    "quero sem",
+    "deve ter",
+    "na cor",
+    "no tamanho",
+    "o material",
+    "o modelo",
+  ].some((marker) => normalized.includes(marker));
 }
 
 /**
@@ -840,6 +855,8 @@ async function processPhotoMessage(
         candidates: outcome.candidates,
         shownItemIds: computeShownItemIds(outcome.candidates),
         imageUrl: effectiveImageUrl,
+        awaitingResultConfirmation: outcome.candidates.length > 0,
+        awaitingCharacteristicDetail: false,
       },
     });
 
@@ -882,6 +899,9 @@ async function processTextQuery(msg: IncomingMessage): Promise<OrchestratorResul
     lastSearch: {
       candidates,
       shownItemIds: computeShownItemIds(candidates),
+      awaitingResultConfirmation: candidates.length > 0,
+      queryText: keyword,
+      awaitingCharacteristicDetail: false,
     },
   });
 
@@ -933,6 +953,8 @@ async function processRefinement(
     lastSearch: {
       ...lastSearch,
       shownItemIds: [...lastSearch.shownItemIds, ...shownItemIds],
+      awaitingResultConfirmation: true,
+      awaitingCharacteristicDetail: false,
     },
   });
 
@@ -943,30 +965,85 @@ async function processRefinement(
  * Roteador de estado de conversa pendente — roda ANTES de qualquer
  * interpretação como busca de produto nova, sempre que existe uma busca
  * recente pra essa conversa (`session.lastSearch`). Extraído em função
- * própria em 13/09/2026 (sugestão do debate técnico com o ChatGPT): hoje
- * só trata pedido de refinamento ("mais barata"/"melhor qualidade"/"mais
- * parecida") e confirmação ambígua ("quero"/"sim"/"manda" sem dizer qual),
- * mas é o lugar certo pra crescer amanhã com outras frases dependentes de
- * contexto (ex: "esse", "aquele", "tem preto?") sem precisar reordenar
- * nada em handleIncomingMessage de novo.
+ * própria em 13/09/2026. Trata refinamentos, a confirmação de que o produto
+ * corresponde e a característica que faltou. Assim respostas dependentes
+ * da foto anterior não viram pesquisas textuais isoladas.
  *
  * Devolve null quando a mensagem não é sobre a busca pendente — aí sim o
  * chamador segue pro parser de busca genérico (processTextQuery).
  */
 async function resolvePendingConversationState(
   msg: IncomingMessage,
-  session: ConciergeSession
+  session: ConciergeSession,
+  connector?: ChannelConnector
 ): Promise<OrchestratorResult | null> {
   if (!session.lastSearch) return null;
+
+  if (
+    session.lastSearch.awaitingCharacteristicDetail &&
+    session.lastSearch.queryText &&
+    msg.text?.trim()
+  ) {
+    return processTextQuery({
+      ...msg,
+      text: `${session.lastSearch.queryText} ${msg.text.trim()}`,
+    });
+  }
 
   const intent = detectRefinementIntent(msg.text);
   if (intent) return processRefinement(msg, session, intent);
 
-  // Confirmação genérica ("Quero", "sim"...) sem dizer qual das 3 opções —
-  // pede pra especificar em vez de buscar isso literalmente na Shopee
-  // (bug real, 13/09/2026, ver isAmbiguousRefinementConfirmation).
-  if (isAmbiguousRefinementConfirmation(msg.text)) {
-    return { chatId: msg.chatId, replyText: TEXTO_CONFIRMAR_REFINAMENTO };
+  if (!session.lastSearch.awaitingResultConfirmation) return null;
+
+  if (isPositiveResultConfirmation(msg.text)) {
+    await setSession({ chatId: msg.chatId, status: "idle", updatedAt: Date.now() });
+    return { chatId: msg.chatId, replyText: TEXTO_RESULTADO_CONFIRMADO };
+  }
+
+  // Se o detalhe já veio na resposta, reavalia a foto original com essa
+  // exigência e refaz a busca na mesma rodada.
+  if (isCharacteristicCorrection(msg.text) && session.lastSearch.imageUrl) {
+    const question = "É isso mesmo que você procura ou falta alguma característica?";
+    return processPhotoMessage(
+      { ...msg, imageUrl: session.lastSearch.imageUrl },
+      {
+        ...session,
+        status: "awaiting_clarification",
+        pendingQuestion: question,
+        imageUrl: session.lastSearch.imageUrl,
+      },
+      connector
+    );
+  }
+
+  if (isCharacteristicCorrection(msg.text) && session.lastSearch.queryText) {
+    return processTextQuery({
+      ...msg,
+      text: `${session.lastSearch.queryText} ${msg.text?.trim() ?? ""}`.trim(),
+    });
+  }
+
+  if (isNegativeResultConfirmation(msg.text)) {
+    const question = "Qual característica está faltando?";
+    await setSession(
+      session.lastSearch.imageUrl
+        ? {
+            ...session,
+            status: "awaiting_clarification",
+            pendingQuestion: question,
+            imageUrl: session.lastSearch.imageUrl,
+          }
+        : {
+            ...session,
+            status: "idle",
+            lastSearch: {
+              ...session.lastSearch,
+              awaitingResultConfirmation: false,
+              awaitingCharacteristicDetail: true,
+            },
+          }
+    );
+    return { chatId: msg.chatId, replyText: TEXTO_PEDIR_CARACTERISTICA };
   }
 
   return null;
@@ -1012,7 +1089,7 @@ export async function handleIncomingMessage(
     // Ibrahim) — precisa ser checado ANTES da busca de texto genérica
     // abaixo, senão "mais parecida"/"Quero" viram pesquisa literal sem
     // sentido na Shopee em vez de reaproveitar a busca já feita.
-    const pendingStateReply = await resolvePendingConversationState(msg, session);
+    const pendingStateReply = await resolvePendingConversationState(msg, session, connector);
     if (pendingStateReply) return pendingStateReply;
 
     // Texto puro que não é o gatilho e não é conversa fiada (13/09/2026):

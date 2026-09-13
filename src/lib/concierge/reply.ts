@@ -23,7 +23,8 @@ const TEXTO_INTRO_RECOMENDACAO = "✅ Encontrei boas opções para esse produto.
 const TEXTO_OUTRAS_OPCOES = "Outras opções:";
 
 const TEXTO_FECHAMENTO =
-  "Se quiser, também posso procurar uma mais barata, uma de melhor qualidade ou uma mais parecida com a sua foto. 🔎";
+  "É isso mesmo que você procura ou falta alguma característica? 🔎\n\n" +
+  "Se faltar, me diga qual detalhe preciso considerar que eu ajusto a busca.";
 
 /**
  * Uma "parte" da resposta, na ordem em que devem ser enviadas pro chat.
@@ -216,17 +217,13 @@ export const TEXTO_SEM_MAIS_OPCOES =
   "Já mostrei as melhores opções que encontrei nessa busca. 🔎\n\n" +
   "Se quiser, manda outra foto ou o nome de outro produto que eu procuro de novo.";
 
-/**
- * Bug real (13/09/2026): depois do fechamento ("posso procurar uma mais
- * barata, uma de melhor qualidade ou uma mais parecida"), o Ibrahim
- * respondeu só "Quero" — sem dizer qual das 3 — e isso virava uma busca
- * literal por "Quero" na Shopee (nada a ver). Ver
- * orchestrator.ts detectRefinementIntent/isAmbiguousRefinementConfirmation:
- * uma confirmação genérica ("quero"/"sim"/"pode"/"manda"...) sem escolher
- * um critério cai aqui, em vez de virar pesquisa de texto.
- */
-export const TEXTO_CONFIRMAR_REFINAMENTO =
-  "Qual das opções? 🔎\n\n" + "Responde com: *mais barata*, *melhor qualidade* ou *mais parecida*.";
+/** Respostas da etapa de confirmação visual após mostrar os produtos. */
+export const TEXTO_RESULTADO_CONFIRMADO =
+  "Perfeito! ✅\n\nSe quiser procurar outro produto, é só mandar uma nova foto ou escrever o nome dele.";
+
+export const TEXTO_PEDIR_CARACTERISTICA =
+  "Entendi. Qual característica está faltando? 🔎\n\n" +
+  "Pode me dizer, por exemplo, a cor, o material, o modelo, o tamanho ou algum detalhe do formato.";
 
 /**
  * Modo seguro (13/09/2026, sugestão do debate técnico com o ChatGPT):

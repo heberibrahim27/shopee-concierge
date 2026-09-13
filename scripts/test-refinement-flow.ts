@@ -15,7 +15,12 @@
  *
  * Roda com: npx tsx scripts/test-refinement-flow.ts
  */
-import { detectRefinementIntent, isAmbiguousRefinementConfirmation } from "../src/lib/concierge/orchestrator";
+import {
+  detectRefinementIntent,
+  isCharacteristicCorrection,
+  isNegativeResultConfirmation,
+  isPositiveResultConfirmation,
+} from "../src/lib/concierge/orchestrator";
 import { buildRefinementReply, computeShownItemIds } from "../src/lib/concierge/reply";
 import { rankCandidates } from "../src/lib/concierge/rank";
 import { ImageObservation } from "../src/lib/concierge/recognize";
@@ -63,22 +68,14 @@ async function main() {
   check("texto solto sem gatilho não é refinamento", detectRefinementIntent("tenis de corrida azul") === null);
   check("texto vazio não é refinamento", detectRefinementIntent(undefined) === null);
 
-  // --- isAmbiguousRefinementConfirmation (bug real, 13/09/2026) -----------
-  // O Ibrahim respondeu só "Quero" ao fechamento que oferece as 3 opções,
-  // sem dizer qual — isso não é um RefinementIntent (não tem "barat" etc.)
-  // e virava uma busca literal por "Quero" na Shopee. Precisa ser tratado
-  // como confirmação ambígua (pede pra especificar), não como produto.
-  check("'Quero' é reconhecida como confirmação ambígua (o bug real)", isAmbiguousRefinementConfirmation("Quero"));
-  check("'sim' é reconhecida como confirmação ambígua", isAmbiguousRefinementConfirmation("sim"));
-  check("'manda' é reconhecida como confirmação ambígua", isAmbiguousRefinementConfirmation("manda"));
-  check(
-    "nome de produto de verdade NÃO é confundido com confirmação ambígua",
-    !isAmbiguousRefinementConfirmation("tenis de corrida azul")
-  );
-  check(
-    "um pedido de refinamento de verdade não é tratado como ambíguo",
-    !isAmbiguousRefinementConfirmation("quero a mais barata")
-  );
+  // --- confirmação do resultado e correção de característica -------------
+  check("'sim' confirma que o resultado corresponde", isPositiveResultConfirmation("sim"));
+  check("'isso mesmo' confirma que o resultado corresponde", isPositiveResultConfirmation("Isso mesmo!"));
+  check("'não' informa que o resultado não corresponde", isNegativeResultConfirmation("não"));
+  check("'não é isso' informa que o resultado não corresponde", isNegativeResultConfirmation("Não é isso."));
+  check("detalhe faltante é reconhecido", isCharacteristicCorrection("Falta ter o short interno preto"));
+  check("exigência de cor é reconhecida", isCharacteristicCorrection("Quero com a parte de fora branca"));
+  check("nome de outro produto não é confundido com correção", !isCharacteristicCorrection("tenis de corrida azul"));
 
   // --- buildRefinementReply -----------------------------------------------
   const barata = offer({ itemId: "barata", productName: "Bermuda Tactel Basica", priceMin: "39" });
