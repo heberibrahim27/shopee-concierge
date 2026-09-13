@@ -332,6 +332,49 @@ export async function consultExpertWithFallback(
 }
 
 /**
+ * Quando o perito pede outra busca, os produtos novos ainda precisam chegar
+ * a ele caso a comparação econômica rejeite todos. Sem esta segunda revisão,
+ * o retry podia encontrar produtos corretos e mesmo assim terminar vazio.
+ * A função é injetável para testar a chamada sem consumir a API.
+ */
+export async function recoverRetryCandidatesWithExpert(
+  params: {
+    photoUrl: string;
+    observation: ImageObservation;
+    candidates: RankedCandidate[];
+    preVisualShortlist: ShopeeProductOffer[];
+  },
+  consult: typeof consultExpertVision = consultExpertVision
+): Promise<{
+  candidates: RankedCandidate[];
+  expertResult: Awaited<ReturnType<typeof consultExpertWithFallback>> | null;
+}> {
+  if (params.candidates.length > 0 || params.preVisualShortlist.length === 0) {
+    return { candidates: params.candidates, expertResult: null };
+  }
+
+  const expertResult = await consultExpertWithFallback(params, consult);
+  const expertConfirmedKnownCandidate =
+    expertResult.verdict.status === "match" &&
+    expertResult.verdict.bestCandidateIds.some((id) =>
+      expertResult.expertCandidates.some((candidate) => candidate.offer.itemId === id)
+    );
+
+  if (!expertConfirmedKnownCandidate) {
+    return { candidates: [], expertResult };
+  }
+
+  return {
+    candidates: resolveEscalatedCandidates({
+      candidates: expertResult.expertCandidates,
+      verdict: expertResult.verdict,
+      semSinalVisual: true,
+    }),
+    expertResult,
+  };
+}
+
+/**
  * Roda uma pesquisa completa (ranking + escalonamento + resposta) a partir
  * de um `ImageObservation` já pronto e de uma lista de termos de busca —
  * compartilhado pelo caminho de foto e pelo caminho de texto puro.
@@ -448,6 +491,21 @@ async function searchAndReply(params: {
   let buscaReaberta = false;
   let expertCandidateCount = 0;
   let expertUsedPreVisualShortlist = false;
+  let expertStatus: ExpertVerdict["status"] | undefined;
+  let expertSuggestedSearchTerm: string | undefined;
+  let retryDiagnostics:
+    | {
+        term: string;
+        resultCount: number;
+        shortlistSize: number;
+        visualOutcome: VisualCompareOutcome;
+        candidateCountAfterVisual: number;
+        expertConsulted: boolean;
+        expertCandidateCount: number;
+        expertStatus?: ExpertVerdict["status"];
+        expertConfidence?: number;
+      }
+    | undefined;
 
   if (decision.escalate && imageUrl) {
     const expertResult = await consultExpertWithFallback({
@@ -459,6 +517,8 @@ async function searchAndReply(params: {
     const { verdict, expertCandidates } = expertResult;
     expertCandidateCount = expertCandidates.length;
     expertUsedPreVisualShortlist = expertResult.usedPreVisualShortlist;
+    expertStatus = verdict.status;
+    expertSuggestedSearchTerm = verdict.suggestedSearchTerm;
     escalatedConfidence = verdict.confidence;
 
     if (verdict.needsUserClarification && verdict.suggestedQuestion) {
@@ -493,6 +553,33 @@ async function searchAndReply(params: {
         });
         if (!round2.degraded) {
           candidates = round2.candidates;
+          const retryRecovery = await recoverRetryCandidatesWithExpert({
+            photoUrl: imageUrl,
+            observation,
+            candidates,
+            preVisualShortlist: round2.preVisualShortlist,
+          });
+          candidates = retryRecovery.candidates;
+
+          const retryVerdict = retryRecovery.expertResult?.verdict;
+          if (retryVerdict) {
+            escalatedConfidence = retryVerdict.confidence;
+            if (retryVerdict.needsUserClarification && retryVerdict.suggestedQuestion) {
+              expertNeededClarification = { question: retryVerdict.suggestedQuestion };
+            }
+          }
+
+          retryDiagnostics = {
+            term: retryTerm,
+            resultCount: round2.resultCount,
+            shortlistSize: round2.shortlistSize,
+            visualOutcome: round2.visualOutcome,
+            candidateCountAfterVisual: round2.candidates.length,
+            expertConsulted: Boolean(retryRecovery.expertResult),
+            expertCandidateCount: retryRecovery.expertResult?.expertCandidates.length ?? 0,
+            expertStatus: retryVerdict?.status,
+            expertConfidence: retryVerdict?.confidence,
+          };
         }
       }
     }
@@ -510,6 +597,9 @@ async function searchAndReply(params: {
         modeloAvancado: "expert",
         candidatosEnviadosAoPerito: expertCandidateCount,
         peritoUsouShortlistPreVisual: expertUsedPreVisualShortlist,
+        statusPerito: expertStatus,
+        termoSugeridoPeloPerito: expertSuggestedSearchTerm,
+        retry: retryDiagnostics,
         confiancaFinal: escalatedConfidence,
         precisouEsclarecimento: true,
       })
@@ -536,6 +626,9 @@ async function searchAndReply(params: {
       modeloAvancado: decision.escalate ? "expert" : undefined,
       candidatosEnviadosAoPerito: decision.escalate ? expertCandidateCount : undefined,
       peritoUsouShortlistPreVisual: decision.escalate ? expertUsedPreVisualShortlist : undefined,
+      statusPerito: expertStatus,
+      termoSugeridoPeloPerito: expertSuggestedSearchTerm,
+      retry: retryDiagnostics,
       confiancaFinal: escalatedConfidence ?? observation.confiancaGeral,
       precisouEsclarecimento: false,
       buscaReaberta,

@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import {
   buildPreVisualShortlist,
   consultExpertWithFallback,
+  recoverRetryCandidatesWithExpert,
   resolveEscalatedCandidates,
   selectExpertCandidates,
 } from "../src/lib/concierge/orchestrator";
@@ -100,6 +101,50 @@ async function main() {
     "a função consultora deve receber candidatos reais, não []"
   );
   assert.equal(expertCall.usedPreVisualShortlist, true);
+
+  let retryExpertCalls = 0;
+  const retryRecovery = await recoverRetryCandidatesWithExpert(
+    {
+      photoUrl: "https://example.com/foto-cliente.jpg",
+      observation,
+      candidates: [],
+      preVisualShortlist,
+    },
+    async (params) => {
+      retryExpertCalls++;
+      assert.deepEqual(
+        params.candidates.map((candidate) => candidate.offer.itemId),
+        ["bermuda-certa", "bermuda-errada"],
+        "o perito deve receber o shortlist produzido pela segunda busca"
+      );
+      return {
+        status: "match",
+        bestCandidateIds: ["bermuda-certa"],
+        confidence: 0.96,
+        needsUserClarification: false,
+      };
+    }
+  );
+  assert.equal(retryExpertCalls, 1);
+  assert.deepEqual(
+    retryRecovery.candidates.map((candidate) => candidate.offer.itemId),
+    ["bermuda-certa"],
+    "um match conhecido do perito deve recuperar o produto na segunda rodada"
+  );
+
+  const retryAlreadyRanked = await recoverRetryCandidatesWithExpert(
+    {
+      photoUrl: "https://example.com/foto-cliente.jpg",
+      observation,
+      candidates: ranked,
+      preVisualShortlist,
+    },
+    async () => {
+      throw new Error("não deve consultar o perito quando a segunda rodada já tem candidato");
+    }
+  );
+  assert.equal(retryAlreadyRanked.expertResult, null);
+  assert.equal(retryAlreadyRanked.candidates[0], ranked[0]);
 
   const confirmadoPeloPerito = resolveEscalatedCandidates({
     candidates: expertInput,
