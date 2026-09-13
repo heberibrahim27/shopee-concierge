@@ -186,12 +186,12 @@ export function pickHighlightedCandidates(ranked: RankedCandidate[]): Highlighte
   const highlights: HighlightedCandidate[] = [];
 
   const porPreco = pick(
-    "💰 Melhor preço",
+    "💰 MENOR PREÇO",
     (a, b) => parseFloat(a.offer.priceMin) - parseFloat(b.offer.priceMin)
   );
   if (porPreco) highlights.push(porPreco);
 
-  const porNota = pick("⭐ Melhor avaliada", (a, b) => {
+  const porNota = pick("⭐ MELHOR AVALIADA", (a, b) => {
     const ratingA = parseFloat(a.offer.ratingStar || "0");
     const ratingB = parseFloat(b.offer.ratingStar || "0");
     if (ratingB !== ratingA) return ratingB - ratingA;
@@ -199,8 +199,35 @@ export function pickHighlightedCandidates(ranked: RankedCandidate[]): Highlighte
   });
   if (porNota) highlights.push(porNota);
 
-  const porVendas = pick("🔥 Mais vendida", (a, b) => b.offer.sales - a.offer.sales);
+  const porVendas = pick("🔥 MAIS VENDIDA", (a, b) => b.offer.sales - a.offer.sales);
   if (porVendas) highlights.push(porVendas);
 
   return highlights;
+}
+
+/**
+ * "Essa é a que eu escolheria" (pedido do Ibrahim, 13/09/2026): em vez de
+ * SEMPRE mandar 3 opções mecânicas com critérios iguais, quando um
+ * candidato se destaca de verdade — correspondência confirmada, nota alta,
+ * volume de venda alto e vantagem clara de score sobre o 2º colocado —
+ * o bot lidera com uma recomendação única antes das alternativas.
+ *
+ * Limiares conservadores de propósito (primeira versão, precisa calibrar
+ * com uso real): é melhor deixar de "puxar" um destaque duvidoso do que
+ * recomendar demais e perder a credibilidade da recomendação.
+ */
+const CLEAR_PICK_MIN_SCORE_MARGIN = 20;
+const CLEAR_PICK_MIN_RATING = 4.6;
+const CLEAR_PICK_MIN_SALES = 100;
+
+export function detectClearPick(ranked: RankedCandidate[]): RankedCandidate | null {
+  const [top, second] = ranked;
+  if (!top || top.matchType !== "modelo_identificado") return null;
+
+  const rating = parseFloat(top.offer.ratingStar || "0");
+  if (rating < CLEAR_PICK_MIN_RATING) return null;
+  if (top.offer.sales < CLEAR_PICK_MIN_SALES) return null;
+  if (second && top.score - second.score < CLEAR_PICK_MIN_SCORE_MARGIN) return null;
+
+  return top;
 }

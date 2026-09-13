@@ -1,57 +1,35 @@
 /**
  * Estado de conversa por chat, com isolamento explícito do fluxo normal
  * do BancaZAP: uma foto recebida no número não vira pedido de compra
- * sozinha — precisa do gatilho.
+ * sozinha — precisa do gatilho (ou já vir foto direto, ver orchestrator.ts).
  *
- * Implementação em memória (serve pro piloto/teste fechado). Pra produção
- * real com múltiplas instâncias/serverless, troque o Map por uma tabela
- * no Supabase (chat_id, status, dados, updated_at) — a interface abaixo
- * (getSession/setSession) foi pensada pra isso ser só uma troca de
- * implementação, sem mudar quem chama.
+ * Persistência (13/09/2026): a sessão em si mora no Supabase agora — ver
+ * src/lib/db/conciergeSessions.ts — pra sobreviver entre instâncias
+ * serverless diferentes da Vercel (antes era um Map em memória, que se
+ * perdia e fazia a conversa "resetar" quando a resposta demorava um
+ * pouco mais ou a próxima mensagem caía numa instância diferente). Este
+ * arquivo continua sendo a interface que o resto do concierge usa —
+ * trocar a implementação de storage não muda quem chama.
  */
+import {
+  getConciergeSession,
+  setConciergeSession,
+  ConciergeSessionRow,
+  ConciergeSessionStatus,
+} from "../db/conciergeSessions";
 
 export const TRIGGER_PHRASE =
   process.env.CONCIERGE_TRIGGER_PHRASE?.toUpperCase() ?? "QUERO ENCONTRAR";
 
-export type SessionStatus =
-  | "idle" // fora do fluxo do concierge — ignorar, é tráfego normal do BancaZAP
-  | "awaiting_photo" // gatilho recebido, esperando a foto
-  | "awaiting_clarification" // já reconheceu algo, esperando resposta de uma pergunta
-  | "processing"; // buscando/rankeando na Shopee
+export type SessionStatus = ConciergeSessionStatus;
+export type ConciergeSession = ConciergeSessionRow;
 
-export interface ConciergeSession {
-  chatId: string;
-  status: SessionStatus;
-  /** Observações estruturadas acumuladas nesta conversa (ver recognize.ts) */
-  observation?: unknown;
-  pendingQuestion?: string;
-  /**
-   * URL da foto original (a que gerou a pergunta de esclarecimento).
-   * Guardada aqui pra quando a resposta do esclarecimento chegar como
-   * texto puro (sem foto de novo) — sem isso, o reconhecimento seria
-   * chamado sem nenhuma imagem, o que não funciona.
-   */
-  imageUrl?: string;
-  updatedAt: number;
+export async function getSession(chatId: string): Promise<ConciergeSession> {
+  return getConciergeSession(chatId);
 }
 
-const sessions = new Map<string, ConciergeSession>();
-
-const SESSION_TTL_MS = 30 * 60 * 1000; // 30 min de inatividade encerra a sessão
-
-export function getSession(chatId: string): ConciergeSession {
-  const existing = sessions.get(chatId);
-  if (existing && Date.now() - existing.updatedAt < SESSION_TTL_MS) {
-    return existing;
-  }
-  const fresh: ConciergeSession = { chatId, status: "idle", updatedAt: Date.now() };
-  sessions.set(chatId, fresh);
-  return fresh;
-}
-
-export function setSession(session: ConciergeSession): void {
-  session.updatedAt = Date.now();
-  sessions.set(session.chatId, session);
+export async function setSession(session: ConciergeSession): Promise<void> {
+  await setConciergeSession(session);
 }
 
 export function isTriggerPhrase(text: string | undefined): boolean {

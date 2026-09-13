@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await handleIncomingMessage(incoming);
+    const result = await handleIncomingMessage(incoming, connector);
 
     // manda em ordem (não em paralelo) pra chegar no WhatsApp na sequência
     // certa: texto simples primeiro (ex: pergunta), senão as partes da
