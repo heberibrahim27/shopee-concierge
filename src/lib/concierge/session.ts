@@ -16,6 +16,7 @@ import {
   setConciergeSession,
   ConciergeSessionRow,
   ConciergeSessionStatus,
+  LastSearchContext,
 } from "../db/conciergeSessions";
 
 export const TRIGGER_PHRASE =
@@ -23,6 +24,7 @@ export const TRIGGER_PHRASE =
 
 export type SessionStatus = ConciergeSessionStatus;
 export type ConciergeSession = ConciergeSessionRow;
+export type { LastSearchContext };
 
 export async function getSession(chatId: string): Promise<ConciergeSession> {
   return getConciergeSession(chatId);

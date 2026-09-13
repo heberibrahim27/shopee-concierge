@@ -27,12 +27,29 @@ export type ConciergeSessionStatus =
   | "awaiting_clarification" // já reconheceu algo, esperando resposta de uma pergunta
   | "processing"; // buscando/rankeando na Shopee
 
+/**
+ * Contexto da última busca respondida nesse chat — usado SÓ pra
+ * refinamento ("mais barata"/"melhor qualidade"/"mais parecida", ver
+ * orchestrator.ts detectRefinementIntent/processRefinement), nunca pra
+ * decidir corte/score de negócio (isso é sempre recalculado na hora).
+ * `candidates` é a lista de RankedCandidate já rankeada da busca anterior
+ * (dado bruto do Shopee + score, tudo serializável) — guardar ela evita
+ * ter que buscar de novo na Shopee só pra responder "me mostra uma mais
+ * barata".
+ */
+export interface LastSearchContext {
+  candidates: unknown[]; // RankedCandidate[] (tipo fica em concierge/rank.ts, sem depender daqui)
+  shownItemIds: string[];
+  imageUrl?: string;
+}
+
 export interface ConciergeSessionRow {
   chatId: string;
   status: ConciergeSessionStatus;
   observation?: unknown;
   pendingQuestion?: string;
   imageUrl?: string;
+  lastSearch?: LastSearchContext;
   updatedAt: number;
 }
 
@@ -44,6 +61,7 @@ interface ConciergeSessionDbRow {
   observation: unknown;
   pending_question: string | null;
   image_url: string | null;
+  last_search: LastSearchContext | null;
   updated_at: string;
 }
 
@@ -54,7 +72,7 @@ export async function getConciergeSession(chatId: string): Promise<ConciergeSess
     const db = getDb();
     const { data, error } = await db
       .from("concierge_sessions")
-      .select("chat_id, status, observation, pending_question, image_url, updated_at")
+      .select("chat_id, status, observation, pending_question, image_url, last_search, updated_at")
       .eq("chat_id", chatId)
       .maybeSingle<ConciergeSessionDbRow>();
 
@@ -73,6 +91,7 @@ export async function getConciergeSession(chatId: string): Promise<ConciergeSess
       observation: data.observation ?? undefined,
       pendingQuestion: data.pending_question ?? undefined,
       imageUrl: data.image_url ?? undefined,
+      lastSearch: data.last_search ?? undefined,
       updatedAt,
     };
   } catch (err) {
@@ -91,6 +110,7 @@ export async function setConciergeSession(session: ConciergeSessionRow): Promise
       observation: session.observation ?? null,
       pending_question: session.pendingQuestion ?? null,
       image_url: session.imageUrl ?? null,
+      last_search: session.lastSearch ?? null,
       updated_at: new Date().toISOString(),
     });
     if (error) {
