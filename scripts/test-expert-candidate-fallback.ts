@@ -17,6 +17,7 @@ import {
 import { rankCandidates, RankedCandidate } from "../src/lib/concierge/rank";
 import { ImageObservation } from "../src/lib/concierge/recognize";
 import { ShopeeProductOffer } from "../src/lib/shopee/types";
+import { normalizeShopeeProductOfferIds } from "../src/lib/shopee/queries";
 
 function offer(itemId: string): ShopeeProductOffer {
   return {
@@ -39,6 +40,14 @@ function offer(itemId: string): ShopeeProductOffer {
 }
 
 async function main() {
+  const normalizedRuntimeIds = normalizeShopeeProductOfferIds({
+    ...offer("placeholder"),
+    itemId: 123456 as unknown as string,
+    shopId: 789 as unknown as string,
+  });
+  assert.equal(normalizedRuntimeIds.itemId, "123456");
+  assert.equal(normalizedRuntimeIds.shopId, "789");
+
   const rawSearchResults = [offer("bermuda-certa"), offer("bermuda-errada")];
   const observation: ImageObservation = {
     observado: "short branco de academia",
@@ -160,6 +169,30 @@ async function main() {
   );
   assert.equal(retryAlreadyRanked.expertResult, null);
   assert.equal(retryAlreadyRanked.candidates[0], ranked[0]);
+
+  const numericRuntimeOffer = {
+    ...offer("placeholder"),
+    itemId: 123456 as unknown as string,
+  };
+  const numericIdRecovery = await recoverRetryCandidatesWithExpert(
+    {
+      photoUrl: "https://example.com/foto-cliente.jpg",
+      observation,
+      candidates: [],
+      preVisualShortlist: [numericRuntimeOffer],
+    },
+    async () => ({
+      status: "match",
+      bestCandidateIds: ["123456"],
+      confidence: 0.95,
+      needsUserClarification: false,
+    })
+  );
+  assert.equal(
+    String(numericIdRecovery.candidates[0]?.offer.itemId),
+    "123456",
+    "ID numérico da Shopee deve casar com o ID textual devolvido pelo perito"
+  );
 
   const confirmadoPeloPerito = resolveEscalatedCandidates({
     candidates: expertInput,

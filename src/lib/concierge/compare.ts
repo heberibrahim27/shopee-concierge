@@ -119,7 +119,7 @@ export async function compareCandidatesVisually(params: {
 
     const raw = completion.choices[0]?.message?.content ?? "{}";
 
-    let parsed: { resultados?: Array<{ itemId: string; matchType: string; similaridade?: number; motivo?: string }> };
+    let parsed: { resultados?: Array<{ itemId: string | number; matchType: string; similaridade?: number; motivo?: string }> };
     try {
       parsed = JSON.parse(raw);
     } catch (parseErr) {
@@ -150,7 +150,7 @@ export async function compareCandidatesVisually(params: {
         typeof r.similaridade === "number" && Number.isFinite(r.similaridade)
           ? Math.max(0, Math.min(1, r.similaridade))
           : undefined;
-      matches.set(r.itemId, { matchType, similarity, motivo: r.motivo });
+      matches.set(String(r.itemId), { matchType, similarity, motivo: r.motivo });
     }
 
     return { matches, outcome: { status: "ok" } };

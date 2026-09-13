@@ -27,6 +27,20 @@ const PRODUCT_FIELDS = `
 `;
 
 /**
+ * A API da Shopee devolve itemId/shopId como números em alguns ambientes,
+ * apesar do contrato GraphQL e dos tipos locais declararem texto. Modelos de
+ * visão devolvem esses mesmos IDs em JSON como strings; normalizar na borda
+ * evita que um match real seja perdido por `123 !== "123"`.
+ */
+export function normalizeShopeeProductOfferIds(offer: ShopeeProductOffer): ShopeeProductOffer {
+  return {
+    ...offer,
+    itemId: String(offer.itemId),
+    shopId: String(offer.shopId),
+  };
+}
+
+/**
  * Busca produtos por palavra-chave na Shopee (productOfferV2).
  * keyword é obrigatório para usar RELEVANCE_DESC.
  */
@@ -52,7 +66,7 @@ export async function searchProductsByKeyword(params: {
     variables: { keyword, page, limit, sortType },
   });
 
-  return data.productOfferV2.nodes;
+  return data.productOfferV2.nodes.map(normalizeShopeeProductOfferIds);
 }
 
 /**

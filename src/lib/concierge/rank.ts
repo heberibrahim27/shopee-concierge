@@ -102,7 +102,7 @@ export function rankCandidates(
   visualComparisons?: Map<string, VisualComparison>
 ): RankedCandidate[] {
   const filtered = candidates.filter((c) => {
-    const visual = visualComparisons?.get(c.itemId);
+    const visual = visualComparisons?.get(String(c.itemId));
     if (visual?.matchType === "nao_relacionado") return false;
     return hasMinimumCandidateQuality(c);
   });
@@ -137,7 +137,7 @@ export function rankCandidates(
 
   const classified = deduped
     .map((offer) => {
-      const visual = visualComparisons?.get(offer.itemId);
+      const visual = visualComparisons?.get(String(offer.itemId));
       let matchType: MatchType | "nao_relacionado";
       if (visual) {
         matchType = visual.matchType;

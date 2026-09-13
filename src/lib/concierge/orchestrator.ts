@@ -174,12 +174,17 @@ function applyExpertVerdict(
   bestCandidateIds: string[]
 ): RankedCandidate[] {
   if (bestCandidateIds.length === 0) return candidates;
-  const idSet = new Set(bestCandidateIds);
+  const normalizedBestCandidateIds = bestCandidateIds.map(String);
+  const idSet = new Set(normalizedBestCandidateIds);
   const confirmed: RankedCandidate[] = candidates
-    .filter((c) => idSet.has(c.offer.itemId))
+    .filter((c) => idSet.has(String(c.offer.itemId)))
     .map((c) => ({ ...c, matchType: "modelo_identificado" as const }));
   // preserva a ordem em que o modelo avançado listou os IDs confirmados
-  confirmed.sort((a, b) => bestCandidateIds.indexOf(a.offer.itemId) - bestCandidateIds.indexOf(b.offer.itemId));
+  confirmed.sort(
+    (a, b) =>
+      normalizedBestCandidateIds.indexOf(String(a.offer.itemId)) -
+      normalizedBestCandidateIds.indexOf(String(b.offer.itemId))
+  );
   // se por algum motivo nenhum id confirmado bateu com a lista atual
   // (não devia acontecer, mas não custa ser defensivo), não fica sem nada
   return confirmed.length > 0 ? confirmed : candidates;
@@ -307,8 +312,9 @@ export function buildPreVisualShortlist(
 
   for (const offer of offers) {
     if (shortlist.length >= limit) break;
-    if (seen.has(offer.itemId) || !hasMinimumCandidateQuality(offer)) continue;
-    seen.add(offer.itemId);
+    const itemId = String(offer.itemId);
+    if (seen.has(itemId) || !hasMinimumCandidateQuality(offer)) continue;
+    seen.add(itemId);
     shortlist.push(offer);
   }
 
@@ -332,8 +338,10 @@ export function buildFanOutVisualShortlist(
   for (let index = 0; index < maxGroupLength && shortlist.length < limit; index++) {
     for (const group of resultGroups) {
       const offer = group[index];
-      if (!offer || seen.has(offer.itemId) || !hasMinimumCandidateQuality(offer)) continue;
-      seen.add(offer.itemId);
+      if (!offer) continue;
+      const itemId = String(offer.itemId);
+      if (seen.has(itemId) || !hasMinimumCandidateQuality(offer)) continue;
+      seen.add(itemId);
       shortlist.push(offer);
       if (shortlist.length >= limit) break;
     }
@@ -417,7 +425,7 @@ export async function recoverRetryCandidatesWithExpert(
   const expertConfirmedKnownCandidate =
     expertResult.verdict.status === "match" &&
     expertResult.verdict.bestCandidateIds.some((id) =>
-      expertResult.expertCandidates.some((candidate) => candidate.offer.itemId === id)
+      expertResult.expertCandidates.some((candidate) => String(candidate.offer.itemId) === String(id))
     );
 
   if (!expertConfirmedKnownCandidate) {
@@ -590,7 +598,7 @@ async function searchAndReply(params: {
       const expertConfirmedKnownCandidate =
         verdict.status === "match" &&
         verdict.bestCandidateIds.some((id) =>
-          expertCandidates.some((candidate) => candidate.offer.itemId === id)
+          expertCandidates.some((candidate) => String(candidate.offer.itemId) === String(id))
         );
       const candidatesForVerdict = expertConfirmedKnownCandidate ? expertCandidates : candidates;
       candidates = resolveEscalatedCandidates({

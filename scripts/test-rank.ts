@@ -238,6 +238,17 @@ check(
   rankedPorSimilaridade[0]?.offer.itemId === "visual-proximo"
 );
 
+const runtimeNumericId = 998877 as unknown as string;
+const rankedComIdNumerico = rankCandidates(
+  [offer({ itemId: runtimeNumericId, productName: "Bermuda branca 2 em 1" })],
+  observationBermuda,
+  new Map([["998877", { matchType: "modelo_identificado" as const, similarity: 0.95 }]])
+);
+check(
+  "comparação visual textual casa com itemId numérico recebido da Shopee",
+  String(rankedComIdNumerico[0]?.offer.itemId) === "998877"
+);
+
 if (failed) {
   console.error("\nAlgum caso falhou.");
   process.exit(1);
