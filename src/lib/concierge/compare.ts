@@ -29,6 +29,7 @@ import { CONCIERGE_CONFIG } from "./config";
 export interface VisualComparison {
   matchType: MatchType | "nao_relacionado";
   motivo?: string; // frase curta explicando a diferença, útil pra depurar
+  similarity?: number; // 0-1, proximidade visual/semântica dentro da classe
 }
 
 export type VisualCompareFailureReason = "erro_api" | "resposta_invalida" | "timeout";
@@ -50,7 +51,7 @@ Pra cada candidato (identificado por "itemId"), classifique com honestidade:
 - "alternativa_funcional": mesma categoria e função, estilo/acabamento parecido, mas não é o mesmo produto exato.
 - "semelhante_visual": mesma categoria geral, mas estilo, formato, faixa de preço aparente ou acabamento visivelmente diferentes.
 - "nao_relacionado": categoria diferente do que foi pedido, ou nem parece o mesmo tipo de produto — não deveria ser sugerido.
-Responda em JSON estrito: { "resultados": [ { "itemId": "...", "matchType": "...", "motivo": "frase curta" } ] }, um item por candidato recebido, na mesma ordem.`;
+Responda em JSON estrito: { "resultados": [ { "itemId": "...", "matchType": "...", "similaridade": 0.0-1.0, "motivo": "frase curta" } ] }, um item por candidato recebido, na mesma ordem. A similaridade deve considerar categoria, formato, construção, cor, material e acabamento visíveis.`;
 
 class VisualCompareTimeoutError extends Error {}
 
@@ -96,6 +97,9 @@ export async function compareCandidatesVisually(params: {
                 text:
                   `Foto de referência (o que a pessoa quer encontrar). ` +
                   `Observado: ${observation.observado}. Hipótese: ${observation.hipotese}.` +
+                  (observation.atributosVisuais?.length
+                    ? ` Atributos visuais: ${observation.atributosVisuais.join(", ")}.`
+                    : "") +
                   (observation.exigenciaUsuario ? ` Pedido da pessoa: ${observation.exigenciaUsuario}.` : ""),
               },
               { type: "image_url", image_url: { url: photoUrl } },
@@ -115,7 +119,7 @@ export async function compareCandidatesVisually(params: {
 
     const raw = completion.choices[0]?.message?.content ?? "{}";
 
-    let parsed: { resultados?: Array<{ itemId: string; matchType: string; motivo?: string }> };
+    let parsed: { resultados?: Array<{ itemId: string; matchType: string; similaridade?: number; motivo?: string }> };
     try {
       parsed = JSON.parse(raw);
     } catch (parseErr) {
@@ -142,7 +146,11 @@ export async function compareCandidatesVisually(params: {
         r.matchType === "nao_relacionado"
           ? r.matchType
           : "semelhante_visual";
-      matches.set(r.itemId, { matchType, motivo: r.motivo });
+      const similarity =
+        typeof r.similaridade === "number" && Number.isFinite(r.similaridade)
+          ? Math.max(0, Math.min(1, r.similaridade))
+          : undefined;
+      matches.set(r.itemId, { matchType, similarity, motivo: r.motivo });
     }
 
     return { matches, outcome: { status: "ok" } };

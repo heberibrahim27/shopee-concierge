@@ -106,6 +106,9 @@ export async function consultExpertVision(params: {
                 `Primeira análise (modelo econômico): observado="${observation.observado}", ` +
                 `hipótese="${observation.hipotese}", categoria="${observation.categoria ?? ""}", ` +
                 `marca="${observation.marca ?? "não identificada"}", modelo="${observation.modelo ?? "não identificado"}".` +
+                (observation.atributosVisuais?.length
+                  ? ` Atributos visuais: ${observation.atributosVisuais.join(", ")}.`
+                  : "") +
                 (observation.exigenciaUsuario ? ` Pedido do cliente: ${observation.exigenciaUsuario}.` : ""),
             },
             { type: "text", text: "Foto original do cliente:" },

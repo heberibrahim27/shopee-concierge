@@ -218,6 +218,26 @@ check(
   rankedComUso.length === 0
 );
 
+// Fan-out visual: entre produtos da mesma classe, a nota contínua de
+// similaridade precisa ordenar pela proximidade da imagem antes dos sinais
+// comerciais, como numa busca visual.
+const visualComSimilaridade = new Map([
+  ["visual-distante", { matchType: "alternativa_funcional" as const, similarity: 0.2 }],
+  ["visual-proximo", { matchType: "alternativa_funcional" as const, similarity: 0.9 }],
+]);
+const rankedPorSimilaridade = rankCandidates(
+  [
+    offer({ itemId: "visual-distante", productName: "Bermuda branca distante" }),
+    offer({ itemId: "visual-proximo", productName: "Bermuda branca próxima" }),
+  ],
+  observationBermuda,
+  visualComSimilaridade
+);
+check(
+  "similaridade visual contínua ordena candidatos equivalentes",
+  rankedPorSimilaridade[0]?.offer.itemId === "visual-proximo"
+);
+
 if (failed) {
   console.error("\nAlgum caso falhou.");
   process.exit(1);

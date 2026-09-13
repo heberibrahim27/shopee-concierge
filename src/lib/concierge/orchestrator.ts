@@ -56,7 +56,7 @@ export interface OrchestratorResult {
 }
 
 const SEARCH_LIMIT_PER_TERM = 20;
-const MAX_SEARCH_TERMS = 4;
+const MAX_SEARCH_TERMS = 6;
 const SHORTLIST_FOR_VISUAL_COMPARISON = 8; // controla custo/latência da comparação visual
 
 // Aviso de "procurando" só é mandado se a busca por foto ainda não tiver
@@ -316,6 +316,33 @@ export function buildPreVisualShortlist(
 }
 
 /**
+ * Fan-out inspirado em busca visual: cada consulta contribui com um produto
+ * por vez, preservando a relevância interna da Shopee sem deixar a primeira
+ * palavra-chave ocupar o shortlist inteiro. Assim, sinônimos e atributos
+ * visuais diferentes chegam de fato à comparação por imagem.
+ */
+export function buildFanOutVisualShortlist(
+  resultGroups: ShopeeProductOffer[][],
+  limit = SHORTLIST_FOR_VISUAL_COMPARISON
+): ShopeeProductOffer[] {
+  const seen = new Set<string>();
+  const shortlist: ShopeeProductOffer[] = [];
+  const maxGroupLength = Math.max(0, ...resultGroups.map((group) => group.length));
+
+  for (let index = 0; index < maxGroupLength && shortlist.length < limit; index++) {
+    for (const group of resultGroups) {
+      const offer = group[index];
+      if (!offer || seen.has(offer.itemId) || !hasMinimumCandidateQuality(offer)) continue;
+      seen.add(offer.itemId);
+      shortlist.push(offer);
+      if (shortlist.length >= limit) break;
+    }
+  }
+
+  return shortlist;
+}
+
+/**
  * Monta a lista que o perito realmente vai receber. A comparação visual
  * econômica pode rejeitar todos os itens e deixar `candidates` vazio; nesse
  * caso ainda precisamos enviar ao modelo avançado o shortlist anterior ao
@@ -450,7 +477,7 @@ async function searchRankAndCompare(params: {
   // aqui descartava tudo quando o título não continha exatamente o primeiro
   // termo de busca, deixando tanto o modelo econômico quanto o perito sem
   // nenhuma imagem apesar de a Shopee ter retornado dezenas de produtos.
-  const shortlist = buildPreVisualShortlist(results.flat());
+  const shortlist = buildFanOutVisualShortlist(results);
 
   if (!imageUrl || shortlist.length === 0) {
     return {

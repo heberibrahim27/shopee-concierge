@@ -184,10 +184,11 @@ export function rankCandidates(
         const conflitoUso = hasAttributeConflict(observation.usoOuEstilo, offer.productName, USO_GROUPS);
         matchType = bateuTermo && !conflitoMaterial && !conflitoUso ? "alternativa_funcional" : "nao_relacionado";
       }
-      return { offer, matchType };
+      return { offer, matchType, visualSimilarity: visual?.similarity ?? 0 };
     })
     .filter(
-      (c): c is { offer: ShopeeProductOffer; matchType: MatchType } => c.matchType !== "nao_relacionado"
+      (c): c is { offer: ShopeeProductOffer; matchType: MatchType; visualSimilarity: number } =>
+        c.matchType !== "nao_relacionado"
     );
 
   const faixa = observation.faixaPrecoEstimadaBRL;
@@ -199,7 +200,7 @@ export function rankCandidates(
   const priceIsAnchoredToVisiblePrice = typeof observation.precoVisivelNaFotoBRL === "number";
   const PRICE_PENALTY_MULTIPLIER = priceIsAnchoredToVisiblePrice ? 40 : 15;
 
-  const ranked = classified.map(({ offer, matchType }) => {
+  const ranked = classified.map(({ offer, matchType, visualSimilarity }) => {
     const rating = parseFloat(offer.ratingStar || "0");
     const commission = parseFloat(offer.commission || "0");
     const price = parseFloat(offer.priceMin || "0");
@@ -225,6 +226,7 @@ export function rankCandidates(
     // comissão só como desempate
     const score =
       matchBonus +
+      visualSimilarity * 30 +
       rating * 5 +
       Math.log10(offer.sales + 1) * 5 +
       commission * 0.5 -

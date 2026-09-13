@@ -7,6 +7,7 @@
  */
 import assert from "node:assert/strict";
 import {
+  buildFanOutVisualShortlist,
   buildPreVisualShortlist,
   consultExpertWithFallback,
   recoverRetryCandidatesWithExpert,
@@ -57,6 +58,20 @@ async function main() {
     preVisualShortlist.map((candidate) => candidate.itemId),
     ["bermuda-certa", "bermuda-errada"],
     "o shortlist visual deve preservar ofertas brutas utilizáveis antes do filtro semântico"
+  );
+
+  const fanOutShortlist = buildFanOutVisualShortlist(
+    [
+      [offer("termo-1-a"), offer("termo-1-b")],
+      [offer("termo-2-a"), offer("termo-2-b")],
+      [offer("termo-3-a")],
+    ],
+    5
+  );
+  assert.deepEqual(
+    fanOutShortlist.map((candidate) => candidate.itemId),
+    ["termo-1-a", "termo-2-a", "termo-3-a", "termo-1-b", "termo-2-b"],
+    "fan-out deve intercalar os resultados das consultas em vez de usar somente a primeira"
   );
   const expertInput = selectExpertCandidates({ candidates: [], preVisualShortlist });
 

@@ -86,11 +86,11 @@ check(
 
 const retryTerms = buildRetrySearchTerms(
   "short masculino treino 2 em 1 branco com compressão interna preta",
-  ["bermuda branca", "bermuda masculina", "bermuda de treino"]
+  ["bermuda branca", "bermuda masculina", "bermuda de treino", "short esportivo", "roupa academia"]
 );
 check("retry mantém primeiro o termo exato do perito", retryTerms[0] === "short masculino treino 2 em 1 branco com compressão interna preta");
 check("retry tenta a versão curta antes dos termos antigos", retryTerms[1] === "short masculino treino 2 em 1 branco");
-check("retry respeita o máximo de quatro buscas", retryTerms.length === 4);
+check("retry respeita o máximo de seis buscas do fan-out", retryTerms.length === 6);
 
 const cappedTerms = buildRetrySearchTerms(
   "mochila grande impermeável escolar feminina reforçada preta viagem",
