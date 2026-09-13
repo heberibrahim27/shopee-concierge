@@ -35,9 +35,10 @@ import {
   ReplyPart,
   RefinementIntent,
   TEXTO_SEM_MAIS_OPCOES,
+  TEXTO_CONFIRMAR_REFINAMENTO,
 } from "./reply";
 import { decideEscalation } from "./confidenceRouter";
-import { consultExpertVision } from "./expertVision";
+import { consultExpertVision, ExpertVerdict } from "./expertVision";
 import { CONCIERGE_CONFIG } from "./config";
 
 export interface OrchestratorResult {
@@ -122,6 +123,38 @@ export function detectRefinementIntent(text: string | undefined): RefinementInte
   return null;
 }
 
+// Bug real (13/09/2026): o Ibrahim respondeu só "Quero" ao fechamento que
+// oferece as 3 opções de refinamento, sem dizer QUAL — isso não batia
+// detectRefinementIntent (não tem "barat"/"qualidade"/"parecid" nenhum) e
+// caía direto em processTextQuery, virando uma busca literal por "Quero" na
+// Shopee. Uma confirmação genérica como essa, quando existe uma busca
+// recente pra refinar (session.lastSearch), merece uma pergunta de volta —
+// não uma pesquisa sem sentido.
+const CONFIRMACOES_AMBIGUAS = new Set([
+  "quero",
+  "sim",
+  "quero sim",
+  "quero uma",
+  "quero isso",
+  "isso",
+  "isso mesmo",
+  "essa",
+  "esse",
+  "pode",
+  "pode sim",
+  "manda",
+  "manda ai",
+  "manda ver",
+  "manda essa",
+  "claro",
+  "positivo",
+]);
+
+export function isAmbiguousRefinementConfirmation(text: string | undefined): boolean {
+  if (!text) return false;
+  return CONFIRMACOES_AMBIGUAS.has(normalizeText(text));
+}
+
 /**
  * Quando o modelo avançado (perito) confirma um match, o roteador já
  * escalou justamente porque o ranking econômico estava em dúvida — então
@@ -147,6 +180,53 @@ function applyExpertVerdict(
   // se por algum motivo nenhum id confirmado bateu com a lista atual
   // (não devia acontecer, mas não custa ser defensivo), não fica sem nada
   return confirmed.length > 0 ? confirmed : candidates;
+}
+
+/**
+ * Decide o que fazer com `candidates` depois de consultar o perito
+ * (expertVision.ts), separado em função própria pra dar pra testar sem
+ * bater em API nenhuma.
+ *
+ * Bug real (13/09/2026, recorrência): quando escalamos SÓ porque a
+ * comparação visual da 1ª passada falhou (`semSinalVisual` — o matchType de
+ * `candidates` veio inteiro do fallback textual de rank.ts, nunca
+ * verificado de verdade contra a foto), e o perito não confirma nenhum
+ * candidato nem pede esclarecimento (status "uncertain" sem pergunta), o
+ * código antigo simplesmente MANTINHA esse `candidates` não verificado —
+ * foi assim que uma bermuda jeans rasgada continuou aparecendo como "menor
+ * preço" mesmo depois de escalar. Se a ÚNICA razão de escalar foi a falta
+ * de sinal visual, "o perito não confirmou nada" significa que não sobrou
+ * nenhum sinal de relevância confiável nenhum — mais seguro esvaziar
+ * `candidates` (cai no "ainda não encontrei uma opção segura") do que
+ * arriscar mostrar de novo um produto de categoria errada.
+ *
+ * Quando escalamos por outro motivo (confiança/score, não falta de sinal
+ * visual), `candidates` já tinha alguma comparação visual real por trás —
+ * aí sim vale manter o melhor esforço do modelo econômico se o perito
+ * também ficar em dúvida.
+ */
+export function resolveEscalatedCandidates(params: {
+  candidates: RankedCandidate[];
+  verdict: Pick<ExpertVerdict, "status" | "bestCandidateIds" | "needsUserClarification" | "suggestedQuestion">;
+  semSinalVisual: boolean;
+}): RankedCandidate[] {
+  const { candidates, verdict, semSinalVisual } = params;
+
+  if (verdict.status === "match" && verdict.bestCandidateIds.length > 0) {
+    return applyExpertVerdict(candidates, verdict.bestCandidateIds);
+  }
+  if (verdict.needsUserClarification && verdict.suggestedQuestion) {
+    // esclarecimento é tratado por quem chama (via expertNeededClarification)
+    // — aqui só não mexe na lista, ela nem chega a ser usada nesse caso
+    return candidates;
+  }
+  if (semSinalVisual) {
+    return [];
+  }
+  // escalado por outro motivo (confiança/score) e perito ficou em dúvida
+  // sem pergunta útil: segue com o ranking econômico mesmo assim (melhor
+  // esforço, nunca trava a resposta)
+  return candidates;
 }
 
 /**
@@ -179,7 +259,13 @@ async function searchAndReply(params: {
 
   let candidates = rankCandidates(shortlist, observation, visualComparisons);
 
-  const decision = decideEscalation(observation, candidates);
+  // Sem sinal visual real apesar de ter foto (comparação falhou/não achou
+  // nada) e ainda assim tinha candidato pra comparar — o matchType de todo
+  // mundo em `candidates` veio só do fallback textual, mais fraco. Ver
+  // motivo "comparacao_visual_indisponivel" em confidenceRouter.ts.
+  const semSinalVisual = Boolean(imageUrl) && shortlist.length > 0 && (!visualComparisons || visualComparisons.size === 0);
+
+  const decision = decideEscalation(observation, candidates, { semSinalVisual });
   let escalatedConfidence: number | undefined;
   let expertNeededClarification: { question: string } | null = null;
 
@@ -187,13 +273,11 @@ async function searchAndReply(params: {
     const verdict = await consultExpertVision({ photoUrl: imageUrl, observation, candidates });
     escalatedConfidence = verdict.confidence;
 
-    if (verdict.status === "match" && verdict.bestCandidateIds.length > 0) {
-      candidates = applyExpertVerdict(candidates, verdict.bestCandidateIds);
-    } else if (verdict.needsUserClarification && verdict.suggestedQuestion) {
+    if (verdict.needsUserClarification && verdict.suggestedQuestion) {
       expertNeededClarification = { question: verdict.suggestedQuestion };
+    } else {
+      candidates = resolveEscalatedCandidates({ candidates, verdict, semSinalVisual });
     }
-    // status "uncertain" sem pergunta útil: segue com o ranking do
-    // modelo econômico mesmo assim (melhor esforço, nunca trava a resposta)
   }
 
   if (expertNeededClarification) {
@@ -202,6 +286,7 @@ async function searchAndReply(params: {
       JSON.stringify({
         requestId: messageId,
         confiancaGeral: observation.confiancaGeral,
+        semSinalVisual,
         escalou: true,
         motivoEscalonamento: decision.motivo,
         modeloAvancado: "expert",
@@ -221,6 +306,7 @@ async function searchAndReply(params: {
     JSON.stringify({
       requestId: messageId,
       confiancaGeral: observation.confiancaGeral,
+      semSinalVisual,
       categoria: observation.categoria,
       termosPesquisa: terms,
       quantidadeResultadosShopee: results.flat().length,
@@ -511,6 +597,13 @@ export async function handleIncomingMessage(
       const intent = detectRefinementIntent(msg.text);
       if (intent) {
         return processRefinement(msg, session, intent);
+      }
+
+      // Confirmação genérica ("Quero", "sim"...) sem dizer qual das 3
+      // opções — pede pra especificar em vez de buscar isso literalmente na
+      // Shopee (bug real, 13/09/2026, ver isAmbiguousRefinementConfirmation).
+      if (isAmbiguousRefinementConfirmation(msg.text)) {
+        return { chatId: msg.chatId, replyText: TEXTO_CONFIRMAR_REFINAMENTO };
       }
     }
 

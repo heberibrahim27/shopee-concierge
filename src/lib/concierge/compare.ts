@@ -93,10 +93,14 @@ export async function compareCandidatesVisually(params: {
           : "semelhante_visual";
       result.set(r.itemId, { matchType, motivo: r.motivo });
     }
-  } catch {
+  } catch (err) {
     // se a comparação visual falhar (erro de API, JSON inválido etc.),
     // devolve mapa vazio — quem chama cai pro comportamento textual antigo
-    // em vez de travar a resposta inteira
+    // em vez de travar a resposta inteira. Bug real (13/09/2026): essa
+    // falha era TOTALMENTE silenciosa (catch vazio) — impossível saber, só
+    // olhando a resposta errada, se a comparação visual rodou e errou ou se
+    // nem chegou a rodar. Logando o motivo real agora.
+    console.error("[concierge][compare] comparação visual falhou, caindo pro fallback textual:", err);
   }
 
   return result;

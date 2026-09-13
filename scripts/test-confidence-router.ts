@@ -46,6 +46,7 @@ interface Case {
   observation: ImageObservation;
   ranked: RankedCandidate[];
   esperaEscalar: boolean;
+  options?: Parameters<typeof decideEscalation>[2];
 }
 
 const casos: Case[] = [
@@ -94,11 +95,29 @@ const casos: Case[] = [
     ],
     esperaEscalar: false,
   },
+  {
+    // bug real (13/09/2026): foto de bermuda de academia, comparação visual
+    // falhou por completo (mapa vazio), fallback textual "confirmou" um
+    // candidato de categoria errada com confiança alta e sem concorrente
+    // próximo — sem essa checagem, o roteador não tinha motivo pra escalar.
+    nome: "sem sinal visual (comparação falhou) mesmo com confiança alta -> escala",
+    observation: fakeObservation({ confiancaGeral: 0.9 }),
+    ranked: [{ offer: fakeOffer("1"), matchType: "alternativa_funcional", score: 60 }],
+    esperaEscalar: true,
+    options: { semSinalVisual: true },
+  },
+  {
+    nome: "com sinal visual real, mesmo cenário de confiança/score NÃO escala",
+    observation: fakeObservation({ confiancaGeral: 0.9 }),
+    ranked: [{ offer: fakeOffer("1"), matchType: "alternativa_funcional", score: 60 }],
+    esperaEscalar: false,
+    options: { semSinalVisual: false },
+  },
 ];
 
 let falhas = 0;
 for (const caso of casos) {
-  const decisao = decideEscalation(caso.observation, caso.ranked);
+  const decisao = decideEscalation(caso.observation, caso.ranked, caso.options);
   const ok = decisao.escalate === caso.esperaEscalar;
   if (!ok) falhas++;
   console.log(

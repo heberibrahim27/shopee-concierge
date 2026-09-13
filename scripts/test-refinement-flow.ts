@@ -15,7 +15,7 @@
  *
  * Roda com: npx tsx scripts/test-refinement-flow.ts
  */
-import { detectRefinementIntent } from "../src/lib/concierge/orchestrator";
+import { detectRefinementIntent, isAmbiguousRefinementConfirmation } from "../src/lib/concierge/orchestrator";
 import { buildRefinementReply, computeShownItemIds } from "../src/lib/concierge/reply";
 import { rankCandidates } from "../src/lib/concierge/rank";
 import { ImageObservation } from "../src/lib/concierge/recognize";
@@ -62,6 +62,23 @@ async function main() {
   check("'melhor avaliada' também conta como qualidade", detectRefinementIntent("a melhor avaliada") === "qualidade");
   check("texto solto sem gatilho não é refinamento", detectRefinementIntent("tenis de corrida azul") === null);
   check("texto vazio não é refinamento", detectRefinementIntent(undefined) === null);
+
+  // --- isAmbiguousRefinementConfirmation (bug real, 13/09/2026) -----------
+  // O Ibrahim respondeu só "Quero" ao fechamento que oferece as 3 opções,
+  // sem dizer qual — isso não é um RefinementIntent (não tem "barat" etc.)
+  // e virava uma busca literal por "Quero" na Shopee. Precisa ser tratado
+  // como confirmação ambígua (pede pra especificar), não como produto.
+  check("'Quero' é reconhecida como confirmação ambígua (o bug real)", isAmbiguousRefinementConfirmation("Quero"));
+  check("'sim' é reconhecida como confirmação ambígua", isAmbiguousRefinementConfirmation("sim"));
+  check("'manda' é reconhecida como confirmação ambígua", isAmbiguousRefinementConfirmation("manda"));
+  check(
+    "nome de produto de verdade NÃO é confundido com confirmação ambígua",
+    !isAmbiguousRefinementConfirmation("tenis de corrida azul")
+  );
+  check(
+    "um pedido de refinamento de verdade não é tratado como ambíguo",
+    !isAmbiguousRefinementConfirmation("quero a mais barata")
+  );
 
   // --- buildRefinementReply -----------------------------------------------
   const barata = offer({ itemId: "barata", productName: "Bermuda Tactel Basica", priceMin: "39" });

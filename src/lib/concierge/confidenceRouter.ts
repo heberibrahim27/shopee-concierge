@@ -30,7 +30,23 @@ const MIN_SCORE_MARGIN = 8;
 
 export function decideEscalation(
   observation: ImageObservation,
-  ranked: RankedCandidate[]
+  ranked: RankedCandidate[],
+  options?: {
+    /**
+     * true quando a mensagem tinha foto mas a comparação visual real
+     * (compare.ts) não devolveu NENHUM veredito — erro de API, JSON
+     * inválido, sem OPENAI_API_KEY etc. Nesse caso, o matchType de todo
+     * mundo em `ranked` veio só do fallback textual (rank.ts), um sinal bem
+     * mais fraco do que uma comparação visual real — não dá pra confiar só
+     * na confiancaGeral do reconhecimento (que é sobre identificar a
+     * categoria do produto, não sobre os resultados de busca baterem com a
+     * foto). Bug real (13/09/2026): uma bermuda jeans rasgada passou pelo
+     * fallback textual e foi mostrada como "melhor preço" pra uma foto de
+     * bermuda de academia — melhor escalar pro modelo avançado (que também
+     * vê a foto original) do que confiar cegamente nesse fallback.
+     */
+    semSinalVisual?: boolean;
+  }
 ): RouterDecision {
   const confianca = observation.confiancaGeral;
 
@@ -40,6 +56,10 @@ export function decideEscalation(
 
   if (ranked.length === 0) {
     return { escalate: true, motivo: "nenhum_candidato_relevante" };
+  }
+
+  if (options?.semSinalVisual) {
+    return { escalate: true, motivo: "comparacao_visual_indisponivel" };
   }
 
   const top = ranked[0];

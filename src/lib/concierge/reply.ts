@@ -215,3 +215,15 @@ export async function buildRefinementReply(params: {
 export const TEXTO_SEM_MAIS_OPCOES =
   "Já mostrei as melhores opções que encontrei nessa busca. 🔎\n\n" +
   "Se quiser, manda outra foto ou o nome de outro produto que eu procuro de novo.";
+
+/**
+ * Bug real (13/09/2026): depois do fechamento ("posso procurar uma mais
+ * barata, uma de melhor qualidade ou uma mais parecida"), o Ibrahim
+ * respondeu só "Quero" — sem dizer qual das 3 — e isso virava uma busca
+ * literal por "Quero" na Shopee (nada a ver). Ver
+ * orchestrator.ts detectRefinementIntent/isAmbiguousRefinementConfirmation:
+ * uma confirmação genérica ("quero"/"sim"/"pode"/"manda"...) sem escolher
+ * um critério cai aqui, em vez de virar pesquisa de texto.
+ */
+export const TEXTO_CONFIRMAR_REFINAMENTO =
+  "Qual das opções? 🔎\n\n" + "Responde com: *mais barata*, *melhor qualidade* ou *mais parecida*.";
