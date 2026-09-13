@@ -27,7 +27,7 @@ import { getSession, setSession, isTriggerPhrase, ConciergeSession } from "./ses
 import { recognizeProductImage, ImageObservation } from "./recognize";
 import { searchProductsByKeyword } from "../shopee/queries";
 import type { ShopeeProductOffer } from "../shopee/types";
-import { rankCandidates, RankedCandidate } from "./rank";
+import { hasMinimumCandidateQuality, rankCandidates, RankedCandidate } from "./rank";
 import { compareCandidatesVisually, VisualCompareOutcome } from "./compare";
 import { recordVisualCompareOutcome, isVisualCompareDegraded } from "./visualHealth";
 import {
@@ -259,6 +259,30 @@ export function shouldRetryWithSuggestedTerm(params: {
 }
 
 /**
+ * Preserva os primeiros resultados utilizáveis da Shopee antes de qualquer
+ * filtro textual ou visual. Os termos de busca vêm do mais específico para o
+ * mais genérico e a API já responde por relevância, então manter essa ordem
+ * fornece um conjunto pequeno e relevante para a visão avaliar sem
+ * eliminar candidatos só porque o título não contém a frase exata.
+ */
+export function buildPreVisualShortlist(
+  offers: ShopeeProductOffer[],
+  limit = SHORTLIST_FOR_VISUAL_COMPARISON
+): ShopeeProductOffer[] {
+  const seen = new Set<string>();
+  const shortlist: ShopeeProductOffer[] = [];
+
+  for (const offer of offers) {
+    if (shortlist.length >= limit) break;
+    if (seen.has(offer.itemId) || !hasMinimumCandidateQuality(offer)) continue;
+    seen.add(offer.itemId);
+    shortlist.push(offer);
+  }
+
+  return shortlist;
+}
+
+/**
  * Monta a lista que o perito realmente vai receber. A comparação visual
  * econômica pode rejeitar todos os itens e deixar `candidates` vazio; nesse
  * caso ainda precisamos enviar ao modelo avançado o shortlist anterior ao
@@ -344,11 +368,13 @@ async function searchRankAndCompare(params: {
   );
   const resultCount = results.flat().length;
 
-  // 1ª passada: ranking heurístico (texto/nota/venda) só pra reduzir a
-  // lista bruta a um shortlist pequeno antes de gastar com comparação
-  // visual real (que é o sinal que realmente decide o que é parecido)
-  const preliminary = rankCandidates(results.flat(), observation);
-  const shortlist = preliminary.slice(0, SHORTLIST_FOR_VISUAL_COMPARISON).map((r) => r.offer);
+  // Preserva a ordem de relevância da Shopee e aplica apenas requisitos
+  // operacionais (link, imagem, preço e histórico mínimo). A relevância
+  // semântica é decidida depois pela comparação visual. Usar rankCandidates
+  // aqui descartava tudo quando o título não continha exatamente o primeiro
+  // termo de busca, deixando tanto o modelo econômico quanto o perito sem
+  // nenhuma imagem apesar de a Shopee ter retornado dezenas de produtos.
+  const shortlist = buildPreVisualShortlist(results.flat());
 
   if (!imageUrl || shortlist.length === 0) {
     return {

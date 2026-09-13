@@ -28,6 +28,23 @@ export interface RankedCandidate {
 const MIN_SALES = 5; // remove itens sem histórico de venda nenhuma
 
 /**
+ * Requisitos básicos que independem da relevância textual/visual. Exportado
+ * para o orquestrador conseguir montar o shortlist visual a partir do retorno
+ * bruto da Shopee sem repetir estas regras nem aplicar o filtro semântico cedo
+ * demais.
+ */
+export function hasMinimumCandidateQuality(candidate: ShopeeProductOffer): boolean {
+  return Boolean(
+    candidate.itemId &&
+      candidate.productLink &&
+      candidate.offerLink &&
+      candidate.imageUrl &&
+      candidate.priceMin &&
+      candidate.sales >= MIN_SALES
+  );
+}
+
+/**
  * Grupos de material/uso mutuamente incompatíveis — heurística leve por
  * palavra-chave (não é extração de atributo de verdade), adicionada em
  * 13/09/2026 por sugestão do debate técnico com o ChatGPT sobre o bug da
@@ -85,10 +102,9 @@ export function rankCandidates(
   visualComparisons?: Map<string, VisualComparison>
 ): RankedCandidate[] {
   const filtered = candidates.filter((c) => {
-    const hasEssentials = Boolean(c.productLink && c.offerLink && c.priceMin);
     const visual = visualComparisons?.get(c.itemId);
     if (visual?.matchType === "nao_relacionado") return false;
-    return hasEssentials && c.sales >= MIN_SALES;
+    return hasMinimumCandidateQuality(c);
   });
 
   // Remove duplicado por loja+produto similar (dedupe simples por itemId)

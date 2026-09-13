@@ -7,11 +7,12 @@
  */
 import assert from "node:assert/strict";
 import {
+  buildPreVisualShortlist,
   consultExpertWithFallback,
   resolveEscalatedCandidates,
   selectExpertCandidates,
 } from "../src/lib/concierge/orchestrator";
-import { RankedCandidate } from "../src/lib/concierge/rank";
+import { rankCandidates, RankedCandidate } from "../src/lib/concierge/rank";
 import { ImageObservation } from "../src/lib/concierge/recognize";
 import { ShopeeProductOffer } from "../src/lib/shopee/types";
 
@@ -36,7 +37,26 @@ function offer(itemId: string): ShopeeProductOffer {
 }
 
 async function main() {
-  const preVisualShortlist = [offer("bermuda-certa"), offer("bermuda-errada")];
+  const rawSearchResults = [offer("bermuda-certa"), offer("bermuda-errada")];
+  const observation: ImageObservation = {
+    observado: "short branco de academia",
+    hipotese: "short duplo esportivo",
+    naoIdentificado: [],
+    termosDeBusca: ["shorts branco"],
+  };
+
+  assert.deepEqual(
+    rankCandidates(rawSearchResults, observation),
+    [],
+    "o filtro textual reproduz o caso real: resultados existem, mas nenhum título contém o termo exato"
+  );
+
+  const preVisualShortlist = buildPreVisualShortlist(rawSearchResults);
+  assert.deepEqual(
+    preVisualShortlist.map((candidate) => candidate.itemId),
+    ["bermuda-certa", "bermuda-errada"],
+    "o shortlist visual deve preservar ofertas brutas utilizáveis antes do filtro semântico"
+  );
   const expertInput = selectExpertCandidates({ candidates: [], preVisualShortlist });
 
   assert.deepEqual(
@@ -56,12 +76,6 @@ async function main() {
   );
   assert.deepEqual(selectExpertCandidates({ candidates: [], preVisualShortlist: [] }), []);
 
-  const observation: ImageObservation = {
-    observado: "bermuda esportiva",
-    hipotese: "bermuda de academia",
-    naoIdentificado: [],
-    termosDeBusca: ["bermuda academia"],
-  };
   let receivedByExpert: RankedCandidate[] | undefined;
   const expertCall = await consultExpertWithFallback(
     {
