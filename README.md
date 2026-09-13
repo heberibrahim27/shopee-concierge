@@ -85,3 +85,37 @@ npm run test:search -- "fone de ouvido bluetooth"
 ## Deploy (permanente)
 
 Este repositório está conectado a um projeto Vercel com deploy automático a cada push na branch `main` — não precisa mais copiar variáveis de ambiente a cada atualização de código.
+
+## Growth OS — Etapa 0/1
+
+O sourcing coleta ofertas reais, grava produtos e snapshots no Supabase,
+aplica os cortes e o score mínimo de 75 e gera até três links de afiliado.
+Não publica em WhatsApp ou Instagram. Os candidatos permanecem em
+`discovered`: o desconto informado pela Shopee ainda é um proxy, sem
+verificação de queda histórica e com confiança de histórico zerada.
+
+Configure `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` no servidor, além
+das variáveis de `.env.example`. O projeto de banco é `babamanager-pro`
+(`czocwdlygdslyuoixmhh`). A chave service role nunca vai para o navegador.
+A migration versionada usa `20260912035120`, o timestamp confirmado no
+histórico do Supabase; não é necessário reaplicá-la nesse projeto.
+
+```sh
+npm ci
+npx tsc --noEmit
+npm run test:router
+npm run test:deals
+npm run build
+npm run source:deals
+```
+
+O script carrega `.env`. Se as credenciais estiverem em `.env.local`, defina
+`DOTENV_CONFIG_PATH=.env.local` antes de executá-lo (PowerShell:
+`$env:DOTENV_CONFIG_PATH='.env.local'`). O JSON final informa erros e
+quantos candidatos tiveram o link gerado e confirmado no banco. Nenhum
+candidato aprovado é um resultado possível; o mínimo de 75 não é reduzido.
+
+`GET /api/health` consulta o banco a cada chamada, sem cache: retorna HTTP
+200 com `ok: true` quando todas as variáveis obrigatórias e o banco estão
+disponíveis, ou HTTP 503 quando existe alguma pendência. Isso não valida
+as credenciais externas nem o recebimento de mensagens pela Z-API.
