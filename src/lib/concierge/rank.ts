@@ -27,6 +27,58 @@ export interface RankedCandidate {
 
 const MIN_SALES = 5; // remove itens sem histórico de venda nenhuma
 
+/**
+ * Grupos de material/uso mutuamente incompatíveis — heurística leve por
+ * palavra-chave (não é extração de atributo de verdade), adicionada em
+ * 13/09/2026 por sugestão do debate técnico com o ChatGPT sobre o bug da
+ * bermuda jeans aparecendo pra uma foto de bermuda tactel: contagem de
+ * palavras pra medir "especificidade" do termo de busca se mostrou fraca
+ * (foi tentada e revertida, ver histórico deste arquivo/confidenceRouter),
+ * e similaridade textual pura (embeddings) também não resolveria — "bermuda
+ * tactel" e "bermuda jeans" ficam parecidos pra qualquer medida de texto,
+ * mesmo sendo produtos incompatíveis. Em vez disso, quando o fallback
+ * textual é a ÚNICA coisa decidindo (nenhum sinal visual real), um
+ * candidato que bate um material/uso de um GRUPO DIFERENTE do observado na
+ * foto é descartado na hora, mesmo que o termo de busca bata — bloqueio
+ * duro por atributo, não só por similaridade de texto.
+ */
+const MATERIAL_GROUPS: string[][] = [
+  ["tactel", "dry fit", "dryfit", "poliester", "poliéster", "elastano", "lycra", "microfibra", "esportiv"],
+  ["jeans", "sarja", "brim", "denim"],
+  ["couro", "courino", "sintetico", "sintético"],
+  ["algodao", "algodão", "moletom", "suede", "malha"],
+];
+
+const USO_GROUPS: string[][] = [
+  ["esportivo", "esportiva", "academia", "corrida", "treino", "fitness"],
+  ["casual", "dia a dia", "passeio"],
+  ["social", "formal", "trabalho", "terno"],
+  ["praia", "banho", "piscina"],
+];
+
+function groupIndexOf(text: string | undefined, groups: string[][]): number | null {
+  if (!text) return null;
+  const lower = text.toLowerCase();
+  for (let i = 0; i < groups.length; i++) {
+    if (groups[i].some((kw) => lower.includes(kw))) return i;
+  }
+  return null;
+}
+
+/**
+ * true quando o produto claramente pertence a um grupo DIFERENTE do
+ * atributo observado na foto (os dois batem grupos conhecidos, mas
+ * grupos diferentes) — quando qualquer um dos dois lados não bate nenhum
+ * grupo conhecido, não dá pra afirmar conflito (nem por isso é considerado
+ * compatível "à toa": o candidato ainda depende do termo de busca bater).
+ */
+function hasAttributeConflict(observedValue: string | undefined, productName: string, groups: string[][]): boolean {
+  const observedGroup = groupIndexOf(observedValue, groups);
+  if (observedGroup === null) return false;
+  const productGroup = groupIndexOf(productName, groups);
+  return productGroup !== null && productGroup !== observedGroup;
+}
+
 export function rankCandidates(
   candidates: ShopeeProductOffer[],
   observation: ImageObservation,
@@ -58,25 +110,63 @@ export function rankCandidates(
   // descartava), uma torneira e uma moldura de teto (ambos produtos de
   // "acabamento" de construção, sem nenhuma relação com cera) entraram no
   // ranking normalmente e venceram nas categorias nota/venda.
+  // A comparação visual "rodou de verdade" se devolveu pelo menos 1
+  // resultado — usado pra decidir o que fazer com um candidato que não tem
+  // entrada no mapa (ver comentário abaixo). Mapa vazio é indistinguível
+  // entre "nunca rodou" (sem OPENAI_API_KEY, erro de API, JSON inválido) e
+  // "rodou só que não achou nada" — nos dois casos, sem NENHUM sinal visual,
+  // preservamos o comportamento antigo de cair pro fallback textual (melhor
+  // esforço) pra não devolver "não encontrei nada" à toa.
+  const hasAnyVisualSignal = Boolean(visualComparisons && visualComparisons.size > 0);
+
   const classified = deduped
     .map((offer) => {
       const visual = visualComparisons?.get(offer.itemId);
       let matchType: MatchType | "nao_relacionado";
       if (visual) {
         matchType = visual.matchType;
+      } else if (hasAnyVisualSignal) {
+        // Bug real (13/09/2026): comparação visual rodou e confirmou vários
+        // candidatos, mas um item específico ficou de fora da resposta do
+        // modelo (imagem que não carregou, resposta truncada/incompleta
+        // etc.) — antes disso, esse item "sem entrada no mapa" caía no MESMO
+        // fallback textual usado quando a comparação visual não roda nunca,
+        // e um match por substring solto num termo genérico deixou passar
+        // um vaso de planta e um livro numa busca de bermuda de academia.
+        // Já que o resto da lista TEM sinal visual real, um item sem
+        // veredito não merece o benefício da dúvida do fallback textual —
+        // é mais seguro descartar do que arriscar categoria errada.
+        matchType = "nao_relacionado";
       } else {
-        // Sem comparação visual real, só dá pra confiar no termo de busca
-        // MAIS específico (o primeiro da lista, ver recognize.ts — o resto
-        // é "genérico -> específico" invertido, então termos[1+] podem ser
-        // palavras soltas tipo "acabamento", que aparecem escritas em
-        // produtos de categorias inteiramente diferentes). Bater só um
-        // termo genérico não vira mais "semelhante_visual" (antes entrava
-        // no ranking mesmo sem nenhuma relação real) — sem bater o termo
-        // específico, o candidato é descartado (nao_relacionado).
+        // Sem NENHUM sinal visual (comparação não rodou), só dá pra confiar
+        // no termo de busca MAIS específico (o primeiro da lista, ver
+        // recognize.ts — o resto é "específico -> genérico", então
+        // termos[1+] podem ser palavras soltas tipo "acabamento", que
+        // aparecem escritas em produtos de categorias inteiramente
+        // diferentes). Bater só um termo genérico não vira mais
+        // "semelhante_visual" (antes entrava no ranking mesmo sem nenhuma
+        // relação real) — sem bater o termo específico, o candidato é
+        // descartado (nao_relacionado).
+        //
+        // Bug real (13/09/2026, recorrência): mesmo um termo de 2 palavras
+        // ("bermuda branca") pode bater literalmente no nome de um produto
+        // de estilo bem diferente ("Bermuda branca rascada...", jeans),
+        // porque .includes() só olha substring, não estilo — exigir mais
+        // palavras aqui quebrava termos legítimos igualmente curtos (ex:
+        // "tenis corrida"), então a defesa de verdade pra esse caso passou
+        // pra decideEscalation (ver `semSinalVisual` em confidenceRouter.ts
+        // e orchestrator.ts): sem NENHUM sinal visual real, o roteador
+        // sempre escala pro modelo avançado antes de confiar nesse fallback
+        // sozinho, e o resultado do perito é que decide se mostra algo.
         const nome = offer.productName.toLowerCase();
         const termoEspecifico = observation.termosDeBusca[0]?.toLowerCase();
-        matchType =
-          termoEspecifico && nome.includes(termoEspecifico) ? "alternativa_funcional" : "nao_relacionado";
+        const bateuTermo = Boolean(termoEspecifico && nome.includes(termoEspecifico));
+        // Bloqueio duro por atributo (13/09/2026, ver MATERIAL_GROUPS/
+        // USO_GROUPS acima) — bater o termo de busca não basta mais se o
+        // material ou uso observado na foto conflita com o do produto.
+        const conflitoMaterial = hasAttributeConflict(observation.materialProvavel, offer.productName, MATERIAL_GROUPS);
+        const conflitoUso = hasAttributeConflict(observation.usoOuEstilo, offer.productName, USO_GROUPS);
+        matchType = bateuTermo && !conflitoMaterial && !conflitoUso ? "alternativa_funcional" : "nao_relacionado";
       }
       return { offer, matchType };
     })

@@ -42,4 +42,17 @@ export const CONCIERGE_CONFIG = {
     1,
     Math.round(envFloat("CONCIERGE_EXPERT_CANDIDATE_LIMIT", 8))
   ),
+
+  /**
+   * Tempo máximo (ms) esperando a comparação visual real (compare.ts)
+   * antes de desistir e tratar como falha técnica (ver
+   * VisualCompareOutcome). Sem isso, uma chamada travada na OpenAI podia
+   * segurar a resposta inteira sem limite nenhum — sugestão do debate
+   * técnico com o ChatGPT (13/09/2026): distinguir timeout de outros
+   * tipos de falha, pra dar pra monitorar cada causa separadamente.
+   */
+  visualCompareTimeoutMs: Math.max(
+    1000,
+    Math.round(envFloat("CONCIERGE_VISUAL_COMPARE_TIMEOUT_MS", 20000))
+  ),
 } as const;

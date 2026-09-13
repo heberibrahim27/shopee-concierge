@@ -27,7 +27,8 @@ import { getSession, setSession, isTriggerPhrase, ConciergeSession } from "./ses
 import { recognizeProductImage, ImageObservation } from "./recognize";
 import { searchProductsByKeyword } from "../shopee/queries";
 import { rankCandidates, RankedCandidate } from "./rank";
-import { compareCandidatesVisually } from "./compare";
+import { compareCandidatesVisually, VisualCompareOutcome } from "./compare";
+import { recordVisualCompareOutcome, isVisualCompareDegraded } from "./visualHealth";
 import {
   buildReplyMessage,
   buildRefinementReply,
@@ -35,9 +36,11 @@ import {
   ReplyPart,
   RefinementIntent,
   TEXTO_SEM_MAIS_OPCOES,
+  TEXTO_CONFIRMAR_REFINAMENTO,
+  TEXTO_MODO_SEGURO_VISUAL,
 } from "./reply";
 import { decideEscalation } from "./confidenceRouter";
-import { consultExpertVision } from "./expertVision";
+import { consultExpertVision, ExpertVerdict } from "./expertVision";
 import { CONCIERGE_CONFIG } from "./config";
 
 export interface OrchestratorResult {
@@ -122,6 +125,38 @@ export function detectRefinementIntent(text: string | undefined): RefinementInte
   return null;
 }
 
+// Bug real (13/09/2026): o Ibrahim respondeu só "Quero" ao fechamento que
+// oferece as 3 opções de refinamento, sem dizer QUAL — isso não batia
+// detectRefinementIntent (não tem "barat"/"qualidade"/"parecid" nenhum) e
+// caía direto em processTextQuery, virando uma busca literal por "Quero" na
+// Shopee. Uma confirmação genérica como essa, quando existe uma busca
+// recente pra refinar (session.lastSearch), merece uma pergunta de volta —
+// não uma pesquisa sem sentido.
+const CONFIRMACOES_AMBIGUAS = new Set([
+  "quero",
+  "sim",
+  "quero sim",
+  "quero uma",
+  "quero isso",
+  "isso",
+  "isso mesmo",
+  "essa",
+  "esse",
+  "pode",
+  "pode sim",
+  "manda",
+  "manda ai",
+  "manda ver",
+  "manda essa",
+  "claro",
+  "positivo",
+]);
+
+export function isAmbiguousRefinementConfirmation(text: string | undefined): boolean {
+  if (!text) return false;
+  return CONFIRMACOES_AMBIGUAS.has(normalizeText(text));
+}
+
 /**
  * Quando o modelo avançado (perito) confirma um match, o roteador já
  * escalou justamente porque o ranking econômico estava em dúvida — então
@@ -150,10 +185,155 @@ function applyExpertVerdict(
 }
 
 /**
+ * Decide o que fazer com `candidates` depois de consultar o perito
+ * (expertVision.ts), separado em função própria pra dar pra testar sem
+ * bater em API nenhuma.
+ *
+ * Bug real (13/09/2026, recorrência): quando escalamos SÓ porque a
+ * comparação visual da 1ª passada falhou (`semSinalVisual` — o matchType de
+ * `candidates` veio inteiro do fallback textual de rank.ts, nunca
+ * verificado de verdade contra a foto), e o perito não confirma nenhum
+ * candidato nem pede esclarecimento (status "uncertain" sem pergunta), o
+ * código antigo simplesmente MANTINHA esse `candidates` não verificado —
+ * foi assim que uma bermuda jeans rasgada continuou aparecendo como "menor
+ * preço" mesmo depois de escalar. Se a ÚNICA razão de escalar foi a falta
+ * de sinal visual, "o perito não confirmou nada" significa que não sobrou
+ * nenhum sinal de relevância confiável nenhum — mais seguro esvaziar
+ * `candidates` (cai no "ainda não encontrei uma opção segura") do que
+ * arriscar mostrar de novo um produto de categoria errada.
+ *
+ * Quando escalamos por outro motivo (confiança/score, não falta de sinal
+ * visual), `candidates` já tinha alguma comparação visual real por trás —
+ * aí sim vale manter o melhor esforço do modelo econômico se o perito
+ * também ficar em dúvida.
+ */
+export function resolveEscalatedCandidates(params: {
+  candidates: RankedCandidate[];
+  verdict: Pick<ExpertVerdict, "status" | "bestCandidateIds" | "needsUserClarification" | "suggestedQuestion">;
+  semSinalVisual: boolean;
+}): RankedCandidate[] {
+  const { candidates, verdict, semSinalVisual } = params;
+
+  if (verdict.status === "match" && verdict.bestCandidateIds.length > 0) {
+    return applyExpertVerdict(candidates, verdict.bestCandidateIds);
+  }
+  if (verdict.needsUserClarification && verdict.suggestedQuestion) {
+    // esclarecimento é tratado por quem chama (via expertNeededClarification)
+    // — aqui só não mexe na lista, ela nem chega a ser usada nesse caso
+    return candidates;
+  }
+  if (semSinalVisual) {
+    return [];
+  }
+  // escalado por outro motivo (confiança/score) e perito ficou em dúvida
+  // sem pergunta útil: segue com o ranking econômico mesmo assim (melhor
+  // esforço, nunca trava a resposta)
+  return candidates;
+}
+
+/**
+ * Decide se vale reabrir a busca com um termo novo sugerido pelo perito,
+ * em vez de desistir direto quando `resolveEscalatedCandidates` esvaziou
+ * os candidatos (13/09/2026, sugestão do debate técnico com o ChatGPT):
+ * escalar pro perito com a MESMA shortlist ruim nem sempre resolve — se a
+ * busca inicial trouxe candidato de categoria errada, o perito só confirma
+ * com mais certeza que estão errados. Quando ele sugere um termo melhor
+ * (`ExpertVerdict.suggestedSearchTerm`), vale tentar UMA busca nova antes
+ * de responder "não encontrei" — nunca encadeia (só 1 retry por request,
+ * ver `alreadyRetried`), e nunca quando o caso é de pedir esclarecimento
+ * ao cliente (esse já tem seu próprio fluxo, não é "busca errada").
+ *
+ * Função pura (só decide, não busca nada) pra dar pra testar sem rede.
+ */
+export function shouldRetryWithSuggestedTerm(params: {
+  candidatesAfterVerdict: RankedCandidate[];
+  verdict: Pick<ExpertVerdict, "needsUserClarification" | "suggestedSearchTerm">;
+  alreadyRetried: boolean;
+}): string | null {
+  const { candidatesAfterVerdict, verdict, alreadyRetried } = params;
+  if (alreadyRetried) return null;
+  if (verdict.needsUserClarification) return null;
+  if (candidatesAfterVerdict.length > 0) return null;
+  return verdict.suggestedSearchTerm ?? null;
+}
+
+/**
  * Roda uma pesquisa completa (ranking + escalonamento + resposta) a partir
  * de um `ImageObservation` já pronto e de uma lista de termos de busca —
  * compartilhado pelo caminho de foto e pelo caminho de texto puro.
  */
+/**
+ * Uma rodada de busca+ranking+comparação visual, isolada em função própria
+ * pra dar pra chamar de novo (retry com termo sugerido pelo perito, ver
+ * shouldRetryWithSuggestedTerm) sem duplicar a lógica.
+ *
+ * Modo seguro (13/09/2026, sugestão do debate técnico com o ChatGPT): antes
+ * de gastar com a comparação visual, checa se ela está sistemicamente
+ * degradada numa janela recente (ver visualHealth.ts) — se estiver,
+ * `degraded: true` sinaliza pro chamador responder com transparência em
+ * vez de arriscar (ou de escalar pro perito, que tende a falhar pela mesma
+ * causa, ex: rate limit da OpenAI).
+ */
+async function searchRankAndCompare(params: {
+  observation: ImageObservation;
+  terms: string[];
+  imageUrl?: string;
+}): Promise<{
+  candidates: RankedCandidate[];
+  visualOutcome: VisualCompareOutcome;
+  matchCount: number;
+  shortlistSize: number;
+  resultCount: number;
+  degraded: boolean;
+}> {
+  const { observation, terms, imageUrl } = params;
+
+  const results = await Promise.all(
+    terms.map((keyword) => searchProductsByKeyword({ keyword, limit: SEARCH_LIMIT_PER_TERM }))
+  );
+  const resultCount = results.flat().length;
+
+  // 1ª passada: ranking heurístico (texto/nota/venda) só pra reduzir a
+  // lista bruta a um shortlist pequeno antes de gastar com comparação
+  // visual real (que é o sinal que realmente decide o que é parecido)
+  const preliminary = rankCandidates(results.flat(), observation);
+  const shortlist = preliminary.slice(0, SHORTLIST_FOR_VISUAL_COMPARISON).map((r) => r.offer);
+
+  if (!imageUrl || shortlist.length === 0) {
+    return {
+      candidates: rankCandidates(shortlist, observation),
+      visualOutcome: { status: "sem_candidatos" },
+      matchCount: 0,
+      shortlistSize: shortlist.length,
+      resultCount,
+      degraded: false,
+    };
+  }
+
+  if (await isVisualCompareDegraded()) {
+    return {
+      candidates: rankCandidates(shortlist, observation),
+      visualOutcome: { status: "sem_candidatos" },
+      matchCount: 0,
+      shortlistSize: shortlist.length,
+      resultCount,
+      degraded: true,
+    };
+  }
+
+  const { matches, outcome } = await compareCandidatesVisually({ photoUrl: imageUrl, observation, candidates: shortlist });
+  await recordVisualCompareOutcome(outcome);
+
+  return {
+    candidates: rankCandidates(shortlist, observation, matches),
+    visualOutcome: outcome,
+    matchCount: matches.size,
+    shortlistSize: shortlist.length,
+    resultCount,
+    degraded: false,
+  };
+}
+
 async function searchAndReply(params: {
   observation: ImageObservation;
   terms: string[];
@@ -163,37 +343,56 @@ async function searchAndReply(params: {
 }): Promise<{ replyParts: ReplyPart[]; candidates: RankedCandidate[] }> {
   const { observation, terms, imageUrl, chatId, messageId } = params;
 
-  const results = await Promise.all(
-    terms.map((keyword) => searchProductsByKeyword({ keyword, limit: SEARCH_LIMIT_PER_TERM }))
-  );
+  const round1 = await searchRankAndCompare({ observation, terms, imageUrl });
 
-  // 1ª passada: ranking heurístico (texto/nota/venda) só pra reduzir a
-  // lista bruta a um shortlist pequeno antes de gastar com comparação
-  // visual real (que é o sinal que realmente decide o que é parecido)
-  const preliminary = rankCandidates(results.flat(), observation);
-  const shortlist = preliminary.slice(0, SHORTLIST_FOR_VISUAL_COMPARISON).map((r) => r.offer);
+  if (round1.degraded) {
+    console.log(
+      "[concierge][observability]",
+      JSON.stringify({ requestId: messageId, modoSeguro: true, motivo: "comparacao_visual_degradada" })
+    );
+    return { replyParts: [{ type: "text", text: TEXTO_MODO_SEGURO_VISUAL }], candidates: [] };
+  }
 
-  const visualComparisons = imageUrl
-    ? await compareCandidatesVisually({ photoUrl: imageUrl, observation, candidates: shortlist })
-    : undefined;
+  let candidates = round1.candidates;
 
-  let candidates = rankCandidates(shortlist, observation, visualComparisons);
+  // Sem sinal visual real apesar de ter foto (comparação falhou/não achou
+  // nada) e ainda assim tinha candidato pra comparar — o matchType de todo
+  // mundo em `candidates` veio só do fallback textual, mais fraco. Ver
+  // motivo "comparacao_visual_indisponivel" em confidenceRouter.ts.
+  const semSinalVisual =
+    Boolean(imageUrl) && round1.shortlistSize > 0 && (round1.visualOutcome.status !== "ok" || round1.matchCount === 0);
 
-  const decision = decideEscalation(observation, candidates);
+  const decision = decideEscalation(observation, candidates, { semSinalVisual });
   let escalatedConfidence: number | undefined;
   let expertNeededClarification: { question: string } | null = null;
+  let buscaReaberta = false;
 
   if (decision.escalate && imageUrl) {
     const verdict = await consultExpertVision({ photoUrl: imageUrl, observation, candidates });
     escalatedConfidence = verdict.confidence;
 
-    if (verdict.status === "match" && verdict.bestCandidateIds.length > 0) {
-      candidates = applyExpertVerdict(candidates, verdict.bestCandidateIds);
-    } else if (verdict.needsUserClarification && verdict.suggestedQuestion) {
+    if (verdict.needsUserClarification && verdict.suggestedQuestion) {
       expertNeededClarification = { question: verdict.suggestedQuestion };
+    } else {
+      candidates = resolveEscalatedCandidates({ candidates, verdict, semSinalVisual });
+
+      const retryTerm = shouldRetryWithSuggestedTerm({
+        candidatesAfterVerdict: candidates,
+        verdict,
+        alreadyRetried: false,
+      });
+      if (retryTerm) {
+        buscaReaberta = true;
+        const round2 = await searchRankAndCompare({
+          observation,
+          terms: [retryTerm, ...terms].slice(0, MAX_SEARCH_TERMS),
+          imageUrl,
+        });
+        if (!round2.degraded) {
+          candidates = round2.candidates;
+        }
+      }
     }
-    // status "uncertain" sem pergunta útil: segue com o ranking do
-    // modelo econômico mesmo assim (melhor esforço, nunca trava a resposta)
   }
 
   if (expertNeededClarification) {
@@ -202,6 +401,7 @@ async function searchAndReply(params: {
       JSON.stringify({
         requestId: messageId,
         confiancaGeral: observation.confiancaGeral,
+        semSinalVisual,
         escalou: true,
         motivoEscalonamento: decision.motivo,
         modeloAvancado: "expert",
@@ -221,14 +421,17 @@ async function searchAndReply(params: {
     JSON.stringify({
       requestId: messageId,
       confiancaGeral: observation.confiancaGeral,
+      semSinalVisual,
+      visualOutcome: round1.visualOutcome,
       categoria: observation.categoria,
       termosPesquisa: terms,
-      quantidadeResultadosShopee: results.flat().length,
+      quantidadeResultadosShopee: round1.resultCount,
       escalou: decision.escalate,
       motivoEscalonamento: decision.motivo,
       modeloAvancado: decision.escalate ? "expert" : undefined,
       confiancaFinal: escalatedConfidence ?? observation.confiancaGeral,
       precisouEsclarecimento: false,
+      buscaReaberta,
       produtosEnviados: candidates.slice(0, 3).map((c) => c.offer.itemId),
     })
   );
@@ -467,6 +670,39 @@ async function processRefinement(
   return { chatId: msg.chatId, replyText: null, replyParts: parts };
 }
 
+/**
+ * Roteador de estado de conversa pendente — roda ANTES de qualquer
+ * interpretação como busca de produto nova, sempre que existe uma busca
+ * recente pra essa conversa (`session.lastSearch`). Extraído em função
+ * própria em 13/09/2026 (sugestão do debate técnico com o ChatGPT): hoje
+ * só trata pedido de refinamento ("mais barata"/"melhor qualidade"/"mais
+ * parecida") e confirmação ambígua ("quero"/"sim"/"manda" sem dizer qual),
+ * mas é o lugar certo pra crescer amanhã com outras frases dependentes de
+ * contexto (ex: "esse", "aquele", "tem preto?") sem precisar reordenar
+ * nada em handleIncomingMessage de novo.
+ *
+ * Devolve null quando a mensagem não é sobre a busca pendente — aí sim o
+ * chamador segue pro parser de busca genérico (processTextQuery).
+ */
+async function resolvePendingConversationState(
+  msg: IncomingMessage,
+  session: ConciergeSession
+): Promise<OrchestratorResult | null> {
+  if (!session.lastSearch) return null;
+
+  const intent = detectRefinementIntent(msg.text);
+  if (intent) return processRefinement(msg, session, intent);
+
+  // Confirmação genérica ("Quero", "sim"...) sem dizer qual das 3 opções —
+  // pede pra especificar em vez de buscar isso literalmente na Shopee
+  // (bug real, 13/09/2026, ver isAmbiguousRefinementConfirmation).
+  if (isAmbiguousRefinementConfirmation(msg.text)) {
+    return { chatId: msg.chatId, replyText: TEXTO_CONFIRMAR_REFINAMENTO };
+  }
+
+  return null;
+}
+
 export async function handleIncomingMessage(
   msg: IncomingMessage,
   connector?: ChannelConnector
@@ -503,16 +739,12 @@ export async function handleIncomingMessage(
       };
     }
 
-    // Pedido de refinamento da busca anterior (13/09/2026, bug real
-    // reportado pelo Ibrahim) — precisa ser checado ANTES da busca de texto
-    // genérica abaixo, senão "mais parecida" vira uma pesquisa literal sem
+    // Estado de conversa pendente (13/09/2026, bug real reportado pelo
+    // Ibrahim) — precisa ser checado ANTES da busca de texto genérica
+    // abaixo, senão "mais parecida"/"Quero" viram pesquisa literal sem
     // sentido na Shopee em vez de reaproveitar a busca já feita.
-    if (session.lastSearch) {
-      const intent = detectRefinementIntent(msg.text);
-      if (intent) {
-        return processRefinement(msg, session, intent);
-      }
-    }
+    const pendingStateReply = await resolvePendingConversationState(msg, session);
+    if (pendingStateReply) return pendingStateReply;
 
     // Texto puro que não é o gatilho e não é conversa fiada (13/09/2026):
     // trata como busca direta por nome de produto.

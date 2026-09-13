@@ -30,15 +30,29 @@ export interface ExpertVerdict {
   reason?: string;
   needsUserClarification: boolean;
   suggestedQuestion?: string;
+  /**
+   * Adicionado em 13/09/2026 (sugestão do debate técnico com o ChatGPT):
+   * antes, quando a shortlist inteira estava errada (busca inicial trouxe
+   * candidato ruim), escalar pro perito só rejulgava os MESMOS candidatos
+   * — se estavam errados, o perito só confirma com mais certeza que estão
+   * errados, sem chance de achar o produto certo. Quando o perito suspeita
+   * que um termo de busca diferente encontraria o produto certo (sem
+   * precisar perguntar nada ao cliente), sugere esse termo aqui — o
+   * orquestrador faz UMA nova rodada de busca com ele antes de desistir
+   * (ver orchestrator.ts, shouldRetryWithSuggestedTerm/searchAndReply).
+   */
+  suggestedSearchTerm?: string;
 }
 
 const SYSTEM_PROMPT = `Você é o revisor final de um sistema que sugere produtos parecidos com uma foto enviada por um cliente.
 Compare a foto ORIGINAL com os produtos candidatos e determine quais são visual e semanticamente mais compatíveis.
 NÃO force uma escolha caso as evidências sejam insuficientes — nesse caso, é melhor pedir outra foto/informação do que arriscar uma sugestão ruim.
-Responda em JSON estrito com um destes dois formatos:
+Responda em JSON estrito com um destes formatos:
 {"status":"match","best_candidate_ids":["id1","id2"],"confidence":0.0-1.0,"reason":"frase curta"}
-ou
-{"status":"uncertain","confidence":0.0-1.0,"needs_user_clarification":true,"suggested_question":"pergunta curta e natural para o cliente"}`;
+ou, se precisar de uma informação do cliente pra decidir:
+{"status":"uncertain","confidence":0.0-1.0,"needs_user_clarification":true,"suggested_question":"pergunta curta e natural para o cliente"}
+ou, se NENHUM candidato remotamente corresponde à foto (a busca trouxe produto de categoria/estilo errado) e você suspeita que um termo de busca diferente encontraria o produto certo, sem precisar perguntar nada ao cliente:
+{"status":"uncertain","confidence":0.0-1.0,"needs_user_clarification":false,"suggested_search_term":"termo curto e específico em português pra tentar de novo"}`;
 
 /**
  * @param photoUrl foto original do cliente (não a versão redimensionada)
@@ -125,6 +139,10 @@ export async function consultExpertVision(params: {
       needsUserClarification: Boolean(parsed.needs_user_clarification),
       suggestedQuestion:
         typeof parsed.suggested_question === "string" ? parsed.suggested_question : undefined,
+      suggestedSearchTerm:
+        typeof parsed.suggested_search_term === "string" && parsed.suggested_search_term.trim()
+          ? parsed.suggested_search_term.trim()
+          : undefined,
     };
   } catch (err) {
     // erro de API/parsing não pode travar a resposta inteira — quem chama
