@@ -30,6 +30,15 @@ import { createZApiConnector } from "@/lib/channel/zapi";
 import { handleIncomingMessage } from "@/lib/concierge/orchestrator";
 import { isDuplicate } from "@/lib/dedupe";
 
+// Sem isso, a function usa o limite padrão da Vercel pro plano do
+// projeto — curto demais pro pipeline do concierge numa foto (reconhecer +
+// buscar na Shopee + comparar visualmente +, às vezes, escalar pro perito e
+// tentar de novo com um termo sugerido). Pede o máximo permitido pelo plano
+// contratado; se o plano permitir menos que isso, a Vercel aplica o limite
+// dele mesmo assim — não tem como isso piorar nada, só evita cortar a
+// function no meio do processamento por causa de um número baixo padrão.
+export const maxDuration = 60;
+
 const connector = createZApiConnector();
 
 // Chave única do desligamento (ver comentário no topo do arquivo). Pra
