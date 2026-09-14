@@ -1,6 +1,13 @@
+import "./globals.css";
+
 export const metadata = {
-  title: "Shopee Concierge",
-  description: "Piloto — concierge de compras via WhatsApp + Shopee",
+  metadataBase: new URL("https://descontochegando.com.br"),
+  title: {
+    default: "Desconto Chegando — ache o produto certo pelo melhor custo-benefício",
+    template: "%s | Desconto Chegando",
+  },
+  description:
+    "Comparador de preços da Shopee: manda o que você quer, a gente acha onde vale mais a pena comprar.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

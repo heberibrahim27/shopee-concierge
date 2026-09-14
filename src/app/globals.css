@@ -1,0 +1,373 @@
+:root {
+  --dc-black: #16130f;
+  --dc-gold: #c8a24a;
+  --dc-gold-dark: #9c7a2e;
+  --dc-bg: #faf9f7;
+  --dc-card-bg: #ffffff;
+  --dc-text: #1c1a17;
+  --dc-text-muted: #6f6a62;
+  --dc-border: #eae6df;
+  --dc-radius: 16px;
+  --dc-max-width: 720px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  background: var(--dc-bg);
+  color: var(--dc-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+.dc-shell {
+  max-width: var(--dc-max-width);
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.dc-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--dc-black);
+  color: #fff;
+  padding-block: 14px;
+  border-bottom: 3px solid var(--dc-gold);
+}
+
+.dc-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dc-logo {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: 0.2px;
+  text-decoration: none;
+}
+
+.dc-logo-desconto {
+  color: #fff;
+}
+
+.dc-logo-chegando {
+  color: var(--dc-gold);
+}
+
+.dc-whatsapp-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--dc-gold);
+  color: var(--dc-black);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.dc-hero {
+  padding-block: 24px 8px;
+}
+
+.dc-hero h1 {
+  font-size: 22px;
+  line-height: 1.3;
+  margin: 0 0 16px;
+}
+
+.dc-search-form {
+  display: flex;
+  gap: 8px;
+}
+
+.dc-search-input {
+  flex: 1;
+  padding: 14px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--dc-border);
+  font-size: 15px;
+  background: var(--dc-card-bg);
+}
+
+.dc-search-button {
+  border: none;
+  background: var(--dc-black);
+  color: #fff;
+  font-weight: 700;
+  padding: 0 20px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.dc-photo-cta {
+  margin-top: 12px;
+  display: block;
+  text-align: center;
+  padding: 16px;
+  border-radius: var(--dc-radius);
+  border: 2px dashed var(--dc-gold);
+  color: var(--dc-black);
+  text-decoration: none;
+  font-weight: 700;
+  background: #fff8ea;
+}
+
+.dc-photo-cta span {
+  display: block;
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--dc-text-muted);
+  margin-top: 4px;
+}
+
+.dc-section {
+  padding-block: 20px;
+}
+
+.dc-section h2 {
+  font-size: 17px;
+  margin: 0 0 12px;
+}
+
+.dc-chip-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.dc-chip-row::-webkit-scrollbar {
+  display: none;
+}
+
+.dc-chip {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--dc-card-bg);
+  border: 1px solid var(--dc-border);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dc-text);
+}
+
+.dc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+@media (min-width: 480px) {
+  .dc-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.dc-card {
+  display: block;
+  background: var(--dc-card-bg);
+  border: 1px solid var(--dc-border);
+  border-radius: var(--dc-radius);
+  overflow: hidden;
+  text-decoration: none;
+  color: var(--dc-text);
+}
+
+.dc-card-image {
+  aspect-ratio: 1 / 1;
+  background: #f1efe9;
+  overflow: hidden;
+}
+
+.dc-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dc-card-body {
+  padding: 10px 12px 14px;
+}
+
+.dc-card-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  margin-bottom: 6px;
+}
+
+.dc-card-badge.price {
+  background: #eaf7ee;
+  color: #1f8a4c;
+}
+
+.dc-card-badge.rating {
+  background: #fff3d9;
+  color: #96700c;
+}
+
+.dc-card-badge.sales {
+  background: #fdeaea;
+  color: #c23434;
+}
+
+.dc-card-title {
+  font-size: 13.5px;
+  line-height: 1.35;
+  margin: 0 0 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.dc-card-price {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.dc-card-meta {
+  font-size: 12px;
+  color: var(--dc-text-muted);
+  margin-top: 2px;
+}
+
+.dc-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--dc-text-muted);
+  background: var(--dc-card-bg);
+  border: 1px dashed var(--dc-border);
+  border-radius: var(--dc-radius);
+  font-size: 14px;
+}
+
+.dc-footer-cta {
+  margin-top: 8px;
+  padding: 20px 16px;
+  border-radius: var(--dc-radius);
+  background: var(--dc-black);
+  color: #fff;
+  text-align: center;
+}
+
+.dc-footer-cta h2 {
+  color: #fff;
+  font-size: 16px;
+  margin: 0 0 4px;
+}
+
+.dc-footer-cta p {
+  color: #d8d3c8;
+  font-size: 13px;
+  margin: 0 0 14px;
+}
+
+.dc-footer {
+  padding: 24px 16px 40px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--dc-text-muted);
+}
+
+/* Página de produto */
+.dc-product-hero {
+  background: var(--dc-card-bg);
+  border: 1px solid var(--dc-border);
+  border-radius: var(--dc-radius);
+  overflow: hidden;
+  margin-top: 16px;
+}
+
+.dc-product-image {
+  aspect-ratio: 1 / 1;
+  background: #f1efe9;
+}
+
+.dc-product-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dc-product-body {
+  padding: 16px;
+}
+
+.dc-back-link {
+  display: inline-block;
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--dc-text-muted);
+  text-decoration: none;
+}
+
+.dc-choice-badge {
+  display: inline-block;
+  background: var(--dc-black);
+  color: var(--dc-gold);
+  font-weight: 800;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.dc-product-checklist {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13.5px;
+}
+
+.dc-product-checklist li {
+  padding: 4px 0;
+}
+
+.dc-cta-button {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 14px;
+  border-radius: 999px;
+  background: var(--dc-gold);
+  color: var(--dc-black);
+  font-weight: 800;
+  text-decoration: none;
+  margin-top: 16px;
+}

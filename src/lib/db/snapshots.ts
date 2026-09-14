@@ -9,6 +9,7 @@
  */
 import { getDb } from "./client";
 import { ShopeeProductOffer } from "../shopee/types";
+import { notifyCatalogUpdate } from "../site/notifyRevalidate";
 
 export async function persistOfferSnapshot(
   offer: ShopeeProductOffer
@@ -28,7 +29,7 @@ export async function persistOfferSnapshot(
       },
       { onConflict: "shopee_item_id" }
     )
-    .select("id")
+    .select("id, slug, category_slug, site_published")
     .single();
 
   if (productError || !product) {
@@ -66,6 +67,18 @@ export async function persistOfferSnapshot(
     throw new Error(
       `Falha ao gravar snapshot de ${offer.itemId}: ${snapshotError?.message}`
     );
+  }
+
+  // Mantém o preço no site sempre atualizado — só notifica produto já
+  // publicado (ver src/lib/site/notifyRevalidate.ts). Nunca deixa uma
+  // falha de rede/config aqui derrubar o pipeline de sourcing.
+  if (product.site_published && product.slug) {
+    await notifyCatalogUpdate({
+      productSlug: product.slug,
+      categorySlug: product.category_slug,
+    }).catch((error) => {
+      console.error(`[site][revalidate] notificação falhou pra ${product.slug}`, error);
+    });
   }
 
   return { productId: product.id, snapshotId: snapshot.id };
