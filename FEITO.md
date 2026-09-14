@@ -4,6 +4,41 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-14 (sessão seguinte, parte 17) — menu inferior, ícone de ofertas, banner do rodapé, publicado
+
+- **Neumorfismo corrigido**: os 18 ícones de categoria tinham margem
+  transparente enorme (~57% do canvas vazio), fazendo a sombra CSS
+  "flutuar" longe do cartão visível — só o ladrilho sintético da
+  Infantil (sem imagem) mostrava a sombra corretamente. Recortados via
+  canvas no navegador (bounding box de alpha) e reexportados como `.jpg`
+  (public/icones-categorias/, ~10KB cada, antes ~470KB em PNG). Também
+  removida a cor esverdeada da sombra (usuário não aprovou) e a borda
+  verde que só aparecia no hover da Infantil (removida — sem borda em
+  nenhum ladrilho, só sombra dupla neutra preto/branco).
+- **Menu inferior redesenhado** seguindo referência `MENU.png`:
+  [`BottomNav.tsx`](src/components/site/BottomNav.tsx) virou client
+  component (`usePathname`) pra destacar em verde o item da página atual;
+  pílula branca flutuante com `backdrop-filter: blur` (efeito vidro fosco
+  ao rolar a página) no lugar da barra escura fixa antiga.
+- **Lupa do "Buscar"** no menu: traço mais grosso (2.6) e círculo maior,
+  pra bater com o peso visual do `MENU.png`.
+- **Ícone de "Ofertas de hoje"**: `FlameIcon` (SVG) trocado pela chama 3D
+  de `OFERTAS.png` (recortada do mesmo jeito que os ícones de categoria).
+- **Banner do topo simplificado**: banner trocado 2x (`CARD-HERO-NOVO.png`
+  → `BANNER-FINAL.png`, usuário achou o anterior "muito verde"); os dois
+  slides extras (Casa e "Manda uma foto") foram removidos a pedido —
+  agora é só um card, sem scroll horizontal. CSS morto (`.dc-promo-row`,
+  `.dc-promo-card`, `.dc-icon-row-bleed` etc.) removido junto.
+- **Rodapé**: card CSS "Não encontrou o que procurava?" trocado pela arte
+  pronta `BANNER-RODAPÉ.png` (link direto pro WhatsApp).
+- **Publicado**: commit `30593dc` na `main`, push feito
+  (`heberibrahim27/shopee-concierge`) — aciona o deploy automático na
+  Vercel (`shopee-concierge-prod`). Pastas de origem dos ícones
+  (`ICONES/`, `ICONES BRANCOS/`, `ICONES-CATEGORIAS.png`) ficaram de fora
+  do commit via `.gitignore` (só as versões recortadas em
+  `icones-categorias/` são usadas pelo site; ~20MB de fonte bruta sem uso
+  não precisa ir pro histórico do git).
+
 ## 2026-09-14 (sessão seguinte, parte 16) — grade de categorias (2 linhas) + banner trocado
 
 - **Buscador (`.dc-header-search-bg`)**: troquei `background-image` +
