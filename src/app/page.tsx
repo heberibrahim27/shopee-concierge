@@ -13,6 +13,7 @@ export default async function HomePage() {
       <Header />
       <main className="dc-shell">
         <section className="dc-hero">
+          <span className="dc-eyebrow">Comparador de preços · Shopee</span>
           <h1>Ache o produto certo pelo melhor custo-benefício.</h1>
           <SearchBox />
         </section>

@@ -68,7 +68,7 @@ perito quando a lista filtrada fica vazia. Mesclado e deployado.
   6. Confirmação ambígua: depois do fechamento, responder só "quero" sem
      dizer qual opção.
 
-### 3. 🚨 Domínio `descontochegando.com.br` — conteúdo perdido/resetado (não é Vercel)
+### 3. ✅ Domínio `descontochegando.com.br` — resolvido, site no ar (2026-09-14)
 Investigado em 2026-09-14: o domínio **não está e nunca esteve conectado ao
 Vercel**. Ele aponta (DNS + certificado) pra hospedagem **Hostinger**
 (servidor LiteSpeed, painel hpanel), rodando um WordPress **completamente
@@ -150,18 +150,37 @@ migration aplicada de verdade no Supabase, 3 produtos reais publicados
 automática de preço (Growth OS → revalidação do cache do site) implementada
 e testada localmente.
 
-**Pendente agora:**
-1. ⚠️ **Preciso da `SUPABASE_SERVICE_ROLE_KEY`** (a mesma já configurada na
-   Vercel) pra colocar no `.env` local e ver o site renderizando os 3
-   produtos reais no navegador — não posso pegar essa chave sozinho (a
-   ferramenta MCP do Supabase só expõe chave anon/publishable por design de
-   segurança, e está certo que seja assim).
-2. Só depois de visualizar/aprovar, apontar o DNS do domínio pra Vercel
-   (ver item 3 acima) — não faz sentido trocar DNS antes de o site estar
-   pronto o suficiente.
-3. Configurar `SITE_BASE_URL` e `REVALIDATION_SECRET` (gerar um valor novo,
-   não reaproveitar o de dev) nas env vars de produção da Vercel, senão a
-   atualização automática de preço não funciona lá.
+**Resolvido (2026-09-14, à noite):** site commitado (`9062fc6`) e deployado
+em produção — `shopee-concierge-prod.vercel.app` confirmado servindo a Home
+real com os 9 produtos. Domínio próprio configurado: descoberto que quem
+administra o DNS de verdade é a Hostinger (via "HSTDOMAINS", provedor de
+serviços cadastrado no Registro.br), não o Registro.br diretamente.
+Usuário adicionou o domínio nas Domains do projeto Vercel, editou o
+registro A (`@`) de `62.72.62.166` pra `216.150.1.1`, e apagou o AAAA
+antigo que senão mandaria visitantes IPv6 pro WordPress. Confirmado via
+`curl --resolve` direto no IP novo que o site responde certo
+(`Server: Vercel`). Google/Cloudflare DNS já resolvem certo; resolvedores
+locais/ISP podem levar até algumas horas — propagação normal.
+
+**Resolvido (2026-09-14, à noite):** `SITE_BASE_URL` e `REVALIDATION_SECRET`
+configurados nas env vars de produção da Vercel. Testado direto em
+produção: `POST /api/internal/revalidate-catalog` responde 401 sem
+autenticação e 200 com a chave certa, invalidando as tags certas. A
+atualização automática de preço (Growth OS grava snapshot → site invalida
+cache na hora) está funcionando de ponta a ponta em produção — não
+precisou nem de redeploy manual, a Vercel já aplicou as env vars novas nas
+functions rodando.
+
+**Pendente agora (só tempo, nada de ação):**
+1. Confirmar visualmente em `https://descontochegando.com.br` assim que a
+   propagação de DNS terminar no seu provedor de internet.
+2. ✅ `www.descontochegando.com.br` adicionado como domínio separado no
+   projeto Vercel (Production) — certificado SSL gerando automaticamente,
+   sem ação adicional necessária.
+
+**Domínio 100% configurado do lado técnico.** Site em produção,
+respondendo nos dois domínios (com e sem `www`) assim que a propagação e o
+certificado terminarem.
 
 ### 4. Pendências menores (não bloqueiam o bot)
 Adicionadas em 2026-09-14 via handoff da sessão cowork:

@@ -4,6 +4,35 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-14 (sessão à noite, parte 5) — site no ar em produção
+
+Commit `9062fc6` (código do site, sem arquivos pessoais/rascunho) enviado
+pra `main` — deploy automático da Vercel confirmado funcionando:
+`https://shopee-concierge-prod.vercel.app/` está servindo a Home real, com
+os 9 produtos publicados aparecendo corretamente (imagens, preço, desconto,
+nota, vendas). Confirmado que as credenciais do Supabase já estavam
+configuradas em produção (o bot já usava o mesmo banco). Build sem erros,
+sem impacto no webhook do bot (rotas totalmente separadas).
+
+**Atualização — domínio configurado (2026-09-14, mesma noite):** domínio é
+administrado pela Hostinger (via "HSTDOMAINS", provedor de serviços
+cadastrado no Registro.br) — a zona DNS de verdade fica no hPanel da
+Hostinger, não no Registro.br diretamente. Usuário adicionou
+`descontochegando.com.br` nas Domains do projeto na Vercel, e no hPanel:
+- Editou o registro **A** (`@`) de `62.72.62.166` (IP antigo da Hostinger)
+  pra **`216.150.1.1`** (IP da Vercel).
+- **Apagou o registro AAAA** (`@` → `2a02:4780:13:1280:0:1c51:7def:3`) que
+  senão continuaria mandando visitantes IPv6 pro WordPress antigo mesmo com
+  o A record corrigido.
+- Registros de e-mail (CNAME dkim/autodiscover/autoconfig, TXT
+  spf/dmarc, MX, CNAME `www`) mantidos intocados — não são do site.
+
+Confirmado via `curl --resolve` direto no IP da Vercel: o site novo já
+responde certo (`Server: Vercel`, título "Desconto Chegando..."). Google
+DNS (8.8.8.8) e Cloudflare (1.1.1.1) já resolvem pro IP novo; resolvedores
+locais/ISP ainda podem levar um tempo (minutos a poucas horas) pra
+atualizar o cache — propagação normal, nada a corrigir.
+
 ## 2026-09-14 (sessão à noite, parte 4) — 6 novos produtos publicados sem precisar de credenciais novas
 
 Descoberto que existem **41 produtos** já coletados pelo Growth OS (dos 50 no
