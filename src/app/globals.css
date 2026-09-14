@@ -249,11 +249,18 @@ img {
   transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease, transform 0.25s ease;
 }
 
-.dc-chip:hover {
+.dc-chip:hover,
+.dc-chip-active {
   background: var(--dc-black);
   border-color: var(--dc-black);
   color: var(--dc-gold-bright);
   transform: translateY(-1px);
+}
+
+.dc-icon-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* ---------- Product grid / cards ---------- */
@@ -470,7 +477,10 @@ img {
 }
 
 .dc-cta-button {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
   text-align: center;
   padding: 16px;

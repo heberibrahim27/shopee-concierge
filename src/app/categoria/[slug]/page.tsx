@@ -5,6 +5,7 @@ import { CategoryChips } from "../../../components/site/CategoryChips";
 import { ProductGrid } from "../../../components/site/ProductGrid";
 import { getCategoryBySlug, SITE_CATEGORIES } from "../../../lib/site/categories";
 import { getCachedCategory } from "../../../lib/site/catalog";
+import { CATEGORY_ICONS } from "../../../components/site/icons";
 
 export function generateStaticParams() {
   return SITE_CATEGORIES.map((category) => ({ slug: category.slug }));
@@ -25,14 +26,16 @@ export default async function CategoryPage({ params }: { params: { slug: string 
   if (!category) notFound();
 
   const products = await getCachedCategory(category.slug);
+  const Icon = CATEGORY_ICONS[category.slug];
 
   return (
     <>
       <Header />
       <main className="dc-shell">
         <section className="dc-hero">
-          <h1>
-            {category.emoji} {category.label}
+          <h1 className="dc-icon-inline">
+            {Icon ? <Icon size={24} /> : null}
+            {category.label}
           </h1>
         </section>
         <section className="dc-section">

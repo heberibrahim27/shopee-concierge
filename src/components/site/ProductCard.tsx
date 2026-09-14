@@ -1,5 +1,6 @@
 import { SiteProduct } from "../../lib/site/catalog";
 import { formatPriceBRL, formatRating, formatSales } from "../../lib/site/format";
+import { StarIcon } from "./icons";
 
 export function ProductCard({ product }: { product: SiteProduct }) {
   const price = formatPriceBRL(product.priceMin);
@@ -20,8 +21,13 @@ export function ProductCard({ product }: { product: SiteProduct }) {
         <p className="dc-card-title">{product.productName}</p>
         {price ? <div className="dc-card-price">{price}</div> : null}
         {rating || sales ? (
-          <div className="dc-card-meta">
-            {rating ? `⭐ ${rating}` : ""}
+          <div className="dc-card-meta dc-icon-inline">
+            {rating ? (
+              <span className="dc-icon-inline">
+                <StarIcon size={12} style={{ color: "var(--dc-gold-deep)" }} />
+                {rating}
+              </span>
+            ) : null}
             {rating && sales ? " • " : ""}
             {sales ?? ""}
           </div>

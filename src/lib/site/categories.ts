@@ -6,16 +6,15 @@
 export interface SiteCategory {
   slug: string;
   label: string;
-  emoji: string;
 }
 
 export const SITE_CATEGORIES: SiteCategory[] = [
-  { slug: "casa", label: "Casa", emoji: "🏠" },
-  { slug: "eletronicos", label: "Eletrônicos", emoji: "🔌" },
-  { slug: "ferramentas", label: "Ferramentas", emoji: "🛠️" },
-  { slug: "beleza", label: "Beleza", emoji: "💄" },
-  { slug: "moda", label: "Moda", emoji: "👕" },
-  { slug: "infantil", label: "Infantil", emoji: "🧸" },
+  { slug: "casa", label: "Casa" },
+  { slug: "eletronicos", label: "Eletrônicos" },
+  { slug: "ferramentas", label: "Ferramentas" },
+  { slug: "beleza", label: "Beleza" },
+  { slug: "moda", label: "Moda" },
+  { slug: "infantil", label: "Infantil" },
 ];
 
 export function getCategoryBySlug(slug: string): SiteCategory | undefined {

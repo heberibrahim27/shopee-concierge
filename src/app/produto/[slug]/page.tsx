@@ -4,6 +4,7 @@ import { Footer } from "../../../components/site/Footer";
 import { getCachedProduct } from "../../../lib/site/catalog";
 import { formatPriceBRL, formatRating, formatSales } from "../../../lib/site/format";
 import { getProductAffiliateHref, AFFILIATE_LINK_REL } from "../../../lib/site/affiliateLink";
+import { AwardIcon, StarIcon } from "../../../components/site/icons";
 
 export async function generateMetadata({ params }: { params: { slug: string } }) {
   const product = await getCachedProduct(params.slug);
@@ -67,11 +68,19 @@ export default async function ProductPage({ params }: { params: { slug: string }
             {product.imageUrl ? <img src={product.imageUrl} alt={product.productName} /> : null}
           </div>
           <div className="dc-product-body">
-            <span className="dc-choice-badge">🏆 NOSSA ESCOLHA</span>
+            <span className="dc-choice-badge">
+              <AwardIcon size={14} />
+              Nossa escolha
+            </span>
             <h1 style={{ fontSize: 18, margin: "0 0 8px" }}>{product.productName}</h1>
             {rating || sales ? (
-              <div className="dc-card-meta" style={{ marginBottom: 8 }}>
-                {rating ? `⭐ ${rating}` : ""}
+              <div className="dc-card-meta dc-icon-inline" style={{ marginBottom: 8 }}>
+                {rating ? (
+                  <span className="dc-icon-inline">
+                    <StarIcon size={12} style={{ color: "var(--dc-gold-deep)" }} />
+                    {rating}
+                  </span>
+                ) : null}
                 {rating && sales ? " • " : ""}
                 {sales ?? ""}
               </div>

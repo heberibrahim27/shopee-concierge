@@ -1,4 +1,5 @@
 import { buildWhatsAppLink } from "./constants";
+import { WhatsAppIcon } from "./icons";
 
 export function Footer() {
   return (
@@ -13,7 +14,8 @@ export function Footer() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            📸 Procurar pelo WhatsApp
+            <WhatsAppIcon size={18} />
+            Procurar pelo WhatsApp
           </a>
         </div>
       </div>

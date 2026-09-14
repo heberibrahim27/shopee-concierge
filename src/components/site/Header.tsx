@@ -1,5 +1,6 @@
 import { Logo } from "./Logo";
 import { buildWhatsAppLink } from "./constants";
+import { WhatsAppIcon } from "./icons";
 
 export function Header() {
   return (
@@ -12,7 +13,8 @@ export function Header() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          📲 WhatsApp
+          <WhatsAppIcon size={16} />
+          WhatsApp
         </a>
       </div>
     </header>

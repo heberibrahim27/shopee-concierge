@@ -1,4 +1,5 @@
 import { buildWhatsAppLink } from "./constants";
+import { CameraIcon } from "./icons";
 
 /**
  * Form GET nativo — navega pra /busca?q=... sem precisar de client
@@ -26,7 +27,10 @@ export function SearchBox() {
         target="_blank"
         rel="noopener noreferrer"
       >
-        📸 Buscar pela foto
+        <span className="dc-icon-inline" style={{ justifyContent: "center" }}>
+          <CameraIcon size={18} />
+          Buscar pela foto
+        </span>
         <span>Viu algo na rua, no Instagram ou na casa de alguém? Manda a foto no WhatsApp.</span>
       </a>
     </>
