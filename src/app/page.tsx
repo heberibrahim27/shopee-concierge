@@ -1,10 +1,9 @@
 import { Header } from "../components/site/Header";
 import { Footer } from "../components/site/Footer";
-import { SearchBox } from "../components/site/SearchBox";
-import { CategoryChips } from "../components/site/CategoryChips";
+import { CategoryGrid } from "../components/site/CategoryGrid";
+import { PromoBanner } from "../components/site/PromoBanner";
 import { ProductGrid } from "../components/site/ProductGrid";
 import { getCachedHomeOffers } from "../lib/site/catalog";
-import { FlameIcon } from "../components/site/icons";
 
 export default async function HomePage() {
   const offers = await getCachedHomeOffers();
@@ -13,20 +12,24 @@ export default async function HomePage() {
     <>
       <Header />
       <main className="dc-shell">
-        <section className="dc-hero">
-          <span className="dc-eyebrow">Comparador de preços · Shopee</span>
-          <h1>Ache o produto certo pelo melhor custo-benefício.</h1>
-          <SearchBox />
+        {/* H1 só pra SEO/acessibilidade — sem espaço visual entre o
+            cabeçalho e o banner, como pedido. */}
+        <h1 className="dc-sr-only">
+          Desconto Chegando — comparador de preços da Shopee: ache o produto certo pelo melhor
+          custo-benefício.
+        </h1>
+
+        <section className="dc-section" style={{ paddingBlock: "10px 4px" }}>
+          <PromoBanner />
         </section>
 
-        <section className="dc-section">
-          <h2>Categorias</h2>
-          <CategoryChips />
+        <section className="dc-section" style={{ paddingBlock: "6px 4px" }}>
+          <CategoryGrid />
         </section>
 
         <section className="dc-section">
           <h2 className="dc-icon-inline">
-            <FlameIcon size={17} style={{ color: "var(--dc-gold-deep)" }} />
+            <img src="/OFERTAS-ICON.png" alt="" aria-hidden="true" className="dc-offers-icon" />
             Ofertas de hoje
           </h2>
           <ProductGrid

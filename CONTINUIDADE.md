@@ -231,6 +231,32 @@ aprovados (score >= 75) ainda não usados, dos 41 totais encontrados nos 50
 produtos já coletados — dá pra publicar mais sem rodar a coleta de novo.
 Ver query replicando `scoreOffer` em `FEITO.md` (parte 4) pra reaproveitar.
 
+**Atualização (2026-09-14, sessão seguinte):** publicados TODOS os 31
+candidatos aprovados (score >= 75) direto no Supabase via SQL — catálogo
+foi de 9 para **40 produtos publicados** (dos 50 já coletados; os outros
+10 não passam no corte de qualidade). Corrigido curso depois que o usuário
+pediu volume ("quero encher o site") — a primeira rodada só tinha
+publicado 14 por excesso de cautela com produtos parecidos entre si
+(várias mochilas, vários fones "X55"), mas numa vitrine de comparação de
+preço isso é normal, não é bug. Ver FEITO.md (parte 6/7).
+
+**Resolvido (2026-09-14, mesma sessão):** usuário forneceu
+`SHOPEE_APP_ID`/`SHOPEE_SECRET` reais (colados só no `.env` local, nunca
+commitados). Rodei coleta ampliada (26 palavras-chave, 6 categorias) direto
+na API real da Shopee — 495 produtos únicos coletados, 304 novos aprovados
+no corte de qualidade (score >= 75) e publicados. **Catálogo foi de 40 para
+344 produtos publicados**, agora com as 6 categorias preenchidas (antes
+`ferramentas`/`beleza`/`infantil` tinham zero). Ver FEITO.md (parte 8) pro
+detalhe completo.
+
+**Pendência que sobra:** não forcei revalidação de cache em produção (sem
+o `REVALIDATION_SECRET` de produção) — fallback de 1h deve propagar
+sozinho, ou um redeploy vazio força na hora. `SHOPEE_APP_ID`/`SHOPEE_SECRET`
+ficaram só no `.env` local desta sessão (não persistem entre sessões
+diferentes) — se quiser rodar coleta de novo no futuro, precisa colar as
+credenciais de novo (ou eu formalizar isso como rotina/endpoint, ainda não
+feito).
+
 **⚠️ Bug recorrente do Canva:** pelo menos 2 designs (mochila e kit
 colmeia) reverteram sozinhos pro conteúdo antigo depois de salvos, exigindo
 reaplicar e confirmar de novo com leitura fresca. Sempre conferir a
@@ -286,6 +312,60 @@ fora, independente de prioridade. Decisão: seguir construindo o site
 **localmente** (não depende de pagar Vercel; só o deploy final depende).
 Ou seja, os dois trabalhos não competem de verdade: item 2 aguarda
 pagamento, site avança em paralelo enquanto isso.
+
+**Logo real do site — RESOLVIDO (2026-09-14):** usuário gerou a versão
+final no ChatGPT (etiqueta verde + wordmark "Desconto Chegando" +
+tagline "Compare · Economize · Compre melhor") e salvou direto em
+`public/LOGO.png` (pasta criada a pedido dele, pra evitar o problema de
+upload de imagem não salvar em disco). [Logo.tsx](src/components/site/Logo.tsx)
+já usa `<img src="/LOGO.png">` no cabeçalho, canto superior esquerdo.
+Ainda serve pra pendência antiga da foto de perfil do WhatsApp Business
+(item logo abaixo) — falta só o usuário subir o mesmo arquivo lá.
+
+**Busca por foto no site (prioridade pra depois do visual, 2026-09-14):**
+usuário quer reduzir a dependência do WhatsApp (não eliminar — o WhatsApp
+continua existindo) trazendo a busca por foto pro próprio site. Hoje o CTA
+"Buscar pela foto" só existe indiretamente (WhatsApp, dentro do rodapé) —
+precisa de: upload de imagem no site, rota de servidor que manda a foto
+pra IA de visão (mesmo modelo do bot, `gpt-4o-mini`,
+`CONCIERGE_VISION_MODEL`), e busca no catálogo a partir do resultado.
+Exige `OPENAI_API_KEY` (não configurada localmente, mesma situação do
+`SHOPEE_APP_ID`/`SUPABASE_SERVICE_ROLE_KEY` — pedir ao usuário quando for
+começar). Combinado com o usuário: focar 100% no visual primeiro, só
+depois entrar nisso.
+
+**Expansão de categorias — ícones aplicados (2026-09-14, sessão seguinte,
+parte 16):** os 18 ícones prontos (arte final, um PNG por categoria) já
+chegaram e foram integrados na Home — ver detalhe completo em FEITO.md
+(parte 16). Resumo do que falta agora, que é só dado, não mais visual:
+
+- As 6 categorias antigas (Casa, Eletrônicos, Ferramentas, Beleza, Moda,
+  Infantil) continuam as únicas com produto publicado — são as únicas
+  clicáveis na grade nova.
+- As 12 novas (Esporte, Automotivo, Saúde, Pet, Games, Papelaria,
+  Brinquedos, Bebês, Alimentos, Móveis, Viagem, Livros) aparecem
+  esmaecidas "em breve" na Home. Pra ativar cada uma de verdade: rodar
+  coleta no Growth OS pra essa categoria, publicar os produtos aprovados,
+  depois marcar `available: true` em
+  [categoryTiles.ts](src/lib/site/categoryTiles.ts) **e** adicionar o slug
+  em [categories.ts](src/lib/site/categories.ts) (que controla rota
+  `/categoria/[slug]`, sitemap e página `/categorias`). Ordem sugerida
+  continua a mesma: 1º lote Games/Pet/Saúde/Automotivo/Esporte; 2º lote
+  Papelaria/Brinquedos/Bebês; 3º lote Alimentos/Móveis/Viagem/Livros.
+- **Pendência aberta:** não veio arte nova pra "Infantil" (o lote trouxe
+  "Bebês"/"Brinquedos" separados dela). O ladrilho da Infantil hoje usa o
+  ícone antigo (`GiftIcon`) montado num cartão equivalente em CSS — dá pra
+  usar assim indefinidamente, mas fica levemente diferente das outras 17
+  artes. Perguntar ao usuário se quer pedir uma arte "Infantil" própria ou
+  se essa categoria vai ser aposentada em favor de Bebês/Brinquedos quando
+  esses dois forem coletados.
+
+**`ICONES-CATEGORIAS.png` não é usável direto (2026-09-14):** o ChatGPT
+mandou uma folha única com logo+sino+busca+banner+18 ícones todos juntos
+numa imagem só. Não tem como recortar cada ícone dali com precisão sem
+ferramenta de edição de imagem (`sharp`/`jimp`/ImageMagick não instalados
+neste ambiente) — por isso o usuário pediu os ícones de novo, um PNG por
+categoria (pasta `ICONES BRANCOS/`, já aplicada — ver acima).
 
 ## Itens do README que ainda podem estar em aberto
 

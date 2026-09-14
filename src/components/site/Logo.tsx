@@ -1,13 +1,11 @@
 /**
- * Wordmark de texto — placeholder até termos o arquivo da logo dourada
- * DC (mencionada como pendência pro perfil do WhatsApp Business em
- * CONTINUIDADE.md). Trocar por <img> assim que o arquivo existir.
+ * Logo oficial (public/LOGO.png) — ícone de etiqueta + wordmark +
+ * tagline, gerada no ChatGPT a pedido do usuário.
  */
 export function Logo() {
   return (
     <a href="/" className="dc-logo" aria-label="Desconto Chegando — início">
-      <span className="dc-logo-desconto">Desconto</span>
-      <span className="dc-logo-chegando">Chegando</span>
+      <img src="/LOGO.png" alt="Desconto Chegando — Compare, Economize, Compre melhor" />
     </a>
   );
 }

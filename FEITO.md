@@ -4,6 +4,424 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-14 (sessão seguinte, parte 16) — grade de categorias (2 linhas) + banner trocado
+
+- **Buscador (`.dc-header-search-bg`)**: troquei `background-image` +
+  `background-size` (esticava sem preservar proporção, sobrava preto nas
+  bordas em larguras diferentes) por uma `<img>` real com
+  `object-fit: cover` + `transform: scale(1.35)`. Calibrado simulando o
+  cálculo de `object-fit:cover` em JS e medindo o canal verde mínimo nas
+  bordas superior/inferior do elemento **de verdade** renderizado (não uma
+  cópia sintética) em três larguras de container (339/533/724px) — todas
+  ficaram bem longe do preto (56–251). Confirmado sem borda em nenhuma
+  largura testada.
+- **Grade de categorias da Home**: usuário gerou 18 ícones prontos
+  (ícone + rótulo + cartão branco já desenhados) em duas pastas —
+  `ICONES BRANCOS/` (as artes finais usadas) e `ICONES/` (um set neon
+  verde solto, não usado, sem rótulo). Copiei os 18 pra
+  `public/icones-categorias/<slug>.png` com nome legível (identificação
+  feita visualmente, arquivo por arquivo — os originais têm nome UUID).
+  Criado [`categoryTiles.ts`](src/lib/site/categoryTiles.ts) (lista de
+  ladrilhos com `available: true/false`) e
+  [`CategoryGrid.tsx`](src/components/site/CategoryGrid.tsx) (grade CSS de
+  2 linhas fixas com `grid-auto-flow: column` + scroll horizontal — visual
+  de carrossel sem precisar de JS de paginação). Usado só na Home, no
+  lugar do antigo `<CategoryChips />` (que continua existindo e é usado
+  na página de categoria pra trocar de categoria rapidamente).
+  - As 6 categorias já publicadas (Casa, Eletrônicos, Ferramentas, Beleza,
+    Moda, Infantil) linkam normal. As 12 novas do plano de expansão
+    (Esporte, Automotivo, Saúde, Pet, Games, Papelaria, Brinquedos, Bebês,
+    Alimentos, Móveis, Viagem, Livros) aparecem esmaecidas (`grayscale` +
+    opacidade) com selo "em breve", sem link — mesmo padrão já usado nos
+    marketplaces "em breve" no cabeçalho, pra nunca apontar pra uma
+    categoria vazia.
+  - **Pendência pequena**: não veio arte nova pra "Infantil" (o lote trouxe
+    "Bebês" e "Brinquedos" separados no lugar dela). Por enquanto o
+    ladrilho da Infantil usa o ícone antigo (`GiftIcon`) dentro de um
+    cartão branco equivalente, montado em CSS — não é a mesma arte dos
+    outros 17, mas visualmente compatível. Decidir depois: pedir uma arte
+    "Infantil" própria, ou aposentar a categoria a favor de
+    Bebês/Brinquedos quando a coleta desses dois rodar.
+  - Também tem um ladrilho "Outros" (arte pronta) apontando pra
+    `/categorias`, igual ao card "Outros/Mais" da referência.
+- **Banner do topo trocado**: usuário substituiu `BANNER-HERO.png` por
+  `CARD-HERO-NOVO.png` (achou o antigo "muito verde"). Nova arte tem
+  proporção mais quadrada (1896×829, ~2.29:1) contra a antiga (2172×724,
+  3:1) — como o CSS já usa `width:100%; height:auto` sem cortar nada, o
+  card só ficou um pouco mais alto (~150px de altura a 375px de largura,
+  antes ~115px); conferido ao vivo que não há distorção nem espaço vazio
+  estranho nos outros dois cards do carrossel (eles só esticam levemente
+  pra acompanhar a altura, comportamento normal de flexbox).
+
+## 2026-09-14 (sessão seguinte, parte 14) — buscador com arte real, banner reposicionado, remoção de tela antiga
+
+Sequência de ajustes finos depois da parte 13:
+
+- **Sino**: usuário confirmou que ainda sobrava uma borda escura fina.
+  Troquei a estratégia de `mix-blend-mode: screen` (dependia da cor exata
+  de preto) por **recorte circular** (`clip-path: circle()`), calibrado
+  medindo os pixels reais do PNG via canvas (o círculo de vidro termina em
+  ~34% do raio; preto puro começa em 35% — cravei o corte em 33%,
+  confirmado sem sobra numa checagem com fundo vermelho de teste).
+- **Banner (`BANNER-HERO.png`)**: usuário regenerou no ChatGPT **sem os
+  logos oficiais** dos marketplaces (trocou por carrinho/sacola/tag/loja
+  genéricos) — a versão anterior tinha logo de verdade da Amazon/Mercado
+  Livre/Shopee/AliExpress coladas na arte, o mesmo problema de marca
+  registrada que identificamos na conversa com o ChatGPT. Com a versão
+  limpa, apliquei no [PromoBanner.tsx](src/components/site/PromoBanner.tsx)
+  como card de imagem única (sem padding, link pra `/categorias`).
+  Também reposicionei: banner agora vem **antes** das categorias (igual
+  na referência), não depois.
+- **Buscador (`BUSCADOR.png` + `LUPA.png`)**: primeira versão do buscador
+  vinha com o texto "O que você está procurando?" desenhado dentro da
+  imagem — avisei que isso quebraria a busca de verdade (texto digitado
+  ficaria sobreposto ao texto fixo da arte) e sugeri regenerar sem texto.
+  Usuário regerou uma pílula de vidro **vazia** (sem texto/ícone) — apliquei
+  como `background-image` do campo de busca real (com overscan
+  `background-size: 106% 140%` pra esconder a borda preta sólida da
+  imagem, mesmo truque do sino) e usei `LUPA.png` (esse já veio com alfa
+  de verdade) como ícone dentro do campo, no lugar do SVG. Botão de
+  enviar continua existindo pra acessibilidade, só ficou visualmente
+  oculto (a pílula já não tem espaço pra um botão redondo separado).
+- **Removido** (usuário pediu "isso tudo vai sair" apontando pro CTA de
+  busca por foto e pros ícones circulares de categoria da Home):
+  [SearchBox.tsx](src/components/site/SearchBox.tsx) e
+  [CategoryIconRow.tsx](src/components/site/CategoryIconRow.tsx) apagados
+  por completo (viraram código morto — a busca por foto some da Home,
+  fica só o link de WhatsApp já disponível no rodapé/produto/barra fixa;
+  categorias da Home passaram a usar
+  [CategoryChips.tsx](src/components/site/CategoryChips.tsx), o mesmo
+  componente de pill já usado nas páginas de categoria). CSS órfão
+  removido junto (`.dc-photo-cta`, `.dc-search-form/input/button` antigos,
+  `.dc-icon-row`/`-item`/`-label`).
+
+`tsc --noEmit` limpo, testado no navegador mobile e desktop.
+
+**Correção na sequência (mesma parte):** usuário apontou que ainda sobrava
+o eyebrow "COMPARADOR DE PREÇOS · SHOPEE" + H1 entre o cabeçalho e o
+banner — a referência não tem texto nenhum ali. Removido o `<section
+className="dc-hero">` visível da Home; o H1 continua existindo (bom pra
+SEO, todo mundo devia ter um H1) mas virou `.dc-sr-only` (só leitor de
+tela, zero espaço visual). CSS órfão removido: `.dc-eyebrow`,
+`.dc-hero-accent` (o `.dc-hero` em si continua vivo — outras páginas como
+`/busca`, `/categorias`, `/favoritos` e `/categoria/[slug]` ainda usam
+pra título de página).
+
+## 2026-09-14 (sessão seguinte, parte 13) — assets reais do ChatGPT aplicados (logo, fundo do cabeçalho, sino)
+
+Usuário criou a pasta `public/` (pedida por ele mesmo) e foi salvando os
+assets gerados no ChatGPT direto lá, sem passar pelo upload do chat
+(evita o problema da parte 11, onde uma imagem não chegava salva em disco):
+
+- **`LOGO.png`** — logo final (etiqueta verde + wordmark + tagline).
+  [Logo.tsx](src/components/site/Logo.tsx) trocou o texto placeholder por
+  `<img src="/LOGO.png">`, 42px de altura no cabeçalho, canto superior
+  esquerdo.
+- **`BACKGROUND-HERO.png`** — textura de brilho verde fluido, aplicada
+  como `background-image` do `.dc-header` (com uma camada escura leve por
+  cima só pra manter o texto legível).
+- **`SINO-NOTIFICAÇÃO.png`** / **`SINO-SEM-NOTIFICAÇÃO.png`** — a primeira
+  vinha com um badge vermelho "3" fixo (contador de notificação inventado,
+  igual ao problema do "sino com 3" na referência original — não temos
+  sistema de notificação de verdade, então não ia usar). Usei a versão
+  **sem** contador. Essa também veio com fundo preto sólido (não
+  transparente); resolvido com `mix-blend-mode: screen` no CSS (some o
+  preto puro contra qualquer fundo) em vez de pedir um novo arquivo.
+  Ícone fica no cabeçalho ao lado da logo, sem link (`title="Notificações
+  em breve"` — honesto, mesmo padrão da fileira de lojas "em breve").
+
+`tsc --noEmit` limpo, testado no navegador (mobile 375px e desktop 1440px).
+
+## 2026-09-14 (sessão seguinte, parte 12) — redesign verde + arquitetura multi-marketplace
+
+Usuário mandou uma referência gerada com ChatGPT (app fictício "Desconto
+Chegando" verde, com Shopee/Mercado Livre/Amazon/AliExpress/KaBuM/Americanas)
+e pediu a página "idêntica". Antes de copiar visualmente, li a conversa
+inteira dele com o ChatGPT (usando a extensão do Chrome de verdade, logada —
+o link `/c/...` era privado, não abria no navegador isolado) — achado mais
+importante: os termos do Programa de Afiliados da Shopee **proíbem usar a
+marca/logo da Shopee** em material de afiliado fora do que é fornecido
+oficialmente, e o mesmo vale por propriedade intelectual pras outras lojas.
+Então segui o visual à risca, mas com logos = texto (nunca ícone oficial).
+
+**Paleta**: trocado dourado/preto por verde/preto (renomeado
+`--dc-gold*` → `--dc-green*` em todo o CSS/TSX, valores nos hex certos —
+`--dc-black` também escureceu pro tom esverdeado da referência).
+Vermelho/laranja (`--dc-urgency`) continua só no selo de desconto; botões
+de compra agora são verdes (ação = "dinheiro"), não mais laranja.
+
+**Arquitetura multi-marketplace** (o pedido real por trás da referência:
+"hoje só Shopee, mas quero mais lojas, aparece se tiver, oculto se não
+tiver"): nova tabela `product_groups` no Supabase + `products.group_id`
+(migration aplicada). `getCachedGroupOffers()` em
+[catalog.ts](src/lib/site/catalog.ts) busca outras ofertas do mesmo
+grupo. Na página de produto, o **CTA principal agora é dinâmico**: mostra
+sempre a oferta de MENOR PREÇO real entre as lojas vinculadas ("Ver oferta
+no Mercado Livre", "Ver oferta na Shopee" etc, nunca fixo em Shopee — isso
+foi sugestão direta do ChatGPT e faz sentido), e a caixa "Compare em outras
+lojas" lista o resto. [platforms.ts](src/lib/site/platforms.ts) guarda
+nome + cor de cada loja (nunca logo). Hoje `group_id` está vazio em todo
+mundo (nada foi linkado ainda) — então nenhuma comparação aparece em
+lugar nenhum do site, exatamente como pedido; a seção liga sozinha assim
+que alguém (curadoria manual, ou um matcher futuro por EAN/GTIN — pesquisei
+e é assim que sites de comparação de preço fazem isso de verdade) linkar
+produtos ao mesmo grupo.
+
+**Card de produto redimensionado** pra bater com a densidade da
+referência: badge de desconto + coração favoritar sobre a foto, título,
+nota+vendidos, selo "Menor preço encontrado", preço riscado + preço atual
+verde, "Economize R$X", botão "Ver melhor oferta" com ícone de carrinho.
+Sem nenhum dado inventado (sem contador de notificação falso, sem "oferta
+acaba em Xh" que não existe de verdade — só o que já mostrávamos, com
+cara nova).
+
+**Favoritos virou de verdade**: [favorites.ts](src/lib/site/favorites.ts)
+guarda no localStorage não só o slug, mas um retrato do produto (nome,
+imagem, preço, nota) — assim a nova página [/favoritos](src/app/favoritos/page.tsx)
+monta os cards sem precisar de mais uma consulta ao servidor. Barra fixa
+do mobile foi de 4 pra 5 itens reais (Início, Buscar, Favoritos,
+Categorias, WhatsApp) — nada de "Perfil"/"Notificações" (exigiriam conta
+de usuário, que não existe).
+
+**Cabeçalho** ganhou uma fileira de lojas: Shopee colorida (dado real),
+as outras 5 aparecem apagadas com tooltip "em breve" — mostra a direção
+do produto sem fingir que a comparação já existe.
+
+**Logo**: usuário está regerando no ChatGPT (ícone de etiqueta verde) —
+não tentei desenhar uma versão minha, só recolori o wordmark de texto
+pro verde novo. Continua placeholder até o arquivo chegar (ver
+CONTINUIDADE.md).
+
+Testado no navegador (mobile 375px e desktop 1440px) com página de
+rascunho temporária (produto com 3 lojas fictícias, apagada depois) —
+confirmado: preço/CTA dinâmico funcionando (escolheu Mercado Livre R$40
+entre Shopee R$50/Amazon R$55/ML R$40 corretamente), favoritar sem navegar
+pra outra página, página /favoritos lendo do zero. Pego e corrigido no
+processo: `favorites.ts` não validava o formato salvo no localStorage —
+um dado de teste no formato antigo (array) corrompia o novo formato
+(objeto) ao dar spread; agora descarta formato inválido em vez de
+corromper. `tsc --noEmit` limpo.
+
+## 2026-09-14 (sessão seguinte, parte 11) — cabeçalho com busca fixa, aviso legal reforçado, logo pendente
+
+Três ajustes pedidos em sequência:
+
+1. **Aviso legal do rodapé reforçado** ([Footer.tsx](src/components/site/Footer.tsx)):
+   usuário perguntou se o aviso de comissão de afiliado é exigido por lei —
+   expliquei que não existe uma frase específica exigida, mas o art. 36 do
+   CDC (identificação da publicidade) dá base real pra manter, e que
+   omitir é mais arriscado que manter. Ele pediu pra reforçar deixando
+   claro que o site só indica, não vende nem processa pagamento — texto
+   agora diz isso explicitamente, compra/entrega/troca/garantia são com o
+   vendedor na Shopee.
+2. **Cabeçalho redesenhado** ([Header.tsx](src/components/site/Header.tsx)):
+   usuário achou o botão de WhatsApp do cabeçalho grande demais/sem
+   sentido. Solução final: busca por texto (antes só no Hero da Home)
+   virou permanente no cabeçalho, em toda página, com input branco
+   arredondado + botão circular preto — e o botão de WhatsApp do
+   cabeçalho foi **removido** (ele já existe na barra fixa do mobile e no
+   CTA do rodapé/produto, não precisava de mais um lugar).
+   [SearchBox.tsx](src/components/site/SearchBox.tsx) manteve só o convite
+   de busca por foto (conteúdo da Home, não repetido em toda página).
+3. **Logo real**: usuário enviou a arte oficial (monograma "DC" dourado
+   com lupa, fundo preto, redondo) pra substituir o wordmark de texto
+   placeholder — mas o arquivo não chegou salvo em disco nessa sessão
+   (diferente das outras imagens enviadas, que vieram com caminho salvo).
+   Pedido pro usuário reenviar a imagem pra aplicar de verdade. Pendência
+   registrada no CONTINUIDADE.md.
+
+Corrigido no mesmo lote: o botão "Procurar pelo WhatsApp" do rodapé tinha
+herdado sem querer a cor de urgência (vermelho/laranja) da parte 10 —
+separei em duas classes (`.dc-cta-button` dourado pra contato/WhatsApp,
+`.dc-buy-button` vermelho/laranja só pra "Ver na Shopee") e voltou ao
+dourado correto.
+
+## 2026-09-14 (sessão seguinte, parte 10) — cor de urgência (vermelho/laranja) nos pontos de conversão
+
+Usuário perguntou o que o estudo de cores diz sobre compras — expliquei
+que vermelho/laranja aumentam urgência/impulso (por isso Shopee/Amazon/
+Mercado Livre usam essas cores em desconto e CTA), enquanto dourado/preto
+comunica premium mas não urgência. Recomendei aplicar a cor só nos pontos
+de conversão, mantendo dourado/preto como identidade — usuário aprovou.
+
+Adicionado `--dc-urgency`/`--dc-urgency-bright` (vermelho-laranja) em
+[globals.css](src/app/globals.css), aplicado em: selo de desconto
+(`.dc-card-badge.price`), botão "Ver oferta" do card (`.dc-card-cta`) e o
+CTA principal da página de produto / footer (`.dc-cta-button`, "Ver na
+Shopee"/"Procurar pelo WhatsApp"). Resto do site (header, logo, chips,
+banners, preço) continua dourado/preto. Testado visualmente com página de
+rascunho temporária (apagada depois) e no navegador — `tsc --noEmit`
+limpo.
+
+## 2026-09-14 (sessão seguinte, parte 9) — redesign inspirado no app do Sam's Club (mobile-first)
+
+Usuário mandou print do app do Sam's Club e perguntou se dava pra usar um
+design parecido. Confirmei com ele o que aproveitar (mantendo a identidade
+dourado/preto já aprovada, sem virar azul): layout de card de produto,
+barra de navegação fixa no rodapé, e banners de campanha no topo — e ele
+pediu explicitamente scroll horizontal nas categorias da Home e "criar pro
+mobile primeiro, adaptar pro desktop depois".
+
+**Card de produto** ([ProductCard.tsx](src/components/site/ProductCard.tsx)):
+selo de desconto e ícone de coração (favoritar) sobrepostos na foto, preço
+"de" riscado calculado a partir do `priceDiscountRate` real da Shopee (não
+inventado — `formatOriginalPriceBRL` em
+[format.ts](src/lib/site/format.ts)) + preço atual em destaque, e botão
+visual "Ver oferta" no rodapé do card. Favoritar é local (localStorage,
+sem conta de usuário) via componente cliente isolado
+[FavoriteButton.tsx](src/components/site/FavoriteButton.tsx) — testado
+clicando direto no DOM (o clique por coordenada da ferramenta de teste é
+que falhava, não o componente).
+
+**Categorias da Home** ([CategoryIconRow.tsx](src/components/site/CategoryIconRow.tsx)):
+fileira de ícone circular + rótulo com scroll horizontal, sangria até a
+borda da tela no mobile (técnica `100vw` + margin negativa) — e uma media
+query pra essa sangria desaparecer a partir de 800px de largura, senão a
+fileira ficava desalinhada do resto do conteúdo em tela grande (bug pego e
+corrigido durante o teste visual em 1440px). Nova página
+[/categorias](src/app/categorias/page.tsx) lista todas as 6 categorias em
+grade — vira destino da barra fixa.
+
+**Banners de campanha** ([PromoBanner.tsx](src/components/site/PromoBanner.tsx)):
+3 cards com scroll horizontal (`scroll-snap`) linkando pra eletrônicos,
+casa e WhatsApp — mesma sangria/breakpoint da fileira de categorias.
+
+**Barra fixa no rodapé** ([BottomNav.tsx](src/components/site/BottomNav.tsx)):
+só aparece no mobile (`display:none` acima de 640px), 4 destinos reais do
+site (Início, Categorias, Busca, WhatsApp) — nada de item inventado tipo
+"Notificações"/"Benefícios" que não existem aqui. Incluída globalmente em
+[layout.tsx](src/app/layout.tsx).
+
+Ícones novos em [icons.tsx](src/components/site/icons.tsx): `HeartIcon`
+(com estado preenchido/contorno), `SearchIcon`, `GridIcon`, `ArrowRightIcon`.
+
+Testado visualmente no Browser (mobile 375px e desktop 1440px), `tsc
+--noEmit` limpo. Página de rascunho temporária usada só pra testar o card
+com dado fake (sem depender do Supabase local, que não tem
+`SUPABASE_SERVICE_ROLE_KEY` configurada) foi apagada depois do teste.
+
+## 2026-09-14 (sessão seguinte, parte 8) — coleta nova via API real, catálogo de 40 para 344 produtos
+
+Usuário forneceu as credenciais reais `SHOPEE_APP_ID`/`SHOPEE_SECRET` (do
+`.env.example`, "já validado com a conta real do Ibrahim") — coladas só no
+`.env` local (nunca versionado, `.gitignore` confirmado antes). Isso
+destravou o teto real identificado na parte 7: só existiam 50 produtos no
+banco desde 13/09, coletados com só 5 palavras-chave genéricas.
+
+Rodei uma coleta bem mais ampla batendo direto na API GraphQL da Shopee
+(`open-api.affiliate.shopee.com.br`, mesma assinatura SHA256 de
+`src/lib/shopee/client.ts`) com **26 palavras-chave cobrindo as 6
+categorias do site** (5 em casa, 5 em eletrônicos, 4 em ferramentas, 4 em
+beleza, 4 em moda, 4 em infantil — as 3 últimas categorias não tinham
+NENHUM produto até agora), 20 produtos por palavra-chave, ordenado por mais
+vendidos. Resultado: **495 produtos únicos coletados**.
+
+Apliquei o mesmo corte de qualidade de sempre (`scoreOffer`: desconto
+>=15%, nota >=4.5, vendas >=50, score >=75) e descartei quem já existia no
+banco (por `shopee_item_id`) — sobraram **304 novos produtos qualificados**.
+Publiquei todos direto via SQL (`ON CONFLICT (shopee_item_id) DO NOTHING`
+pra ser seguro re-rodar), com `category_slug` atribuído pela palavra-chave
+de origem, slug real via `buildProductSlug`, e `highlight_reason` gerado a
+partir dos dados reais (nota/vendas/desconto). Um sub-agente cuidou da
+execução dos lotes finais de SQL pra não gastar contexto principal.
+
+**Catálogo final: 354 produtos no banco, 344 publicados no site**
+(eletrônicos 81, casa 62, beleza 55, infantil 50, ferramentas 48, moda 48)
+— confirmado sem slug duplicado. Isso resolve de vez o pedido do usuário
+("quero encher o site com produtos de qualidade, não é possível que
+conectado via API não vamos lotar isso"): a resposta final é que sim, dá
+pra lotar via API, o teto era só a falta de credencial + poucas palavras-
+chave, não curadoria excessiva.
+
+**Pendência que sobra:** não forcei a revalidação de cache em produção
+(sem o `REVALIDATION_SECRET` de produção) — o fallback de 1h
+(`revalidate: 3600` em `catalog.ts`) deve propagar os 344 produtos pro site
+sozinho. Se quiser confirmar mais rápido, um redeploy vazio na Vercel força
+a atualização na hora.
+
+## 2026-09-14 (sessão seguinte, parte 7) — correção: publicados os 31 candidatos, catálogo em 40
+
+Usuário corrigiu a curadoria da parte 6: "quero encher o site com produtos
+de qualidade", não fazia sentido segurar 17 candidatos que já passam no
+score (>=75) só por parecerem com outros já publicados. Publiquei os 17
+restantes direto no Supabase (mesmo processo: `category_slug` por
+palavra-chave do nome, slug real via `buildProductSlug`, `highlight_reason`
+com nota/vendas/desconto reais). Catálogo foi de 23 para **40 produtos
+publicados**, sem nenhuma colisão de slug (conferido via SQL). Dos 50
+produtos coletados no total, os 10 que ficaram de fora realmente não
+passam no corte de qualidade (nota < 4,5 e/ou desconto < 15% e/ou vendas
+< 50) — isso é filtro de qualidade de verdade, não excesso de cautela.
+
+**O que trava ir além de 40 agora:** não é curadoria, é falta de coleta
+nova. Só existem 50 produtos no banco (coletados em 13/09, via
+`npm run source:deals`, que busca só 5 palavras-chave genéricas e 10
+produtos por palavra-chave). Rodar de novo — com mais palavras-chave e
+cobrindo as 3 categorias que hoje têm zero produto (`ferramentas`,
+`beleza`, `infantil`) — exige `SHOPEE_APP_ID`/`SHOPEE_SECRET` no ambiente,
+que **não estão no `.env` local** (confirmado: só tem `SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY`, `SITE_BASE_URL`, `REVALIDATION_SECRET`). O
+`.env.example` confirma que são credenciais reais e já validadas da conta
+do Ibrahim — só faltam ser coladas aqui (ou já estar na Vercel de
+produção, onde o bot roda de verdade). Pendência registrada no
+CONTINUIDADE.md.
+
+## 2026-09-14 (sessão seguinte, parte 6) — catálogo de 9 para 23 produtos publicados (revisado na parte 7)
+
+Resposta à pergunta "como vou postar vários anúncios nesse site": já
+puxamos via API Shopee e guardamos no Supabase (isso nunca muda), mas
+**publicar no site é uma etapa separada e curada** — não é "postar" manual
+um por um nem um dump automático de tudo que passa no score. Hoje isso
+significa: escolher `category_slug`, gerar o `slug` real (`buildProductSlug`),
+escrever `highlight_reason` e virar `site_published = true`.
+
+Reaproveitando os 31 candidatos aprovados (score >= 75) já identificados na
+parte 4 (sem rodar coleta nova), publiquei 14 direto via SQL no Supabase
+(`czocwdlygdslyuoixmhh`), com slug gerado pela função real do site
+(conferido rodando `slugify`/`shortIdFromSeed` de `src/lib/site/slug.ts`
+num script Node, não digitado à mão) e `highlight_reason` no mesmo estilo
+dos 9 já publicados:
+
+**Casa (+4):** ganchos adesivos metálicos, carrinho organizador com
+rodinhas, luminária de teto dobrável (pétalas), arara guarda-roupa dobrável.
+**Eletrônicos (+7):** fone Pro 4 TWS, power bank 10000mah, carregador turbo
+120W, fone Pro5 com cancelamento de ruído, fone "Air Pods Pro 3", carregador
+veicular 4 portas, fone P9 Air Top.
+**Moda (+3):** mochila feminina impermeável, mochila esportiva masculina,
+mochila CHL executiva.
+
+Catálogo publicado foi de 9 para **23** (10 casa, 9 eletrônicos, 4 moda).
+Slugs conferidos sem colisão via SQL (`group by slug having count(*) > 1`
+= vazio).
+
+**Os outros 17 candidatos ficaram fora de propósito**, não por limite
+técnico: eram duplicatas do mesmo produto físico anunciado por vendedores
+diferentes (título quase idêntico, às vezes com erro de digitação
+proposital pra escapar de filtro de anúncio repetido) — publicar todos
+deixaria a grade com o mesmo produto repetido 2-3x, o que não combina com
+o site premium/curado que o usuário pediu. Exemplos descartados por
+duplicidade: 5 outras mochilas quase idênticas às já publicadas, 2 fones
+"X55" (já existe um X55 publicado), 1 carregador iPhone 20W (já existe um
+quase igual publicado), 1 carregador 120W 67W (duplica o 120W 6A recém
+publicado), 3 outras luminárias solares (já existem 2 modelos solares
+publicados), 2 caixas/colmeias organizadoras (duplicam as já publicadas),
+mais 3 fones TWS de score mais baixo (E6S, P47, carregador 50W) cortados só
+pra não inflar demais a categoria eletrônicos numa única rodada. Essa
+reserva de 17 fica pra publicar aos poucos nos próximos dias — dá conteúdo
+"novo" no site sem precisar rodar a coleta de novo, e sem precisar de
+`SHOPEE_APP_ID`/`OPENAI_API_KEY` novos.
+
+**Cache do site:** não forcei a revalidação em produção nessa rodada (o
+`REVALIDATION_SECRET` de produção é segredo da Vercel, não estava
+disponível aqui — só o valor de dev local em `.env`). Sem isso, o
+fallback de tempo (`revalidate: 3600` em `src/lib/site/catalog.ts`) garante
+que os 14 produtos novos aparecem na Home e nas categorias em até 1 hora
+sozinho, sem ação manual.
+
+**Zero categoria "ferramentas", "beleza" ou "infantil" ainda** — nenhum dos
+50 produtos já coletados cai nessas categorias. Só aparece mais variedade
+aí quando a coleta Growth OS rodar de novo com produtos desses nichos
+(precisa `SHOPEE_APP_ID` ativo, já documentado como pendência).
+
 ## 2026-09-14 (sessão à noite, parte 5) — site no ar em produção
 
 Commit `9062fc6` (código do site, sem arquivos pessoais/rascunho) enviado

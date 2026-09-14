@@ -1,4 +1,5 @@
 import { Poppins } from "next/font/google";
+import { BottomNav } from "../components/site/BottomNav";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -21,7 +22,10 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" className={poppins.variable}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <BottomNav />
+      </body>
     </html>
   );
 }

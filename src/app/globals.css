@@ -1,14 +1,24 @@
 :root {
-  --dc-black: #14110c;
-  --dc-black-soft: #201b14;
-  --dc-gold: #d4a017;
-  --dc-gold-bright: #f0c04a;
-  --dc-gold-deep: #9c7a0f;
-  --dc-bg: #faf7f0;
+  /* Verde = economia/dinheiro no bolso (ação principal: comprar, "economize
+     R$X"); vermelho/laranja fica só nos pontos de urgência (selo de
+     desconto) — ver nota no --dc-urgency abaixo. --dc-black/-soft seguem
+     esse nome por serem a superfície escura do site (cabeçalho, botões
+     invertidos), mas agora com um leve tom esverdeado, não preto puro. */
+  --dc-black: #0d1f16;
+  --dc-black-soft: #163a25;
+  --dc-green: #16a34a;
+  --dc-green-bright: #22c55e;
+  --dc-green-deep: #0f7a37;
+  /* Vermelho/laranja só nos pontos de urgência (selo de desconto) — o
+     verde/preto é a identidade da marca; essa cor entra onde a psicologia
+     de cores realmente ajuda a converter. */
+  --dc-urgency: #e2401f;
+  --dc-urgency-bright: #ff6b3d;
+  --dc-bg: #f5faf6;
   --dc-card-bg: #ffffff;
-  --dc-text: #1a1712;
-  --dc-text-muted: #7a7266;
-  --dc-border: #ece5d6;
+  --dc-text: #14201a;
+  --dc-text-muted: #6b7d73;
+  --dc-border: #dcece1;
   --dc-radius: 18px;
   --dc-radius-sm: 12px;
   --dc-max-width: 760px;
@@ -53,23 +63,16 @@ img {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--dc-black);
-  background-image: linear-gradient(180deg, var(--dc-black-soft), var(--dc-black));
+  background-color: var(--dc-black);
+  background-image: linear-gradient(180deg, rgba(13, 31, 22, 0.15), rgba(13, 31, 22, 0.55)),
+    url("/BACKGROUND-HERO.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   color: #fff;
   padding-block: 16px;
-  border-bottom: 1px solid var(--dc-gold-deep);
+  border-bottom: 1px solid var(--dc-green-deep);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
-}
-
-.dc-eyebrow {
-  display: block;
-  font-family: var(--font-heading);
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--dc-gold-deep);
-  margin: 0 0 8px;
 }
 
 .dc-header-row {
@@ -77,51 +80,132 @@ img {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  margin-bottom: 12px;
 }
 
 .dc-logo {
-  display: flex;
-  align-items: baseline;
-  gap: 3px;
-  font-family: var(--font-heading);
-  font-weight: 800;
-  font-size: 19px;
-  letter-spacing: -0.01em;
-  text-decoration: none;
-}
-
-.dc-logo-desconto {
-  color: #fff;
-}
-
-.dc-logo-chegando {
-  background: linear-gradient(120deg, var(--dc-gold-bright), var(--dc-gold));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-.dc-whatsapp-link {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  background: linear-gradient(135deg, var(--dc-gold-bright), var(--dc-gold));
-  color: var(--dc-black);
-  font-weight: 800;
-  font-size: 13px;
-  padding: 9px 14px;
-  border: 1.5px solid var(--dc-gold-bright);
-  border-radius: 999px;
   text-decoration: none;
-  white-space: nowrap;
-  box-shadow: 0 2px 10px rgba(212, 160, 23, 0.35);
-  transition: background 0.25s ease, color 0.25s ease, transform 0.25s ease;
 }
 
-.dc-whatsapp-link:hover {
+.dc-logo img {
+  height: 42px;
+  width: auto;
+  display: block;
+}
+
+.dc-header-bell {
+  flex: none;
+  display: flex;
+  opacity: 0.85;
+}
+
+.dc-header-bell img {
+  height: 34px;
+  width: 34px;
+  display: block;
+  /* O PNG veio com fundo preto sólido, sem canal alfa (RGB puro, sem
+     tRNS) — corta o quadrado fora com um recorte circular, em vez de
+     depender de um "screen" que só funciona se o preto for exato. */
+  clip-path: circle(33% at 50% 50%);
+  mix-blend-mode: screen;
+}
+
+.dc-header-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: #0a6b3c;
+  border-radius: 999px;
+  overflow: hidden;
+  padding: 4px 4px 4px 18px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  transition: box-shadow 0.2s ease;
+}
+
+.dc-header-search:focus-within {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3), 0 0 0 2px rgba(255, 255, 255, 0.55);
+}
+
+/* Fundo é uma <img> de verdade com object-fit:cover (não background-size)
+   — preserva a proporção da imagem sem esticar/distorcer, e o corte
+   central acaba caindo bem dentro da pílula de vidro, longe da margem
+   preta sólida que a imagem tem em volta. */
+.dc-header-search-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  /* "cover" sozinho ainda deixa a borda antialiasada do preto sólido bem
+     na quina do recorte (medido pixel a pixel) — um zoom extra empurra
+     essa borda pra fora de vez. Calibrado testando o verde mínimo nas
+     bordas em várias proporções de tela até sumir o preto. */
+  transform: scale(1.35);
+  z-index: 0;
+}
+
+.dc-header-search-icon {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+
+.dc-header-search input {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
   background: transparent;
-  color: var(--dc-gold-bright);
-  transform: translateY(-1px);
+  font-size: 14.5px;
+  color: #fff;
+  padding: 10px 0;
+}
+
+.dc-header-search input::placeholder {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Botão continua existindo (funciona com Enter também) mas some
+   visualmente — a pílula já veio pronta na imagem, sem espaço reservado
+   pra um botão redondo separado. */
+.dc-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.dc-header-platforms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.dc-platform-pill {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 4px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.dc-platform-soon {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.45);
 }
 
 /* ---------- Hero ---------- */
@@ -137,73 +221,6 @@ img {
   line-height: 1.25;
   letter-spacing: -0.01em;
   margin: 0 0 18px;
-}
-
-.dc-hero h1 .dc-hero-accent {
-  color: var(--dc-gold-deep);
-}
-
-.dc-search-form {
-  display: flex;
-  gap: 8px;
-}
-
-.dc-search-input {
-  flex: 1;
-  padding: 15px 18px;
-  border-radius: 999px;
-  border: 2px solid var(--dc-border);
-  font-size: 15px;
-  background: var(--dc-card-bg);
-}
-
-.dc-search-input:focus {
-  outline: none;
-  border-color: var(--dc-gold);
-}
-
-.dc-search-button {
-  border: 2px solid var(--dc-black);
-  background: var(--dc-black);
-  color: #fff;
-  font-family: var(--font-heading);
-  font-weight: 700;
-  font-size: 13px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: 0 22px;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: background 0.25s ease, color 0.25s ease;
-}
-
-.dc-search-button:hover {
-  background: transparent;
-  color: var(--dc-black);
-}
-
-.dc-photo-cta {
-  margin-top: 12px;
-  display: block;
-  text-align: center;
-  padding: 18px;
-  border-radius: var(--dc-radius);
-  border: 2px dashed var(--dc-gold-deep);
-  color: var(--dc-black);
-  text-decoration: none;
-  font-family: var(--font-heading);
-  font-weight: 700;
-  font-size: 15px;
-  background: linear-gradient(135deg, #fff8e6, #fef3d6);
-}
-
-.dc-photo-cta span {
-  display: block;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-weight: 400;
-  font-size: 13px;
-  color: var(--dc-text-muted);
-  margin-top: 4px;
 }
 
 /* ---------- Sections ---------- */
@@ -253,7 +270,7 @@ img {
 .dc-chip-active {
   background: var(--dc-black);
   border-color: var(--dc-black);
-  color: var(--dc-gold-bright);
+  color: var(--dc-green-bright);
   transform: translateY(-1px);
 }
 
@@ -261,6 +278,211 @@ img {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.dc-offers-icon {
+  width: 19px;
+  height: 19px;
+  display: block;
+}
+
+/* ---------- Categorias (página índice) ---------- */
+
+.dc-category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+@media (min-width: 480px) {
+  .dc-category-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.dc-cat-page-tile {
+  position: relative;
+  display: block;
+  text-decoration: none;
+  transition: transform 0.25s ease;
+}
+
+a.dc-cat-page-tile:hover {
+  transform: translateY(-3px);
+}
+
+a.dc-cat-page-tile:hover .dc-cat-page-img,
+a.dc-cat-page-tile:hover .dc-cat-tile-fallback {
+  box-shadow: 16px 16px 30px rgba(0, 0, 0, 0.16), -16px -16px 30px rgba(255, 255, 255, 1);
+}
+
+.dc-cat-page-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 14px;
+  box-shadow: 11px 11px 22px rgba(0, 0, 0, 0.13), -11px -11px 22px rgba(255, 255, 255, 0.95);
+  transition: box-shadow 0.25s ease;
+}
+
+/* ---------- Grade de categorias (Home, carrossel de 2 linhas) ---------- */
+
+.dc-cat-grid-scroll {
+  overflow-x: auto;
+  overflow-y: visible;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  margin: -14px;
+  padding: 14px;
+}
+
+.dc-cat-grid-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.dc-cat-grid {
+  display: grid;
+  grid-template-rows: repeat(2, auto);
+  grid-auto-flow: column;
+  grid-auto-columns: 86px;
+  gap: 18px 16px;
+  width: max-content;
+}
+
+.dc-cat-tile-link {
+  position: relative;
+  display: block;
+  width: 86px;
+  text-decoration: none;
+  transition: transform 0.2s ease;
+}
+
+a.dc-cat-tile-link:hover {
+  transform: translateY(-3px);
+}
+
+a.dc-cat-tile-link:hover .dc-cat-tile-img,
+a.dc-cat-tile-link:hover .dc-cat-tile-fallback {
+  box-shadow: 14px 14px 26px rgba(0, 0, 0, 0.16), -14px -14px 26px rgba(255, 255, 255, 1);
+}
+
+/* Neomorfismo em alto relevo: sombra dupla bem pronunciada (clara +
+   escura, neutra — sem tingir de verde) simulando luz vinda de
+   cima-esquerda — os cartões parecem flutuar/estufar sobre o fundo claro
+   do site, sem precisar de borda dura. Offsets e blur grandes de
+   propósito (pedido explícito do usuário: "alto relevo", não uma sombra
+   sutil). */
+.dc-cat-tile-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 14px;
+  box-shadow: 10px 10px 20px rgba(0, 0, 0, 0.13), -10px -10px 20px rgba(255, 255, 255, 0.95);
+  transition: box-shadow 0.25s ease;
+}
+
+.dc-cat-tile-dim {
+  filter: grayscale(1) opacity(0.5);
+}
+
+.dc-cat-tile-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 14px;
+  background: var(--dc-card-bg);
+  color: var(--dc-text);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  padding: 10px 6px;
+  box-shadow: 10px 10px 20px rgba(0, 0, 0, 0.13), -10px -10px 20px rgba(255, 255, 255, 0.95);
+  transition: box-shadow 0.25s ease;
+}
+
+.dc-cat-tile-fallback.dc-cat-tile-dim {
+  filter: grayscale(1) opacity(0.6);
+}
+
+.dc-cat-tile-soon-badge {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--dc-black);
+  color: #fff;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* ---------- Banner de promoção (Home) ---------- */
+
+.dc-promo-single {
+  display: block;
+  border-radius: var(--dc-radius);
+  overflow: hidden;
+}
+
+.dc-promo-single img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ---------- Barra fixa (mobile) ---------- */
+
+.dc-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  body {
+    padding-bottom: 84px;
+  }
+
+  .dc-bottom-nav {
+    display: flex;
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    z-index: 20;
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    border-radius: 999px;
+    box-shadow: 0 12px 28px rgba(13, 31, 22, 0.18);
+    padding: 10px 6px;
+  }
+
+  .dc-bottom-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    text-decoration: none;
+    color: #4b5f56;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .dc-bottom-nav-item:hover,
+  .dc-bottom-nav-item:active {
+    color: var(--dc-green-deep);
+  }
+
+  .dc-bottom-nav-item-active {
+    color: var(--dc-green-deep);
+  }
 }
 
 /* ---------- Product grid / cards ---------- */
@@ -291,7 +513,7 @@ img {
 
 .dc-card:hover {
   transform: translateY(-3px);
-  border-color: var(--dc-gold-deep);
+  border-color: var(--dc-green-deep);
   box-shadow: 0 14px 28px rgba(20, 17, 12, 0.12);
 }
 
@@ -306,7 +528,7 @@ img {
 .dc-card-image {
   position: relative;
   aspect-ratio: 1 / 1;
-  background: #f3efe3;
+  background: #e6f2ea;
   overflow: hidden;
 }
 
@@ -334,8 +556,8 @@ img {
 }
 
 .dc-card-badge.price {
-  background: var(--dc-black);
-  color: var(--dc-gold-bright);
+  background: var(--dc-urgency);
+  color: #fff;
 }
 
 .dc-card-badge.rating {
@@ -346,6 +568,86 @@ img {
 .dc-card-badge.sales {
   background: #fdeaea;
   color: #c23434;
+}
+
+.dc-favorite-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--dc-text-muted);
+  cursor: pointer;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.dc-favorite-btn:hover {
+  transform: scale(1.08);
+}
+
+.dc-favorite-active {
+  color: #c23434;
+}
+
+.dc-card-best-price {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--dc-green-deep);
+}
+
+.dc-card-prices {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.dc-card-price-original {
+  font-size: 12px;
+  color: var(--dc-text-muted);
+  text-decoration: line-through;
+}
+
+.dc-card-savings {
+  display: inline-block;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--dc-green-deep);
+  background: #e8f8ed;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.dc-card-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 9px;
+  border-radius: 999px;
+  background: var(--dc-green);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 800;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+.dc-card:hover .dc-card-cta {
+  background: linear-gradient(135deg, var(--dc-green-bright), var(--dc-green));
 }
 
 .dc-card-title {
@@ -362,7 +664,7 @@ img {
   font-family: var(--font-heading);
   font-size: 18px;
   font-weight: 800;
-  color: var(--dc-black);
+  color: var(--dc-green-deep);
 }
 
 .dc-card-meta {
@@ -384,35 +686,30 @@ img {
 
 /* ---------- Footer CTA ---------- */
 
-.dc-footer-cta {
+.dc-footer-cta-image {
+  display: block;
   margin-top: 8px;
-  padding: 26px 20px;
   border-radius: var(--dc-radius);
-  background: var(--dc-black);
-  background-image: radial-gradient(circle at 20% 20%, rgba(212, 160, 23, 0.18), transparent 60%);
-  color: #fff;
-  text-align: center;
+  overflow: hidden;
 }
 
-.dc-footer-cta h2 {
-  font-family: var(--font-heading);
-  color: #fff;
-  font-size: 18px;
-  font-weight: 800;
-  margin: 0 0 6px;
-}
-
-.dc-footer-cta p {
-  color: #cfc7b4;
-  font-size: 13.5px;
-  margin: 0 0 16px;
+.dc-footer-cta-image img {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .dc-footer {
   padding: 26px 16px 44px;
   text-align: center;
   font-size: 12px;
+  line-height: 1.6;
   color: var(--dc-text-muted);
+}
+
+.dc-footer p {
+  max-width: 480px;
+  margin: 0 auto;
 }
 
 /* ---------- Product page ---------- */
@@ -427,7 +724,7 @@ img {
 
 .dc-product-image {
   aspect-ratio: 1 / 1;
-  background: #f3efe3;
+  background: #e6f2ea;
 }
 
 .dc-product-image img {
@@ -438,6 +735,64 @@ img {
 
 .dc-product-body {
   padding: 18px;
+}
+
+.dc-compare-box {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--dc-border);
+}
+
+.dc-compare-title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--dc-text-muted);
+  margin: 0 0 10px;
+}
+
+.dc-compare-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dc-compare-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--dc-radius-sm);
+  background: var(--dc-bg);
+}
+
+.dc-compare-badge {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.dc-compare-price {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 14px;
+  flex: 1;
+}
+
+.dc-compare-row a {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--dc-green-deep);
+  text-decoration: none;
+}
+
+.dc-compare-row a:hover {
+  text-decoration: underline;
 }
 
 .dc-back-link {
@@ -453,7 +808,7 @@ img {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: linear-gradient(135deg, var(--dc-gold-bright), var(--dc-gold));
+  background: linear-gradient(135deg, var(--dc-green-bright), var(--dc-green));
   color: var(--dc-black);
   font-family: var(--font-heading);
   font-weight: 800;
@@ -484,21 +839,51 @@ img {
   width: 100%;
   text-align: center;
   padding: 16px;
-  border: 2px solid var(--dc-gold);
+  border: 2px solid var(--dc-green);
   border-radius: 999px;
-  background: linear-gradient(135deg, var(--dc-gold-bright), var(--dc-gold));
+  background: linear-gradient(135deg, var(--dc-green-bright), var(--dc-green));
   color: var(--dc-black);
   font-family: var(--font-heading);
   font-weight: 800;
   letter-spacing: 0.02em;
   text-decoration: none;
   margin-top: 18px;
-  box-shadow: 0 6px 18px rgba(212, 160, 23, 0.4);
+  box-shadow: 0 6px 18px rgba(22, 163, 74, 0.4);
   transition: background 0.25s ease, color 0.25s ease, transform 0.25s ease;
 }
 
 .dc-cta-button:hover {
   background: var(--dc-black);
-  color: var(--dc-gold-bright);
+  color: var(--dc-green-bright);
+  transform: translateY(-1px);
+}
+
+/* CTA de compra de verdade (ex: "Ver na Shopee") — aqui sim entra a cor de
+   urgência; a de contato/WhatsApp (.dc-cta-button acima) fica no dourado,
+   pra não brigar com a identidade visual do WhatsApp. */
+.dc-buy-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  text-align: center;
+  padding: 16px;
+  border: 2px solid var(--dc-green);
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--dc-green-bright), var(--dc-green));
+  color: #fff;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  margin-top: 18px;
+  box-shadow: 0 6px 18px rgba(22, 163, 74, 0.4);
+  transition: background 0.25s ease, color 0.25s ease, transform 0.25s ease;
+}
+
+.dc-buy-button:hover {
+  background: var(--dc-black);
+  color: var(--dc-green-bright);
   transform: translateY(-1px);
 }

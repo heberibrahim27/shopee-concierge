@@ -4,3 +4,10 @@ node_modules
 !.env.example
 .vercel
 tsconfig.tsbuildinfo
+
+# Fontes brutas de ícones (ChatGPT) — só as versões recortadas em
+# public/icones-categorias/ são usadas pelo site; os originais ficam só
+# localmente pra reaproveitar se precisar recortar de novo.
+public/ICONES BRANCOS/
+public/ICONES/
+public/ICONES-CATEGORIAS.png

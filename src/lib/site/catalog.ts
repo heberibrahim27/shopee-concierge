@@ -19,6 +19,10 @@ export interface SiteProduct {
   productName: string;
   categorySlug: string | null;
   platform: string;
+  /** Produtos com o mesmo group_id são o mesmo item físico em marketplaces
+   * diferentes — null quando ninguém ainda linkou esse produto a um grupo
+   * (comportamento padrão hoje: cada produto aparece sozinho). */
+  groupId: string | null;
   highlightReason: string | null;
   imageUrl: string | null;
   priceMin: number | null;
@@ -37,7 +41,7 @@ function hasSupabaseEnv(): boolean {
 }
 
 const SITE_CATALOG_COLUMNS =
-  "id, slug, product_name, category_slug, platform, highlight_reason, image_url, price_min, price_max, price_discount_rate, rating_star, sales, offer_link, updated_at";
+  "id, slug, product_name, category_slug, platform, group_id, highlight_reason, image_url, price_min, price_max, price_discount_rate, rating_star, sales, offer_link, updated_at";
 
 function mapRow(row: Record<string, unknown>): SiteProduct {
   return {
@@ -46,6 +50,7 @@ function mapRow(row: Record<string, unknown>): SiteProduct {
     productName: String(row.product_name),
     categorySlug: (row.category_slug as string | null) ?? null,
     platform: String(row.platform ?? "shopee"),
+    groupId: (row.group_id as string | null) ?? null,
     highlightReason: (row.highlight_reason as string | null) ?? null,
     imageUrl: (row.image_url as string | null) ?? null,
     priceMin: row.price_min === null || row.price_min === undefined ? null : Number(row.price_min),
@@ -144,4 +149,32 @@ export function getCachedProduct(slug: string): Promise<SiteProduct | null> {
 /** Busca não é cacheada por tag — é resultado de uma query livre do visitante. */
 export function searchProducts(term: string): Promise<SiteProduct[]> {
   return querySearch(term);
+}
+
+/**
+ * Outras ofertas do MESMO produto físico (mesmo group_id), em outra
+ * plataforma — pra montar o quadro "compare em outras lojas" na página de
+ * produto. Enquanto nada for linkado a um grupo (padrão hoje), retorna
+ * lista vazia e a seção simplesmente não aparece — nunca mostra preço
+ * inventado de loja que não temos dado real.
+ */
+async function queryGroupOffers(groupId: string, excludeSlug: string): Promise<SiteProduct[]> {
+  if (!hasSupabaseEnv()) return [];
+
+  const db = getDb();
+  const { data, error } = await db
+    .from("site_catalog")
+    .select(SITE_CATALOG_COLUMNS)
+    .eq("group_id", groupId)
+    .neq("slug", excludeSlug);
+
+  if (error) throw new Error(`Falha ao buscar ofertas do grupo ${groupId}: ${error.message}`);
+  return (data ?? []).map(mapRow);
+}
+
+export function getCachedGroupOffers(groupId: string, excludeSlug: string): Promise<SiteProduct[]> {
+  return unstable_cache(() => queryGroupOffers(groupId, excludeSlug), ["group-offers", groupId, excludeSlug], {
+    tags: [`group:${groupId}`],
+    revalidate: FALLBACK_REVALIDATE_SECONDS,
+  })();
 }

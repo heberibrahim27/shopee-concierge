@@ -13,3 +13,24 @@ export function formatRating(rating: number | null): string | null {
   if (rating === null || rating <= 0) return null;
   return rating.toFixed(1).replace(".", ",");
 }
+
+/**
+ * Preço "de" estimado a partir do desconto informado pela própria Shopee
+ * (priceDiscountRate) — não é um valor inventado, é o preço atual dividido
+ * de volta pela taxa de desconto real da oferta.
+ */
+export function formatOriginalPriceBRL(
+  priceMin: number | null,
+  discountRate: number | null
+): string | null {
+  if (priceMin === null || !discountRate || discountRate <= 0 || discountRate >= 100) return null;
+  const original = priceMin / (1 - discountRate / 100);
+  return formatPriceBRL(original);
+}
+
+/** Quanto o preço atual economiza do "de" (mesma base do priceDiscountRate real da Shopee). */
+export function formatSavingsBRL(priceMin: number | null, discountRate: number | null): string | null {
+  if (priceMin === null || !discountRate || discountRate <= 0 || discountRate >= 100) return null;
+  const original = priceMin / (1 - discountRate / 100);
+  return formatPriceBRL(original - priceMin);
+}

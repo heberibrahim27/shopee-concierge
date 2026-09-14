@@ -104,6 +104,75 @@ export function ShirtIcon({ size = 18, style }: IconProps) {
   );
 }
 
+export function HeartIcon({ size = 18, style, filled = false }: IconProps & { filled?: boolean }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      style={style}
+    >
+      <path d="M12 20.5s-7.5-4.6-10-9.3C.4 7.8 2 4.5 5.3 3.7c2-.5 4 .3 5.2 2 .3.4.8.4 1 0 1.2-1.7 3.2-2.5 5.2-2 3.3.8 4.9 4.1 3.3 7.5-2.5 4.7-10 9.3-10 9.3Z" />
+    </svg>
+  );
+}
+
+export function SearchIcon({ size = 18, style }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.6}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      style={style}
+    >
+      <circle cx="10.5" cy="10.5" r="7" />
+      <path d="M20 20l-4.35-4.35" />
+    </svg>
+  );
+}
+
+export function GridIcon({ size = 18, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...lineProps} aria-hidden="true" style={style}>
+      <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" />
+      <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
+      <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" />
+    </svg>
+  );
+}
+
+export function CartIcon({ size = 16, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...lineProps} aria-hidden="true" style={style}>
+      <path d="M3 4h2l2.4 12.2a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.6L20.5 8H6.2" />
+      <circle cx="9.5" cy="20.5" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="17.5" cy="20.5" r="1.4" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function ArrowRightIcon({ size = 16, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...lineProps} aria-hidden="true" style={style}>
+      <path d="M4 12h15.5" />
+      <path d="M13.5 5.5 20 12l-6.5 6.5" />
+    </svg>
+  );
+}
+
 export const CATEGORY_ICONS: Record<string, (props: IconProps) => JSX.Element> = {
   casa: HomeIcon,
   eletronicos: PlugIcon,

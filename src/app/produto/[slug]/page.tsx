@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
 import { Header } from "../../../components/site/Header";
 import { Footer } from "../../../components/site/Footer";
-import { getCachedProduct } from "../../../lib/site/catalog";
+import { getCachedProduct, getCachedGroupOffers } from "../../../lib/site/catalog";
 import { formatPriceBRL, formatRating, formatSales } from "../../../lib/site/format";
 import { getProductAffiliateHref, AFFILIATE_LINK_REL } from "../../../lib/site/affiliateLink";
 import { AwardIcon, StarIcon } from "../../../components/site/icons";
+import { getPlatformInfo } from "../../../lib/site/platforms";
 
 export async function generateMetadata({ params }: { params: { slug: string } }) {
   const product = await getCachedProduct(params.slug);
@@ -27,10 +28,23 @@ export default async function ProductPage({ params }: { params: { slug: string }
   const product = await getCachedProduct(params.slug);
   if (!product) notFound();
 
-  const price = formatPriceBRL(product.priceMin);
   const rating = formatRating(product.ratingStar);
   const sales = formatSales(product.sales);
-  const affiliateHref = getProductAffiliateHref(product.offerLink);
+  const otherOffers = product.groupId
+    ? await getCachedGroupOffers(product.groupId, product.slug)
+    : [];
+
+  // A oferta de destaque é sempre a de menor preço real entre as lojas
+  // vinculadas (nunca fixa em "Shopee") — se só existir uma, é ela mesma.
+  const allOffers = [product, ...otherOffers].filter((o) => o.priceMin !== null);
+  const bestOffer =
+    allOffers.length > 0
+      ? allOffers.reduce((best, o) => (o.priceMin! < best.priceMin! ? o : best))
+      : product;
+  const price = formatPriceBRL(bestOffer.priceMin);
+  const bestPlatform = getPlatformInfo(bestOffer.platform);
+  const affiliateHref = getProductAffiliateHref(bestOffer.offerLink);
+  const remainingOffers = [product, ...otherOffers].filter((o) => o.id !== bestOffer.id);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -77,7 +91,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
               <div className="dc-card-meta dc-icon-inline" style={{ marginBottom: 8 }}>
                 {rating ? (
                   <span className="dc-icon-inline">
-                    <StarIcon size={12} style={{ color: "var(--dc-gold-deep)" }} />
+                    <StarIcon size={12} style={{ color: "var(--dc-green-deep)" }} />
                     {rating}
                   </span>
                 ) : null}
@@ -95,18 +109,46 @@ export default async function ProductPage({ params }: { params: { slug: string }
 
             {affiliateHref ? (
               <a
-                className="dc-cta-button"
+                className="dc-buy-button"
                 href={affiliateHref}
                 target="_blank"
                 rel={AFFILIATE_LINK_REL}
               >
-                Ver na Shopee
+                Ver oferta {bestPlatform.ctaPreposition}
               </a>
             ) : (
               <p className="dc-empty" style={{ marginTop: 16 }}>
                 Link indisponível no momento.
               </p>
             )}
+
+            {remainingOffers.length > 0 ? (
+              <div className="dc-compare-box">
+                <p className="dc-compare-title">Compare em outras lojas</p>
+                <ul className="dc-compare-list">
+                  {remainingOffers.map((offer) => {
+                    const info = getPlatformInfo(offer.platform);
+                    const offerPrice = formatPriceBRL(offer.priceMin);
+                    const offerHref = getProductAffiliateHref(offer.offerLink);
+                    if (!offerHref || !offerPrice) return null;
+                    return (
+                      <li key={offer.id} className="dc-compare-row">
+                        <span
+                          className="dc-compare-badge"
+                          style={{ background: info.color, color: info.textColor }}
+                        >
+                          {info.label}
+                        </span>
+                        <span className="dc-compare-price">{offerPrice}</span>
+                        <a href={offerHref} target="_blank" rel={AFFILIATE_LINK_REL}>
+                          Ver oferta
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : null}
           </div>
         </div>
 
