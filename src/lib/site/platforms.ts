@@ -1,9 +1,10 @@
 /**
  * Metadados de marketplace pra exibição — só rótulo e cor, nunca logo
  * copiado de terceiros (uso nominativo, informativo, comum em qualquer
- * comparador de preço real). Hoje só `shopee` tem dado de verdade; os
- * outros existem aqui pra quando a integração de cada um for feita —
- * até lá, nenhuma linha do banco usa esses valores, então nada aparece.
+ * comparador de preço real). `shopee` e (desde 2026-09-15, via feed de
+ * produto da Awin) `nike`/`olympikus` têm dado de verdade; os demais
+ * existem aqui pra quando a integração de cada um for feita — até lá,
+ * nenhuma linha do banco usa esses valores, então nada aparece.
  */
 export interface PlatformInfo {
   label: string;
@@ -34,6 +35,13 @@ export const PLATFORM_INFO: Record<string, PlatformInfo> = {
     color: "#e60014",
     textColor: "#fff",
     ctaPreposition: "nas Americanas",
+  },
+  nike: { label: "Nike", color: "#111111", textColor: "#fff", ctaPreposition: "na Nike" },
+  olympikus: {
+    label: "Olympikus",
+    color: "#0a8a4a",
+    textColor: "#fff",
+    ctaPreposition: "na Olympikus",
   },
 };
 
