@@ -503,6 +503,64 @@ não só lendo documentação de fora):
   público e estável). Nenhuma das duas opções foi implementada ainda —
   fica registrado como ideia futura, não é prioridade agora.
 
+### 7. 🔥 Awin — rede de afiliados com API real, usuário JÁ TEM CONTA — melhor pista até agora
+Durante a pesquisa de alternativas com API de verdade (usuário pediu:
+"faça uma varredura de outras opções de afiliação com API", focando em
+**eletrônicos/TV/som com comissão alta**, "a ideia é melhor preço mas
+também precisamos de dinheiro"), a Awin se destacou: é uma rede que
+junta VÁRIAS lojas grandes numa conta só, com API de produtos de
+verdade (`api.awin.com`, autenticação Bearer, token de API — igual
+Shopee/ML), diferente do Mercado Livre que não tem isso pra loja
+nenhuma. **O usuário já tem conta na Awin.**
+
+**Testado ao vivo com o token real do usuário (2026-09-15):**
+- `GET /accounts` — funciona. `accountId` (publisherId) do usuário:
+  `2596713` ("PF - Heber Ibrahim Ribeiro").
+- `GET /publishers/{id}/programmes?relationship=joined` — usuário está
+  aprovado em **só 2 lojas hoje: Nike BR e Olympikus BR** (roupa/tênis,
+  nada de eletrônicos ainda).
+- `GET /publishers/{id}/programmes?relationship=notjoined&countryCode=BR`
+  — devolveu 241 lojas disponíveis na rede. Filtrando por
+  eletrônicos/TV/som, achei: **Kabum BR** (id 17729), **Fastshop BR**
+  (id 17590, também tem "FastShop B2B" id 108628), **Samsung BR** (id
+  25539), **Motorola BR** (id 24534), **JBL BR** (id 118761),
+  **Webfones BR** (id 78292, PC & Video Games).
+- `GET /publishers/{id}/programmedetails?advertiserId={id}` (pra ver
+  comissão real) — dá erro `missing.relationship` pras 5 lojas acima.
+  **Confirmado: a Awin não libera dado de comissão nem feed de produto
+  antes de o publisher se candidatar e ser aprovado por CADA loja**,
+  igual qualquer rede de afiliados normal (não é automático feito ML).
+
+**Próximo passo real (precisa do usuário):** entrar na Awin
+(ui.awin.com) e se candidatar nas lojas de eletrônicos acima —
+principalmente **Kabum** e **Fastshop** (maior variedade TV/som) e
+**Samsung**/**Motorola**/**JBL** (marca própria, comissão geralmente
+mais previsível). Aprovação varia por loja (algumas são automáticas,
+outras revisam manualmente). Isso é aceite de contrato por loja — não
+faço isso sozinho. Assim que aprovado em pelo menos uma, dá pra puxar
+comissão real (`programmedetails`) e o feed de produtos
+(`productdata.awin.com/datafeed/...`) pra alimentar o site com dados de
+verdade (preço + comissão), o que Mercado Livre nunca vai conseguir
+oferecer.
+
+**Token de API do usuário**: já testado, funciona. Guardado só nesta
+sessão (não foi salvo em arquivo) — se for continuar usando, salvar em
+`.env` como `AWIN_API_TOKEN` e `AWIN_PUBLISHER_ID=2596713`.
+
+**Lomadee (achado na mesma varredura, ainda não testado com credencial
+real)**: outra rede brasileira antiga (Americanas, Submarino, Extra,
+Casas Bahia, Walmart, Netshoes), com API de produtos E de cupons
+documentada em `developer.lomadee.com/afiliados/`. Usuário não
+mencionou ter conta lá — perguntar se quer se cadastrar, já que cobre
+lojas diferentes da Awin (mais generalista, menos eletrônicos puro).
+
+**Amazon Associates**: confirmado por pesquisa que precisa de **10
+vendas qualificadas nos últimos 30 dias** pra liberar a Creators API
+(memória do usuário estava certa). PA-API 5.0 antiga será descontinuada
+em 15/05/2026. Não é caminho viável agora (site ainda não vende nada
+via Amazon pra gerar essas 10 vendas) — revisitar só depois que a
+Shopee/Awin estiverem gerando venda de verdade.
+
 **Texto da decisão original (2026-09-14), mantido por histórico:**
 "não adicionar nenhum outro programa de afiliados (Mercado Livre, Amazon,
 AliExpress etc.) até a Shopee estar 100% estável. Ou seja: fechar o item
