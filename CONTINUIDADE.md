@@ -8,6 +8,33 @@
 
 ## Pendências ativas
 
+### 🚨 Segurança (achado em 2026-09-15): RLS desativado em `product_groups`
+O Supabase apontou automaticamente ao listar as tabelas do projeto
+`babamanager-pro`: a tabela `public.product_groups` está com Row Level
+Security **desativado** — qualquer um com a chave anon (a mesma exposta
+no client-side) consegue ler ou escrever nela livremente. Hoje ela só
+guarda ids de agrupamento (produto físico em marketplaces diferentes),
+nada sensível, mas ainda é uma falha de configuração real. Não corrigi
+sozinho porque ativar RLS sem política de acesso definida bloquearia todo
+acesso à tabela (inclusive o legítimo). Precisa decidir com o usuário:
+manter aberta (aceitável enquanto for só metadado não-sensível) ou
+definir uma política (ex: leitura pública, escrita só via service role).
+
+### 💡 Ideia (2026-09-15): painel admin
+Usuário quer um painel pra acompanhar cliques, buscas e (idealmente)
+receita/saldo de vendas. Ciente de que receita real da Shopee não dá pra
+puxar por API (só existe no painel de afiliado deles) — combinado que o
+painel mostra o que dá pra medir de verdade (cliques, buscas) e deixa um
+jeito de lançar receita manualmente depois (lançamento manual ou upload
+de extrato, ainda não desenhado). Não iniciado ainda — precisa decidir:
+- Autenticação: hoje o site não tem login nenhum; proposta é uma senha
+  simples via variável de ambiente + cookie assinado, sem tabela de
+  usuário.
+- Registro de eventos: nenhum clique/busca é logado hoje — precisa de
+  tabela nova (`site_events` ou similar) + instrumentar os pontos de
+  clique (cards de produto, ambos ProductCard e LiveProductCard) e a
+  busca (`/busca`).
+
 ### 💡 Ideia (2026-09-14): aviso de queda de preço por produto
 Usuário perguntou se o ícone do sino no cabeçalho tem funcionalidade — hoje
 não tem nenhuma (só "Notificações em breve", enfeite). Ideia proposta e
@@ -317,13 +344,27 @@ na memória).
   Perguntei os dois caminhos, usuário ainda não decidiu — retomar quando
   ele quiser.
 
-### 5. ⚠️ Decisão estratégica: sem novas plataformas de afiliado por enquanto
-Decisão explícita do usuário (2026-09-14): **não adicionar nenhum outro
-programa de afiliados** (Mercado Livre, Amazon, AliExpress etc.) até a
-Shopee estar 100% estável. Ou seja: fechar o item 2 (pendência urgente do
-perito) + o roteiro de testes, antes de considerar qualquer expansão pra
-outras plataformas. Pesquisa comparativa dessas alternativas já foi feita
-e está registrada, mas fica pausada por ora.
+### 5. 🔄 Mercado Livre — decisão de pausa REVERTIDA pelo usuário (2026-09-15)
+Havia uma decisão explícita de 2026-09-14 de **não adicionar nenhum outro
+programa de afiliados** até a Shopee estar 100% estável (texto original
+preservado abaixo). Em 2026-09-15 o usuário pediu pra avançar mesmo assim:
+o argumento é que o valor real do comparador só aparece com 2+
+marketplaces (ex: "TV 32\" Aiwa: Shopee R$1000, Mercado Livre R$920") — só
+Shopee, segundo ele, "é melhor olhar direto no site deles".
+
+**Ainda não iniciado.** Próximo passo: pesquisar o programa de afiliados
+do Mercado Livre (like o "Mercado Livre Afiliados") — existência de API
+de busca de produtos equivalente à `productOfferV2` da Shopee, processo
+de aprovação, e se dá pra reaproveitar o mesmo padrão de arquitetura já
+pronto (`platforms.ts`, `product_groups`, comparação na página de
+produto) ou se precisa de adaptação.
+
+**Texto da decisão original (2026-09-14), mantido por histórico:**
+"não adicionar nenhum outro programa de afiliados (Mercado Livre, Amazon,
+AliExpress etc.) até a Shopee estar 100% estável. Ou seja: fechar o item
+2 (pendência urgente do perito) + o roteiro de testes, antes de
+considerar qualquer expansão pra outras plataformas." Pesquisa
+comparativa dessas alternativas já foi feita e está registrada.
 
 **Resolvido (2026-09-14):** perguntado ao usuário se o site deveria esperar
 o item 2 fechar. Resposta: o bug do bot só pode ser testado/confirmado
@@ -359,19 +400,15 @@ parte 16):** os 18 ícones prontos (arte final, um PNG por categoria) já
 chegaram e foram integrados na Home — ver detalhe completo em FEITO.md
 (parte 16). Resumo do que falta agora, que é só dado, não mais visual:
 
-- As 6 categorias antigas (Casa, Eletrônicos, Ferramentas, Beleza, Moda,
-  Infantil) continuam as únicas com produto publicado — são as únicas
-  clicáveis na grade nova.
-- As 12 novas (Esporte, Automotivo, Saúde, Pet, Games, Papelaria,
-  Brinquedos, Bebês, Alimentos, Móveis, Viagem, Livros) aparecem
-  esmaecidas "em breve" na Home. Pra ativar cada uma de verdade: rodar
-  coleta no Growth OS pra essa categoria, publicar os produtos aprovados,
-  depois marcar `available: true` em
-  [categoryTiles.ts](src/lib/site/categoryTiles.ts) **e** adicionar o slug
-  em [categories.ts](src/lib/site/categories.ts) (que controla rota
-  `/categoria/[slug]`, sitemap e página `/categorias`). Ordem sugerida
-  continua a mesma: 1º lote Games/Pet/Saúde/Automotivo/Esporte; 2º lote
-  Papelaria/Brinquedos/Bebês; 3º lote Alimentos/Móveis/Viagem/Livros.
+- **1º lote CONCLUÍDO (2026-09-15):** Esporte, Automotivo, Saúde, Pet e
+  Games coletados (25 produtos cada, score >= 75) e ativados — ver
+  FEITO.md parte 20. Total agora: 11 categorias com produto publicado.
+- Faltam o 2º lote (Papelaria, Brinquedos, Bebês) e o 3º lote (Alimentos,
+  Móveis, Viagem, Livros), ainda "em breve". Mesmo processo: rodar
+  coleta (keywords + `scoreOffer` >= 75), publicar em `products` +
+  `offer_snapshots` via Supabase, marcar `available: true` em
+  [categoryTiles.ts](src/lib/site/categoryTiles.ts) e adicionar o slug em
+  [categories.ts](src/lib/site/categories.ts).
 - **Pendência aberta:** não veio arte nova pra "Infantil" (o lote trouxe
   "Bebês"/"Brinquedos" separados dela). O ladrilho da Infantil hoje usa o
   ícone antigo (`GiftIcon`) montado num cartão equivalente em CSS — dá pra

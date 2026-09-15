@@ -39,6 +39,39 @@
   `icones-categorias/` são usadas pelo site; ~20MB de fonte bruta sem uso
   não precisa ir pro histórico do git).
 
+## 2026-09-15 (sessão seguinte, parte 20) — 1º lote de expansão de categorias
+
+Rodei a coleta real na Shopee pras 5 categorias do 1º lote (ver plano em
+CONTINUIDADE.md): Esporte, Automotivo, Saúde, Pet, Games.
+
+- 5 palavras-chave por categoria, `productOfferV2` com `sortType`
+  ITEM_SOLD_DESC (mais vendidos — testei RELEVANCE_DESC primeiro e o
+  aproveitamento foi péssimo, 7 aprovados em 250 ofertas; trocando pra
+  mais vendidos foi pra 586 aprovados), limite 50/keyword.
+- Filtro de qualidade: mesmo `scoreOffer` do Growth OS
+  (`src/lib/growth/dealScoring.ts`, score >= 75 + cortes duros de
+  desconto/nota/vendas) replicado num script Node standalone.
+- Peguei os top 25 por score em cada categoria (125 produtos novos).
+  Antes de publicar, removi manualmente 8 itens de Games que a palavra
+  "controle" trouxe fora de contexto (ventilador, calcinha modeladora,
+  sabonete, fone de capacete de moto) — não tinham nada a ver com games.
+- Inseridos via Supabase MCP direto em `products` + `offer_snapshots`
+  (mesmo par de tabelas que `site_catalog` já lê). Confirmado por SQL:
+  25 produtos por categoria aparecendo em `site_catalog`.
+- Ativadas as 5 categorias em
+  [`categories.ts`](src/lib/site/categories.ts) (rota, sitemap) e
+  [`categoryTiles.ts`](src/lib/site/categoryTiles.ts) (tiles saem do "em
+  breve"). **Publicado**: commit `78ec754`.
+- ⚠️ **Aviso de segurança que o Supabase apontou nesta sessão** (não
+  relacionado a essa coleta, achado incidental ao listar as tabelas):
+  a tabela `product_groups` está com RLS (Row Level Security)
+  **desativado** — qualquer um com a chave anon consegue ler/escrever
+  nela. Ainda não corrigi porque ativar RLS sem política de acesso
+  definida bloquearia todo acesso à tabela — precisa decidir com o
+  usuário se essa tabela deve ficar aberta (hoje não guarda nada
+  sensível, só ids de agrupamento) ou se entra uma política de leitura
+  pública / escrita só do backend.
+
 ## 2026-09-14 (sessão seguinte, parte 19) — filtros de ordenação + zoom do iOS
 
 - **Filtros na `/busca`**: "Relevância / Mais vendidos / Melhor avaliação /
