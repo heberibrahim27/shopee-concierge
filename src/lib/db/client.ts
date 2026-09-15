@@ -29,6 +29,14 @@ export function getDb(): SupabaseClient {
 
   cached = createClient(url, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: {
+      // O Next.js intercepta o fetch global e cacheia por URL — uma
+      // consulta sem parâmetro que varie (ex: `link_checks?select=...`)
+      // fica presa pra sempre na primeira resposta, mesmo em rota
+      // `force-dynamic`. Isso deixou o /admin mostrando dado velho depois
+      // de escrever no banco. Força sempre buscar de novo.
+      fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
+    },
   });
   return cached;
 }
