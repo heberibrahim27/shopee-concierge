@@ -10,12 +10,11 @@
  *
  * NOTA: a chamada usa a mesma API (chat.completions) já usada no resto
  * do projeto, no mesmo formato de conteúdo multimodal (image_url). GPT-6
- * Astra é um modelo novo (lançado 03/09/2026) — antes de depender disso
- * de verdade em produção, valha a pena confirmar na documentação da
- * OpenAI se o formato de chamada é exatamente esse ou se o modelo espera
- * a Responses API / outro formato de conteúdo. Se a chamada falhar por
- * incompatibilidade, o fallback abaixo evita que isso derrube a resposta
- * inteira — só significa que o cliente recebe o melhor palpite do modelo
+ * Astra (lançado 03/09/2026) suporta esse formato via Chat Completions
+ * normalmente — só exige a Responses API para tool/function calling, que
+ * não é o caso aqui (confirmado 2026-09-15). Mesmo assim, o fallback
+ * abaixo evita que qualquer falha na chamada derrube a resposta inteira
+ * — só significa que o cliente recebe o melhor palpite do modelo
  * econômico em vez do parecer do perito.
  */
 import OpenAI from "openai";

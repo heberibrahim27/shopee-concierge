@@ -86,7 +86,14 @@ fallback local). Corrigido no commit `e0b7749`: `searchRankAndCompare`
 agora preserva o shortlist original antes do filtro visual e passa ele pro
 perito quando a lista filtrada fica vazia. Mesclado e deployado.
 
-- **Mas não está confirmado que resolveu**: depois do fix, o usuário testou
+- **Nome do modelo confirmado correto (2026-09-15, verificado por busca
+  na web):** `gpt-6-astra` é modelo real da OpenAI (lançado 03-04/09/2026),
+  e o formato de chamada já usado em `expertVision.ts` (Chat Completions +
+  `image_url` multimodal) é suportado — só precisaria da Responses API se
+  usasse tool/function calling, que este código não usa. O comentário de
+  dúvida que existia em `expertVision.ts` sobre isso não procede mais;
+  pode remover/atualizar esse comentário quando mexer no arquivo de novo.
+- **Mas não está confirmado que o bug de lógica resolveu**: depois do fix, o usuário testou
   de novo com a MESMA foto (bermuda/short 2-em-1 branco) e recebeu de novo
   "ainda não encontrei uma opção segura" (teste das 17:55 de 13/09/2026).
 - **Ação necessária:** checar o log `[concierge][observability]` dessa
