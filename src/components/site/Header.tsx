@@ -2,12 +2,11 @@ import { Logo } from "./Logo";
 import { PLATFORM_INFO } from "../../lib/site/platforms";
 
 /**
- * Lojas que o comparador realmente já traz dado real — só a Shopee, hoje.
- * As outras aparecem apagadas com "em breve": mostra pra onde o produto
- * está indo sem fingir que já compara com elas (nenhuma delas tem link,
- * de propósito).
+ * Lojas que o comparador realmente já traz dado real. As outras aparecem
+ * apagadas com "em breve": mostra pra onde o produto está indo sem fingir
+ * que já compara com elas (nenhuma delas tem link, de propósito).
  */
-const AVAILABLE_PLATFORMS = ["shopee"];
+const AVAILABLE_PLATFORMS = ["shopee", "nike", "olympikus"];
 
 /**
  * Cabeçalho fixo em três fileiras (logo, busca, lojas) — a busca fica

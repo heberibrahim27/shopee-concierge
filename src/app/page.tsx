@@ -3,10 +3,12 @@ import { Footer } from "../components/site/Footer";
 import { CategoryGrid } from "../components/site/CategoryGrid";
 import { PromoBanner } from "../components/site/PromoBanner";
 import { ProductGrid } from "../components/site/ProductGrid";
+import { CouponSection } from "../components/site/CouponSection";
 import { getCachedHomeOffers } from "../lib/site/catalog";
+import { getCachedCoupons } from "../lib/site/coupons";
 
 export default async function HomePage() {
-  const offers = await getCachedHomeOffers();
+  const [offers, coupons] = await Promise.all([getCachedHomeOffers(), getCachedCoupons()]);
 
   return (
     <>
@@ -22,6 +24,8 @@ export default async function HomePage() {
         <section className="dc-section" style={{ paddingBlock: "10px 4px" }}>
           <PromoBanner />
         </section>
+
+        <CouponSection coupons={coupons.slice(0, 4)} showViewAll={coupons.length > 4} />
 
         <section className="dc-section" style={{ paddingBlock: "6px 4px" }}>
           <CategoryGrid />

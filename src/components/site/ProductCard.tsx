@@ -52,10 +52,17 @@ export function ProductCard({ product }: { product: SiteProduct }) {
             {sales ?? ""}
           </div>
         ) : null}
-        <span className="dc-card-best-price">
-          <AwardIcon size={12} />
-          Menor preço encontrado
-        </span>
+        {product.platform === "shopee" ? (
+          <span className="dc-card-best-price">
+            <AwardIcon size={12} />
+            Menor preço encontrado
+          </span>
+        ) : product.highlightReason ? (
+          <span className="dc-card-best-price">
+            <AwardIcon size={12} />
+            {product.highlightReason}
+          </span>
+        ) : null}
         <div className="dc-card-prices">
           {originalPrice ? <span className="dc-card-price-original">{originalPrice}</span> : null}
           {price ? <div className="dc-card-price">{price}</div> : null}
