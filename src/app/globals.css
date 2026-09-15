@@ -439,6 +439,30 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   height: auto;
 }
 
+.dc-promo-scroll {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  margin: 0 -18px;
+  padding-inline: 18px;
+}
+
+.dc-promo-slide {
+  display: block;
+  flex: 0 0 auto;
+  width: 100%;
+  scroll-snap-align: start;
+  border-radius: var(--dc-radius);
+  overflow: hidden;
+}
+
+.dc-promo-slide img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 /* ---------- Barra fixa (mobile) ---------- */
 
 .dc-bottom-nav {
