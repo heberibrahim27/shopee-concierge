@@ -27,12 +27,12 @@ export const CATEGORY_TILES: CategoryTile[] = [
   // se Infantil vira dois assuntos ou ganha uma arte própria.
   { slug: "infantil", label: "Infantil", image: null, available: true },
 
-  // 1º lote da expansão (ver CONTINUIDADE.md) — ícones prontos, aguardando coleta.
-  { slug: "esporte", label: "Esporte", image: "/icones-categorias/esporte.jpg", available: false },
-  { slug: "automotivo", label: "Automotivo", image: "/icones-categorias/automotivo.jpg", available: false },
-  { slug: "saude", label: "Saúde", image: "/icones-categorias/saude.jpg", available: false },
-  { slug: "pet", label: "Pet", image: "/icones-categorias/pet.jpg", available: false },
-  { slug: "games", label: "Games", image: "/icones-categorias/games.jpg", available: false },
+  // 1º lote da expansão (ver CONTINUIDADE.md) — coletado e publicado em 2026-09-15 (25 produtos cada).
+  { slug: "esporte", label: "Esporte", image: "/icones-categorias/esporte.jpg", available: true },
+  { slug: "automotivo", label: "Automotivo", image: "/icones-categorias/automotivo.jpg", available: true },
+  { slug: "saude", label: "Saúde", image: "/icones-categorias/saude.jpg", available: true },
+  { slug: "pet", label: "Pet", image: "/icones-categorias/pet.jpg", available: true },
+  { slug: "games", label: "Games", image: "/icones-categorias/games.jpg", available: true },
 
   // 2º lote
   { slug: "papelaria", label: "Papelaria", image: "/icones-categorias/papelaria.jpg", available: false },
