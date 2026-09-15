@@ -465,19 +465,22 @@ chegaram e foram integrados na Home — ver detalhe completo em FEITO.md
 - **1º lote CONCLUÍDO (2026-09-15):** Esporte, Automotivo, Saúde, Pet e
   Games coletados (25 produtos cada, score >= 75) e ativados — ver
   FEITO.md parte 20. Total agora: 11 categorias com produto publicado.
-- Faltam o 2º lote (Papelaria, Brinquedos, Bebês) e o 3º lote (Alimentos,
-  Móveis, Viagem, Livros), ainda "em breve". Mesmo processo: rodar
-  coleta (keywords + `scoreOffer` >= 75), publicar em `products` +
-  `offer_snapshots` via Supabase, marcar `available: true` em
-  [categoryTiles.ts](src/lib/site/categoryTiles.ts) e adicionar o slug em
-  [categories.ts](src/lib/site/categories.ts).
+- **2º lote CONCLUÍDO (2026-09-15, madrugada, feito autonomamente):**
+  Papelaria, Brinquedos e Bebês coletados (25 produtos cada, score >= 75)
+  e ativados — ver FEITO.md parte 21, commit `dee98f7`. Total agora: 14
+  categorias com produto publicado.
+- Falta o 3º lote (Alimentos, Móveis, Viagem, Livros), ainda "em breve".
+  Mesmo processo: rodar coleta (keywords + `scoreOffer` >= 75), publicar
+  em `products` + `offer_snapshots` via Supabase, marcar
+  `available: true` em [categoryTiles.ts](src/lib/site/categoryTiles.ts)
+  e adicionar o slug em [categories.ts](src/lib/site/categories.ts).
 - **Pendência aberta:** não veio arte nova pra "Infantil" (o lote trouxe
-  "Bebês"/"Brinquedos" separados dela). O ladrilho da Infantil hoje usa o
-  ícone antigo (`GiftIcon`) montado num cartão equivalente em CSS — dá pra
-  usar assim indefinidamente, mas fica levemente diferente das outras 17
-  artes. Perguntar ao usuário se quer pedir uma arte "Infantil" própria ou
-  se essa categoria vai ser aposentada em favor de Bebês/Brinquedos quando
-  esses dois forem coletados.
+  "Bebês"/"Brinquedos" separados dela, já ativos). O ladrilho da Infantil
+  hoje usa o ícone antigo (`GiftIcon`) montado num cartão equivalente em
+  CSS — dá pra usar assim indefinidamente, mas fica levemente diferente
+  das outras artes. Perguntar ao usuário se quer pedir uma arte
+  "Infantil" própria ou se essa categoria vai ser aposentada agora que
+  Bebês/Brinquedos já estão no ar.
 
 **`ICONES-CATEGORIAS.png` não é usável direto (2026-09-14):** o ChatGPT
 mandou uma folha única com logo+sino+busca+banner+18 ícones todos juntos

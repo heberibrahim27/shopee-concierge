@@ -4,6 +4,31 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-15 (sessão seguinte, parte 21) — 2º lote de expansão de categorias (madrugada, autônomo)
+
+Continuação do 1º lote, feito de madrugada enquanto o usuário dormia ("Vou
+dormir, resolva tudo") — mesma técnica já validada, sem tocar em nenhuma
+conta pessoal do usuário. Categorias: Papelaria, Brinquedos, Bebês.
+
+- Mesma receita do 1º lote: `productOfferV2` com `sortType` ITEM_SOLD_DESC,
+  5 palavras-chave por categoria, limite 50/keyword, filtro `scoreOffer`
+  (score >= 75) do Growth OS.
+- 141/80/31 aprovados em papelaria/brinquedos/bebes; deduplicados contra os
+  479 produtos já existentes (22 duplicatas removidas); top 25 por
+  categoria (75 produtos novos).
+- Revisão manual antes de publicar removeu 7 falsos positivos de
+  palavra-chave: itens de manicure/sobrancelha (batidos por "caneta gel"),
+  uma fruteira e um jogo de mesas de cabeceira (batidos por "organizador
+  de mesa"). Ver `EXCLUDE_NAME_SUBSTR` no script de geração de SQL.
+- Inseridos via Supabase MCP em `products` + `offer_snapshots`. Confirmado
+  por SQL: 25 produtos por categoria em `site_catalog` (75 total).
+- Ativadas as 3 categorias em [`categories.ts`](src/lib/site/categories.ts)
+  e [`categoryTiles.ts`](src/lib/site/categoryTiles.ts) (ícones já
+  existiam em `/public/icones-categorias/`). Typecheck e build limpos.
+  **Publicado**: commit `dee98f7`.
+- Restam do plano de expansão: 3º lote (Alimentos, Móveis, Viagem, Livros)
+  — ver CONTINUIDADE.md.
+
 ## 2026-09-14 (sessão seguinte, parte 17) — menu inferior, ícone de ofertas, banner do rodapé, publicado
 
 - **Neumorfismo corrigido**: os 18 ícones de categoria tinham margem
