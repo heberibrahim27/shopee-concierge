@@ -14,6 +14,16 @@ async function expectedCookieValue(password: string): Promise<string> {
   return Buffer.from(digest).toString("hex");
 }
 
+/** Usado por rotas /api/admin/* que não passam pelo matcher do middleware
+ * (ele só cobre /admin/*) mas ainda assim fazem ação real e não podem
+ * ficar abertas — ver src/app/api/admin/revalidate-links/route.ts. */
+export async function isAuthedAdminRequest(request: NextRequest): Promise<boolean> {
+  const password = process.env.ADMIN_PASSWORD;
+  if (!password) return false;
+  const cookie = request.cookies.get(ADMIN_COOKIE_NAME)?.value;
+  return cookie === (await expectedCookieValue(password));
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (!pathname.startsWith("/admin")) return NextResponse.next();

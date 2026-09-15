@@ -6,6 +6,7 @@ import { SortBar } from "../../components/site/SortBar";
 import { searchProducts } from "../../lib/site/catalog";
 import { searchShopeeLive } from "../../lib/site/liveSearch";
 import { parseSortOption } from "../../lib/site/sort";
+import { logSearchEvent } from "../../lib/site/searchLog";
 
 export const metadata = { title: "Busca" };
 
@@ -30,6 +31,10 @@ export default async function SearchPage({
     : [[], []];
 
   const nothingFound = hasTerm && results.length === 0 && liveResults.length === 0;
+
+  if (hasTerm) {
+    await logSearchEvent(term, results.length + liveResults.length);
+  }
 
   return (
     <>

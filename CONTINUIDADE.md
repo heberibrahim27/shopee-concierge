@@ -20,20 +20,40 @@ acesso à tabela (inclusive o legítimo). Precisa decidir com o usuário:
 manter aberta (aceitável enquanto for só metadado não-sensível) ou
 definir uma política (ex: leitura pública, escrita só via service role).
 
-### 💡 Ideia (2026-09-15): painel admin
-Usuário quer um painel pra acompanhar cliques, buscas e (idealmente)
-receita/saldo de vendas. Ciente de que receita real da Shopee não dá pra
-puxar por API (só existe no painel de afiliado deles) — combinado que o
-painel mostra o que dá pra medir de verdade (cliques, buscas) e deixa um
-jeito de lançar receita manualmente depois (lançamento manual ou upload
-de extrato, ainda não desenhado). Não iniciado ainda — precisa decidir:
-- Autenticação: hoje o site não tem login nenhum; proposta é uma senha
-  simples via variável de ambiente + cookie assinado, sem tabela de
-  usuário.
-- Registro de eventos: nenhum clique/busca é logado hoje — precisa de
-  tabela nova (`site_events` ou similar) + instrumentar os pontos de
-  clique (cards de produto, ambos ProductCard e LiveProductCard) e a
-  busca (`/busca`).
+### 📋 Painel /admin — 6 blocos prioritários implementados (2026-09-15), falta testar em produção
+O painel (`/admin`, senha via `ADMIN_PASSWORD` + cookie assinado, ver
+`src/middleware.ts`) evoluiu de "contador de visitas" pra um painel
+operacional, seguindo a crítica do ChatGPT (thread
+`chatgpt.com/c/6aa6cf1f-...`) sobre a primeira versão. Implementado em
+`src/app/admin/page.tsx`:
+1. **Resumo** — visitas 7d/30d, cliques 24h/7d, CTR 7d, produtos publicados.
+2. **Alertas** — banner só aparece quando há problema real (produto sem
+   preço/imagem/link, link quebrado, matching ML pendente, preço
+   desatualizado há +7 dias).
+3. **Produtos** — contagem de publicados/sem preço/sem imagem/sem
+   link/sem categoria/desatualizados (via `site_catalog`).
+4. **Saúde dos links** — botão "Revalidar agora" (`POST
+   /api/admin/revalidate-links`) faz HEAD/GET real nos até 60 produtos
+   mais recentes, grava em `link_checks` (tabela nova); mostra quantos
+   ok/quebrados e lista os quebrados. Só confirma que o link responde
+   (200-3xx), não confirma estoque nem preço.
+5. **Ponte Shopee ↔ Mercado Livre** — confirmados vs. pendentes (via
+   `product_groups`/`products.group_id`), quem tá mais barato, diferença
+   média de preço.
+6. **Buscas sem resultado** — nova tabela `search_events`, logada em
+   `src/app/busca/page.tsx` a cada busca real (termo + total de
+   resultados); mostra os termos mais buscados sem nenhum resultado.
+
+Não implementado ainda (próxima leva, se o usuário quiser): aba
+**Receitas** (conversões/comissão Shopee via subIds já existentes,
+Mercado Livre fica "manual/aguardando" por falta de API de conversão),
+alertas via WhatsApp/push, histórico de mudanças (preço/link/categoria).
+
+**Limitação de teste**: não deu pra testar via `npm run dev` local
+porque `SUPABASE_SERVICE_ROLE_KEY` está vazia no `.env` local (só
+`SUPABASE_URL` está preenchida) — sempre foi assim, não é regressão
+desta sessão. `npx tsc --noEmit` e `npm run build` passaram limpos;
+validação real só rola em produção, pós-deploy.
 
 ### 💡 Ideia (2026-09-14): aviso de queda de preço por produto
 Usuário perguntou se o ícone do sino no cabeçalho tem funcionalidade — hoje

@@ -4,6 +4,25 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-15 (sessão seguinte, parte 24) — Painel /admin: senha ativada em produção + 6 blocos operacionais
+
+Dois problemas/entregas nesta parte:
+
+1. **Bug de segurança fechado**: o redeploy que deveria ativar a variável
+   `ADMIN_PASSWORD` em produção tinha ficado travado numa sessão anterior
+   — resultado, `/admin` ficou publicamente acessível sem senha por um
+   tempo (confirmado ao vivo, limpando o cookie e recarregando). Refeito
+   o redeploy pelo painel do Vercel (commit `913f985`), confirmado que
+   agora `/admin` redireciona pra `/admin/login` corretamente.
+2. **6 blocos prioritários do painel implementados**, seguindo a crítica
+   do ChatGPT sobre a v1 (que era só um contador de visitas): Resumo,
+   Alertas, Produtos, Saúde dos links (com revalidação real sob demanda),
+   Ponte Shopee×Mercado Livre, Buscas sem resultado. Duas tabelas novas no
+   Supabase (`search_events`, `link_checks`), nova rota
+   `POST /api/admin/revalidate-links` (autenticada via
+   `isAuthedAdminRequest`, exportada de `src/middleware.ts`). Detalhe
+   técnico completo em CONTINUIDADE.md.
+
 ## 2026-09-15 (sessão seguinte, parte 23) — Mercado Livre: app registrado e testado de verdade, resultado negativo
 
 Com o usuário presente: cadastramos um app de desenvolvedor real no
