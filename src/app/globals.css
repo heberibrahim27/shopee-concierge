@@ -463,6 +463,7 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: left center;
 }
 
 /* ---------- Barra fixa (mobile) ---------- */
