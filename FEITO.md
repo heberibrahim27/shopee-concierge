@@ -4,6 +4,33 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-15 (sessão seguinte, parte 23) — Mercado Livre: app registrado e testado de verdade, resultado negativo
+
+Com o usuário presente: cadastramos um app de desenvolvedor real no
+Mercado Livre ("DC Comparador Shopee-ML 2026", Client ID
+`2490415886076513`), autorizamos com a conta do usuário, geramos token
+OAuth de verdade e testamos os 4 endpoints da arquitetura planejada
+(ver CONTINUIDADE.md item 5 pra detalhe técnico completo).
+
+- `products/search` e `products/{id}` funcionam, mas só trazem ficha
+  técnica/fotos — **nenhum dos dois tem campo de preço**.
+- `products/{id}/items` (onde esperávamos achar o vendedor/preço real)
+  dá 404 pra qualquer produto — esse recurso só mostra o "vencedor da
+  promoção" quando a PRÓPRIA conta tem um anúncio concorrendo ali, não
+  serve pra terceiro comparar preço.
+- `items/{item_id}` (que a pesquisa anterior achava que era público)
+  na verdade está **bloqueado também** (403), autenticado ou não —
+  testado com 2 anúncios reais pegos direto da busca.
+- **Conclusão: não existe hoje um caminho de API oficial pra pegar
+  preço do Mercado Livre.** A única forma que vimos preço de verdade foi
+  abrindo a página do produto num navegador normal (visual, não API) —
+  bem mais frágil que uma integração de API.
+- Credenciais salvas em `.env` local (App ID, App Secret, Refresh
+  Token). Recomendado renovar o App Secret por precaução (um trecho
+  passou pelo terminal durante uma correção de arquivo nesta sessão).
+- **Decisão em aberto com o usuário**: investir em scraping visual
+  (frágil, mais manutenção) ou aceitar Shopee-only por enquanto.
+
 ## 2026-09-15 (sessão seguinte, parte 22) — 3º e último lote de expansão de categorias (madrugada, autônomo)
 
 Fechamento do plano de expansão de categorias, mesma madrugada do 2º lote.

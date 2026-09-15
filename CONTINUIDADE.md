@@ -418,15 +418,50 @@ e debatido com o ChatGPT (mesma conversa da arquitetura original,
   vendedores somando US$2,5 milhões de GMV/mês, não é uma rota realista
   pro nosso tamanho.
 
-**Próximo passo real (precisa do usuário, não dá pra eu fazer sozinho):**
-registrar uma aplicação em developers.mercadolivre.com.br (login com a
-conta do usuário, aceite de termos — ação de conta, não faço isso
-sozinho) e testar de verdade, com OAuth de app válida, estes 4 endpoints
-antes de escrever qualquer código de integração:
-`products/search`, `products/{id}`, `products/{id}/items`,
-`items/{item_id}`. Só depois desse teste real dá pra saber se o
-matching automático dos 80-90% "com catálogo" realmente funciona como o
-ChatGPT projetou, ou se cai tudo pra fila manual.
+**✅ TESTE REAL FEITO em 2026-09-15 (com o usuário presente) — resultado: a
+arquitetura acima NÃO funciona hoje.** Registramos o app de verdade
+("DC Comparador Shopee-ML 2026", Client ID `2490415886076513`, escopo
+"Leitura" em tudo) em developers.mercadolivre.com.br, autorizamos com a
+conta do usuário e testamos os 4 endpoints com token OAuth real:
+
+- `products/search` — **funciona** (200 OK), traz nome/fotos/atributos
+  ricos do produto de catálogo. Confirma o achado 3 acima: era mesmo só
+  falta de app/token, não bloqueio geral.
+- `products/{id}` — **funciona**, mas **não tem campo de preço nenhum**
+  (só atributos/ficha técnica). `buy_box_winner` vem sempre `null`.
+- `products/{id}/items` — **404 "No winners found"** pra todo produto
+  testado. Descoberta: esse campo só existe pra mostrar se **a própria
+  conta autenticada** tem um anúncio ganhando a "buy box" daquele
+  produto — não é uma lista de concorrentes visível pra terceiros. Não
+  serve pra comparação de preço de fora.
+- `items/{item_id}` — **403 bloqueado**, tanto autenticado quanto
+  anônimo, testado com 2 anúncios reais (um patrocinado, um orgânico,
+  IDs pegos direto da página de busca). Isso contraria o que a gente
+  achava antes (que esse endpoint era público) — o bloqueio da
+  plataforma é mais amplo do que parecia.
+
+**Conclusão prática: hoje não existe caminho de API oficial pra pegar
+preço do Mercado Livre pra comparação automática**, nem com app
+registrada e OAuth correto. Os únicos dados que a API de catálogo
+libera são ficha técnica/fotos, nunca preço. O único lugar onde o preço
+apareceu de verdade foi a página pública do site no navegador (visual,
+não API) — ou seja, a única alternativa que resta é algo como abrir a
+página do produto num navegador de verdade e ler o preço da tela
+(bem mais frágil, quebra fácil se o Mercado Livre mudar o layout, e
+não escala tão bem quanto uma API).
+
+**Credenciais**: `MERCADOLIVRE_APP_ID`, `MERCADOLIVRE_APP_SECRET` e
+`MERCADOLIVRE_REFRESH_TOKEN` já estão no `.env` local (não commitado).
+⚠️ Um pedaço do `APP_SECRET` passou pelo terminal desta sessão durante
+uma correção de arquivo — recomendado renovar a chave secreta no painel
+do Mercado Livre (menu "⋮" ao lado de "Chave secreta" → Renovar) e
+atualizar o `.env`, por precaução.
+
+**Decisão que falta tomar com o usuário:** vale a pena investir em uma
+solução baseada em navegador/scraping visual pro Mercado Livre (mais
+manutenção, mais frágil), ou aceitar que o comparador multi-marketplace
+fica só Shopee por enquanto e revisitar isso se o Mercado Livre mudar
+de política? Não decidido ainda.
 
 **Texto da decisão original (2026-09-14), mantido por histórico:**
 "não adicionar nenhum outro programa de afiliados (Mercado Livre, Amazon,
