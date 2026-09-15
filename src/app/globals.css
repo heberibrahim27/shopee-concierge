@@ -164,7 +164,9 @@ img {
   border: none;
   outline: none;
   background: transparent;
-  font-size: 14.5px;
+  /* 16px é o mínimo pra Safari/Chrome no iOS não darem zoom automático
+     ao focar o campo — abaixo disso a tela "pula" pra cima ao tocar. */
+  font-size: 16px;
   color: #fff;
   padding: 10px 0;
 }
@@ -221,6 +223,40 @@ img {
   line-height: 1.25;
   letter-spacing: -0.01em;
   margin: 0 0 18px;
+}
+
+.dc-sort-bar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.dc-sort-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.dc-sort-pill {
+  flex: none;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--dc-card-bg);
+  border: 1.5px solid var(--dc-border);
+  text-decoration: none;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--dc-text);
+  white-space: nowrap;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.dc-sort-pill-active {
+  background: var(--dc-green);
+  border-color: var(--dc-green);
+  color: #fff;
 }
 
 /* ---------- Sections ---------- */

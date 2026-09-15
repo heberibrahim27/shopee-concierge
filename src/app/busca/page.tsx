@@ -2,8 +2,10 @@ import { Header } from "../../components/site/Header";
 import { Footer } from "../../components/site/Footer";
 import { ProductGrid } from "../../components/site/ProductGrid";
 import { LiveProductCard } from "../../components/site/LiveProductCard";
+import { SortBar } from "../../components/site/SortBar";
 import { searchProducts } from "../../lib/site/catalog";
 import { searchShopeeLive } from "../../lib/site/liveSearch";
+import { parseSortOption } from "../../lib/site/sort";
 
 export const metadata = { title: "Busca" };
 
@@ -17,13 +19,14 @@ export const metadata = { title: "Busca" };
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: { q?: string };
+  searchParams: { q?: string; sort?: string };
 }) {
   const term = searchParams.q ?? "";
   const hasTerm = term.trim().length >= 2;
+  const sort = parseSortOption(searchParams.sort);
 
   const [results, liveResults] = hasTerm
-    ? await Promise.all([searchProducts(term), searchShopeeLive(term)])
+    ? await Promise.all([searchProducts(term, sort), searchShopeeLive(term, sort)])
     : [[], []];
 
   const nothingFound = hasTerm && results.length === 0 && liveResults.length === 0;
@@ -35,6 +38,8 @@ export default async function SearchPage({
         <section className="dc-hero">
           <h1>{term ? `Resultados pra "${term}"` : "Busca"}</h1>
         </section>
+
+        {hasTerm && !nothingFound ? <SortBar term={term} active={sort} /> : null}
 
         {results.length > 0 ? (
           <section className="dc-section">

@@ -7,7 +7,8 @@
  * (nota/vendas) pra não deixar passar vendedor claramente ruim.
  */
 import { searchProductsByKeyword } from "../shopee/queries";
-import { ShopeeProductOffer } from "../shopee/types";
+import { ShopeeProductOffer, ShopeeSortType } from "../shopee/types";
+import { SortOption } from "./sort";
 
 export interface LiveProduct {
   itemId: string;
@@ -42,13 +43,34 @@ function mapOffer(offer: ShopeeProductOffer): LiveProduct {
   };
 }
 
-export async function searchShopeeLive(term: string): Promise<LiveProduct[]> {
+/** A API da Shopee não tem sortType pra "melhor avaliação" — nesse caso
+ * pede em relevância e reordena no nosso lado pelos que vieram. */
+function toShopeeSortType(sort: SortOption): ShopeeSortType {
+  switch (sort) {
+    case "vendidos":
+      return ShopeeSortType.ITEM_SOLD_DESC;
+    case "preco":
+      return ShopeeSortType.PRICE_ASC;
+    default:
+      return ShopeeSortType.RELEVANCE_DESC;
+  }
+}
+
+export async function searchShopeeLive(term: string, sort: SortOption = "relevancia"): Promise<LiveProduct[]> {
   if (term.trim().length < 2) return [];
   if (!process.env.SHOPEE_APP_ID || !process.env.SHOPEE_SECRET) return [];
 
   try {
-    const offers = await searchProductsByKeyword({ keyword: term.trim(), limit: 20 });
-    return offers.filter(isDecentOffer).map(mapOffer).slice(0, MAX_RESULTS);
+    const offers = await searchProductsByKeyword({
+      keyword: term.trim(),
+      limit: 20,
+      sortType: toShopeeSortType(sort),
+    });
+    let products = offers.filter(isDecentOffer).map(mapOffer);
+    if (sort === "avaliacao") {
+      products = products.sort((a, b) => (b.ratingStar ?? 0) - (a.ratingStar ?? 0));
+    }
+    return products.slice(0, MAX_RESULTS);
   } catch (err) {
     console.error("[busca] Falha na busca ao vivo na Shopee:", err);
     return [];

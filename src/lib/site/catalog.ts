@@ -12,6 +12,7 @@
  */
 import { unstable_cache } from "next/cache";
 import { getDb } from "../db/client";
+import { SortOption } from "./sort";
 
 export interface SiteProduct {
   id: string;
@@ -109,15 +110,30 @@ async function queryProductBySlug(slug: string): Promise<SiteProduct | null> {
   return data ? mapRow(data) : null;
 }
 
-async function querySearch(term: string): Promise<SiteProduct[]> {
+/** Coluna + direção da `site_catalog` pra cada opção de ordenação da busca. */
+function sortColumn(sort: SortOption): { column: string; ascending: boolean } {
+  switch (sort) {
+    case "vendidos":
+      return { column: "sales", ascending: false };
+    case "avaliacao":
+      return { column: "rating_star", ascending: false };
+    case "preco":
+      return { column: "price_min", ascending: true };
+    default:
+      return { column: "snapshot_captured_at", ascending: false };
+  }
+}
+
+async function querySearch(term: string, sort: SortOption): Promise<SiteProduct[]> {
   if (!hasSupabaseEnv() || term.trim().length < 2) return [];
 
   const db = getDb();
+  const { column, ascending } = sortColumn(sort);
   const { data, error } = await db
     .from("site_catalog")
     .select(SITE_CATALOG_COLUMNS)
     .ilike("product_name", `%${term.trim()}%`)
-    .order("snapshot_captured_at", { ascending: false })
+    .order(column, { ascending, nullsFirst: false })
     .limit(24);
 
   if (error) throw new Error(`Falha na busca "${term}": ${error.message}`);
@@ -147,8 +163,8 @@ export function getCachedProduct(slug: string): Promise<SiteProduct | null> {
 }
 
 /** Busca não é cacheada por tag — é resultado de uma query livre do visitante. */
-export function searchProducts(term: string): Promise<SiteProduct[]> {
-  return querySearch(term);
+export function searchProducts(term: string, sort: SortOption = "relevancia"): Promise<SiteProduct[]> {
+  return querySearch(term, sort);
 }
 
 /**
