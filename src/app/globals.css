@@ -237,43 +237,6 @@ img {
   letter-spacing: -0.01em;
 }
 
-.dc-chip-row {
-  display: flex;
-  gap: 9px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.dc-chip-row::-webkit-scrollbar {
-  display: none;
-}
-
-.dc-chip {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 9px 16px;
-  border-radius: 999px;
-  background: var(--dc-card-bg);
-  border: 2px solid var(--dc-border);
-  text-decoration: none;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--dc-text);
-  transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease, transform 0.25s ease;
-}
-
-.dc-chip:hover,
-.dc-chip-active {
-  background: var(--dc-black);
-  border-color: var(--dc-black);
-  color: var(--dc-green-bright);
-  transform: translateY(-1px);
-}
-
 .dc-icon-inline {
   display: inline-flex;
   align-items: center;
@@ -359,6 +322,12 @@ a.dc-cat-page-tile:hover .dc-cat-tile-fallback {
 
 a.dc-cat-tile-link:hover {
   transform: translateY(-3px);
+}
+
+.dc-cat-tile-active .dc-cat-tile-img,
+.dc-cat-tile-active .dc-cat-tile-fallback {
+  outline: 2px solid var(--dc-green-deep);
+  outline-offset: 2px;
 }
 
 a.dc-cat-tile-link:hover .dc-cat-tile-img,

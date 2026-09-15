@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Header } from "../../../components/site/Header";
 import { Footer } from "../../../components/site/Footer";
-import { CategoryChips } from "../../../components/site/CategoryChips";
+import { CategoryGrid } from "../../../components/site/CategoryGrid";
 import { ProductGrid } from "../../../components/site/ProductGrid";
 import { getCategoryBySlug, SITE_CATEGORIES } from "../../../lib/site/categories";
 import { getCachedCategory } from "../../../lib/site/catalog";
@@ -39,7 +39,7 @@ export default async function CategoryPage({ params }: { params: { slug: string 
           </h1>
         </section>
         <section className="dc-section">
-          <CategoryChips activeSlug={category.slug} />
+          <CategoryGrid activeSlug={category.slug} />
         </section>
         <section className="dc-section">
           <ProductGrid
