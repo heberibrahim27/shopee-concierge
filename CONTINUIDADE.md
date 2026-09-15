@@ -463,6 +463,46 @@ manutenção, mais frágil), ou aceitar que o comparador multi-marketplace
 fica só Shopee por enquanto e revisitar isso se o Mercado Livre mudar
 de política? Não decidido ainda.
 
+**✅ Achado que muda o plano (2026-09-15): o "Gerador de produtos
+recomendados" do Mercado Livre** (`mercadolivre.com.br/afiliados/linkbuilder`)
+aceita **várias URLs de produto de uma vez** (cole a lista, gera todos os
+links de afiliado juntos, com etiqueta de rastreio) — não precisa gerar
+link um por um clicando em "Compartilhar". Isso destrava um caminho
+prático: já que não dá pra puxar produto/preço do ML por API, o usuário
+pediu pra usar esse gerador em lote pra **postar anúncios reais do
+Mercado Livre no site**, com curadoria manual (escolher os produtos
+navegando no ML) em vez de coleta automática. Groundwork técnico (app
+OAuth, credenciais) já está pronto se algum dia servir de outra forma;
+esse caminho novo não depende dele. Em andamento — ver o que a tela do
+linkbuilder retorna (nome/preço/imagem do produto) pra decidir como
+alimentar a tabela `products` com `platform = 'mercadolivre'`.
+
+### 6. 💡 Cupons de desconto (Shopee e Mercado Livre) — pesquisado em 2026-09-15, nada automatizável hoje
+Usuário pediu pra pesquisar cupons de desconto das duas plataformas pra
+oferecer no site. Resultado da pesquisa (perguntando direto pras APIs,
+não só lendo documentação de fora):
+
+- **Shopee**: introspeccionei o schema GraphQL real da API de afiliados
+  (`open-api.affiliate.shopee.com.br/graphql`, mesma que já usamos pra
+  coletar produto) — as únicas queries que existem são
+  `shopOfferV2`, `shopeeOfferV2`, `productOfferV2`, `conversionReport`,
+  `validatedReport`, `partnerOrderReport`, `listItemFeeds`,
+  `getItemFeedData`. **Nenhuma delas expõe cupom/voucher.** Cupom na
+  Shopee é uma tela dentro do app/site, pessoal por conta, sem endpoint
+  público de consulta.
+- **Mercado Livre**: a tela `mercadolivre.com.br/cupons` é uma página
+  normal do site pro comprador logado ver os cupons dele (2663 cupons
+  pra conta do usuário no momento do teste) — não é uma API, é
+  personalizada por conta, não achei nenhum endpoint de afiliado que dê
+  essa lista.
+- **Conclusão**: nenhuma das duas plataformas oferece um jeito
+  automático de puxar cupons ativos. Sites que mostram cupom (tipo
+  Cuponomia, Pelando) fazem isso por **curadoria manual** (alguém entra
+  periodicamente e publica o que está ativo) ou fixam **cupons
+  genéricos conhecidos** (ex: cupom de primeira compra, que costuma ser
+  público e estável). Nenhuma das duas opções foi implementada ainda —
+  fica registrado como ideia futura, não é prioridade agora.
+
 **Texto da decisão original (2026-09-14), mantido por histórico:**
 "não adicionar nenhum outro programa de afiliados (Mercado Livre, Amazon,
 AliExpress etc.) até a Shopee estar 100% estável. Ou seja: fechar o item
