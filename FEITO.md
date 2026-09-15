@@ -39,6 +39,33 @@
   `icones-categorias/` são usadas pelo site; ~20MB de fonte bruta sem uso
   não precisa ir pro histórico do git).
 
+## 2026-09-14 (sessão seguinte, parte 18) — busca ao vivo na Shopee
+
+Ideia do usuário: quem pesquisa no site já quer comprar, então se o
+catálogo curado não tiver o produto ainda, não podemos simplesmente
+"não achamos nada" — a API da Shopee tem o produto, então busca. Antes
+disso, a busca só olhava `site_catalog` (nunca a API ao vivo, por design
+— ver ARQUITETURA-SITE.md). Mantido: catálogo curado continua vindo
+primeiro/em destaque; a busca ao vivo é só complemento, claramente
+identificado como "Direto da Shopee agora" (sem o selo "Menor preço
+encontrado", que é exclusivo de quem passou pela curadoria do Growth OS).
+
+- [`liveSearch.ts`](src/lib/site/liveSearch.ts): chama
+  `searchProductsByKeyword` (já existia em `src/lib/shopee/queries.ts`,
+  usado antes só pela coleta) direto do Server Component da página de
+  busca. Filtro leve: só corta nota abaixo de 4 (produto sem avaliação
+  ainda passa — não é o mesmo que produto ruim). Nunca derruba a página:
+  erro da API ou env var ausente só retornam lista vazia.
+- [`LiveProductCard.tsx`](src/components/site/LiveProductCard.tsx): card
+  separado do `ProductCard` normal — link vai direto pra Shopee (não
+  `/produto/[slug]`, que não existe pra esse item), sem botão de
+  favorito (produto sem id estável no nosso banco).
+- **Testado com dado real** (`SHOPEE_APP_ID`/`SHOPEE_SECRET`, já
+  configurados também na Vercel): busquei "fone de ouvido" e "mochila" —
+  vieram produtos, preços, desconto e nota reais da Shopee, com imagem
+  carregando certo e link funcional.
+- **Publicado**: commit `84b167c` na `main`.
+
 ## 2026-09-14 (sessão seguinte, parte 16) — grade de categorias (2 linhas) + banner trocado
 
 - **Buscador (`.dc-header-search-bg`)**: troquei `background-image` +
