@@ -1,4 +1,4 @@
-import { getDb } from "../../lib/db/client";
+import { getDbFresh } from "../../lib/db/client";
 import { RevalidateLinksButton } from "../../components/admin/RevalidateLinksButton";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +35,7 @@ function normTerm(term: string): string {
 }
 
 async function getStats() {
-  const db = getDb();
+  const db = getDbFresh();
 
   const [
     viewsTotal,

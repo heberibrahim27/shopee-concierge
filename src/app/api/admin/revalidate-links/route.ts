@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthedAdminRequest } from "../../../../middleware";
-import { getDb } from "../../../../lib/db/client";
+import { getDbFresh } from "../../../../lib/db/client";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "não autorizado" }, { status: 401 });
   }
 
-  const db = getDb();
+  const db = getDbFresh();
   const { data, error } = await db
     .from("site_catalog")
     .select("slug, product_name, offer_link")

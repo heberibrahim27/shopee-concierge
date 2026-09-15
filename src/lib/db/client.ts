@@ -14,11 +14,7 @@
  */
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-let cached: SupabaseClient | null = null;
-
-export function getDb(): SupabaseClient {
-  if (cached) return cached;
-
+function requireEnv(): { url: string; serviceRoleKey: string } {
   const url = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceRoleKey) {
@@ -26,17 +22,48 @@ export function getDb(): SupabaseClient {
       "SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY não configurados no ambiente (.env)."
     );
   }
+  return { url, serviceRoleKey };
+}
 
+let cached: SupabaseClient | null = null;
+
+/**
+ * Cliente padrão — o fetch por baixo dele pode ser cacheado pelo Next.js
+ * (é isso que faz `unstable_cache` em src/lib/site/catalog.ts funcionar e
+ * permite a home/categoria serem geradas estaticamente). Use este para
+ * tudo que já passa por cache proposital ou não precisa de dado
+ * segundo-a-segundo.
+ */
+export function getDb(): SupabaseClient {
+  if (cached) return cached;
+  const { url, serviceRoleKey } = requireEnv();
   cached = createClient(url, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
+  });
+  return cached;
+}
+
+let cachedFresh: SupabaseClient | null = null;
+
+/**
+ * Cliente sem cache — força `cache: "no-store"` no fetch. Necessário
+ * porque o Next.js intercepta o fetch global e cacheia por URL: uma
+ * consulta sem parâmetro que varie (ex: `link_checks?select=...&limit=300`)
+ * fica presa pra sempre na primeira resposta, mesmo numa rota
+ * `force-dynamic` (foi isso que deixou o /admin mostrando dado velho
+ * depois de escrever no banco). Use só onde o dado tem que ser sempre o
+ * mais recente possível (painel /admin, checagem de links) — nunca dentro
+ * de código envolvido por `unstable_cache`, senão quebra a geração
+ * estática (erro "Dynamic server usage: no-store fetch").
+ */
+export function getDbFresh(): SupabaseClient {
+  if (cachedFresh) return cachedFresh;
+  const { url, serviceRoleKey } = requireEnv();
+  cachedFresh = createClient(url, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
     global: {
-      // O Next.js intercepta o fetch global e cacheia por URL — uma
-      // consulta sem parâmetro que varie (ex: `link_checks?select=...`)
-      // fica presa pra sempre na primeira resposta, mesmo em rota
-      // `force-dynamic`. Isso deixou o /admin mostrando dado velho depois
-      // de escrever no banco. Força sempre buscar de novo.
       fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
     },
   });
-  return cached;
+  return cachedFresh;
 }
