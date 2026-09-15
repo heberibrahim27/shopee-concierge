@@ -20,6 +20,9 @@ export const SITE_CATEGORIES: SiteCategory[] = [
   { slug: "saude", label: "Saúde" },
   { slug: "pet", label: "Pet" },
   { slug: "games", label: "Games" },
+  { slug: "papelaria", label: "Papelaria" },
+  { slug: "brinquedos", label: "Brinquedos" },
+  { slug: "bebes", label: "Bebês" },
 ];
 
 export function getCategoryBySlug(slug: string): SiteCategory | undefined {

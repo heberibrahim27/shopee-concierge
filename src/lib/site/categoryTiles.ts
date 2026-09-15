@@ -34,10 +34,10 @@ export const CATEGORY_TILES: CategoryTile[] = [
   { slug: "pet", label: "Pet", image: "/icones-categorias/pet.jpg", available: true },
   { slug: "games", label: "Games", image: "/icones-categorias/games.jpg", available: true },
 
-  // 2º lote
-  { slug: "papelaria", label: "Papelaria", image: "/icones-categorias/papelaria.jpg", available: false },
-  { slug: "brinquedos", label: "Brinquedos", image: "/icones-categorias/brinquedos.jpg", available: false },
-  { slug: "bebes", label: "Bebês", image: "/icones-categorias/bebes.jpg", available: false },
+  // 2º lote — coletado e publicado em 2026-09-15 (25 produtos cada).
+  { slug: "papelaria", label: "Papelaria", image: "/icones-categorias/papelaria.jpg", available: true },
+  { slug: "brinquedos", label: "Brinquedos", image: "/icones-categorias/brinquedos.jpg", available: true },
+  { slug: "bebes", label: "Bebês", image: "/icones-categorias/bebes.jpg", available: true },
 
   // 3º lote
   { slug: "alimentos", label: "Alimentos", image: "/icones-categorias/alimentos.jpg", available: false },
