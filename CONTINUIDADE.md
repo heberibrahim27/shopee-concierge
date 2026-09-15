@@ -352,12 +352,74 @@ o argumento é que o valor real do comparador só aparece com 2+
 marketplaces (ex: "TV 32\" Aiwa: Shopee R$1000, Mercado Livre R$920") — só
 Shopee, segundo ele, "é melhor olhar direto no site deles".
 
-**Ainda não iniciado.** Próximo passo: pesquisar o programa de afiliados
-do Mercado Livre (like o "Mercado Livre Afiliados") — existência de API
-de busca de produtos equivalente à `productOfferV2` da Shopee, processo
-de aprovação, e se dá pra reaproveitar o mesmo padrão de arquitetura já
-pronto (`platforms.ts`, `product_groups`, comparação na página de
-produto) ou se precisa de adaptação.
+**Investigação técnica feita em 2026-09-15 (madrugada) — resumo pra quem
+retomar:** o objetivo real é, pra cada produto Shopee publicado, achar o
+equivalente no Mercado Livre e comparar preço (ex: "TV 32\" Aiwa: Shopee
+R$1000, Mercado Livre R$920"), com link de afiliado e monitoramento de
+link quebrado. Diferente da Shopee, o Mercado Livre **não tem API oficial
+de afiliado nenhuma** (nem buscar, nem gerar link) — confirmado ao vivo,
+e debatido com o ChatGPT (mesma conversa da arquitetura original,
+`chatgpt.com/c/6aa6cf1f-...`) pra fechar o desenho abaixo.
+
+**3 achados técnicos confirmados na hora:**
+1. O botão "Compartilhar" do painel de afiliado
+   (`mercadolivre.com.br/afiliados/hub`) chama um endpoint **interno**
+   (`POST .../affiliate-program/api/v2/affiliates/createLink`) que só
+   funciona com sessão de navegador logada (cookie) — não é API pública.
+   Ferramentas pagas tipo DivulgaLinks resolvem isso com uma extensão de
+   Chrome que automatiza esse mesmo clique dentro da sua sessão logada,
+   produto por produto — não existe atalho de verdade, nem pago.
+2. `GET api.mercadolibre.com/sites/MLB/search?q=...` (busca geral,
+   documentada como pública em vários tutoriais) devolve **403 Forbidden**
+   pra qualquer chamada, autenticada ou não — testado direto (curl e
+   fetch no navegador logado). Confirmado que é um problema real e
+   generalizado: dezenas de reclamações de desenvolvedores no Reclame
+   Aqui com o mesmo erro desde abril/agosto de 2025, inclusive com token
+   OAuth válido. `/sites/MLB/categories` também bloqueado. Suspeita
+   forte (ChatGPT): coincide com uma separação obrigatória de aplicações
+   Mercado Livre vs Mercado Pago em 30/08/2026 — app não adaptada perde
+   acesso.
+3. Em compensação, **dois endpoints diferentes ainda respondem**: `GET
+   /sites/MLB/domain_discovery/search?q=...` é público e funcionou no
+   teste (classifica "tv 32 aiwa" → domínio "Televisores"). E `GET
+   /products/search?status=active&site_id=MLB&q=...` (buscador de
+   **catálogo**, endpoint diferente do de anúncios) devolveu um erro de
+   política/autorização (`PA_UNAUTHORIZED_RESULT_FROM_POLICIES`) em vez
+   do "forbidden" genérico — sinal de que esse aqui é só uma questão de
+   app registrada com o escopo certo, não um bloqueio geral como o outro.
+
+**Arquitetura recomendada pelo ChatGPT (fizemos sentido nela):**
+- **Matching automático em duas etapas**, via API de **catálogo** (não a
+  de busca geral, que está bloqueada): extrair marca/modelo/EAN do
+  produto Shopee → `products/search` acha o `catalog_product_id`
+  equivalente no ML → `products/{id}/items` lista os anúncios reais
+  (vendedor, preço, item_id) daquele produto → guarda `item_id` + preço.
+  Produto sem catálogo (genérico, moda sem modelo claro) cai numa fila
+  manual, não em scraping.
+- **Link de afiliado continua manual** (confirma o achado 1) — mas o
+  Mercado Livre tem um recurso oficial de **"Colaboradores"** no
+  programa de afiliados, com permissão específica só pra criar
+  link/ver métrica, sem precisar compartilhar senha/sessão da conta
+  principal — vale configurar isso em vez de dividir login.
+- **Monitoramento usa `GET /items/{item_id}` periodicamente** (público,
+  dados de status/preço) — não fica clicando no link de afiliado pra
+  testar. `available_quantity` real só é visível pro dono do anúncio,
+  então não dá pra confiar em estoque exato de terceiro, só em
+  status/preço. Se o item morrer (404/closed/paused), busca substituto
+  no mesmo `catalog_product_id` e marca "gerar novo link".
+- **NÃO vale a pena mirar no Developer Partner Program** — exige parceiros
+  vendedores somando US$2,5 milhões de GMV/mês, não é uma rota realista
+  pro nosso tamanho.
+
+**Próximo passo real (precisa do usuário, não dá pra eu fazer sozinho):**
+registrar uma aplicação em developers.mercadolivre.com.br (login com a
+conta do usuário, aceite de termos — ação de conta, não faço isso
+sozinho) e testar de verdade, com OAuth de app válida, estes 4 endpoints
+antes de escrever qualquer código de integração:
+`products/search`, `products/{id}`, `products/{id}/items`,
+`items/{item_id}`. Só depois desse teste real dá pra saber se o
+matching automático dos 80-90% "com catálogo" realmente funciona como o
+ChatGPT projetou, ou se cai tudo pra fila manual.
 
 **Texto da decisão original (2026-09-14), mantido por histórico:**
 "não adicionar nenhum outro programa de afiliados (Mercado Livre, Amazon,
