@@ -452,6 +452,7 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   display: block;
   flex: 0 0 auto;
   width: 100%;
+  aspect-ratio: 2.5 / 1;
   scroll-snap-align: start;
   border-radius: var(--dc-radius);
   overflow: hidden;
@@ -460,7 +461,8 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
 .dc-promo-slide img {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: cover;
 }
 
 /* ---------- Barra fixa (mobile) ---------- */
