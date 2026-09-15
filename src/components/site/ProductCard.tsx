@@ -8,6 +8,7 @@ import {
 } from "../../lib/site/format";
 import { AwardIcon, CartIcon, StarIcon } from "./icons";
 import { FavoriteButton } from "./FavoriteButton";
+import { getPlatformInfo } from "../../lib/site/platforms";
 
 export function ProductCard({ product }: { product: SiteProduct }) {
   const price = formatPriceBRL(product.priceMin);
@@ -60,6 +61,26 @@ export function ProductCard({ product }: { product: SiteProduct }) {
           {price ? <div className="dc-card-price">{price}</div> : null}
         </div>
         {savings ? <span className="dc-card-savings">Economize {savings}</span> : null}
+        {product.otherOffers && product.otherOffers.length > 0 ? (
+          <div className="dc-card-other-offers">
+            {product.otherOffers.map((offer) => {
+              const info = getPlatformInfo(offer.platform);
+              const offerPrice = formatPriceBRL(offer.priceMin);
+              if (!offerPrice) return null;
+              return (
+                <span key={offer.platform} className="dc-card-other-offer">
+                  <span
+                    className="dc-card-other-offer-badge"
+                    style={{ background: info.color, color: info.textColor }}
+                  >
+                    {info.label}
+                  </span>
+                  {offerPrice}
+                </span>
+              );
+            })}
+          </div>
+        ) : null}
         <span className="dc-card-cta">
           <CartIcon size={14} />
           Ver melhor oferta

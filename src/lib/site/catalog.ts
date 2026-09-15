@@ -33,6 +33,54 @@ export interface SiteProduct {
   sales: number | null;
   offerLink: string | null;
   updatedAt: string;
+  /** Só preenchido em listagens (busca/categoria/home) quando o produto tem
+   * outras ofertas no mesmo group_id — mostra um mini comparativo no card
+   * sem precisar clicar (a página de produto já mostra o comparativo
+   * completo). Nunca inclui a própria oferta escolhida como principal. */
+  otherOffers?: { platform: string; priceMin: number | null }[];
+}
+
+/**
+ * Uma listagem (busca/categoria/home) nunca deve mostrar o mesmo produto
+ * físico duas vezes (uma por marketplace) como se fossem itens diferentes —
+ * isso é o que causava "produto com preço mais alto na tela, preço menor só
+ * aparece se clicar". Agrupa por `group_id`, mantém só a oferta mais barata
+ * como card principal (mesma regra de "sempre a de menor preço real" da
+ * página de produto) e anexa até 3 outras ofertas do grupo pra mostrar um
+ * mini comparativo direto no card. Produtos sem group_id passam direto.
+ */
+function dedupeByGroup(rows: SiteProduct[]): SiteProduct[] {
+  const order: SiteProduct[] = [];
+  const groupFirstIndex = new Map<string, number>();
+  const groupSiblings = new Map<string, SiteProduct[]>();
+
+  for (const row of rows) {
+    if (!row.groupId) {
+      order.push(row);
+      continue;
+    }
+    const siblings = groupSiblings.get(row.groupId) ?? [];
+    siblings.push(row);
+    groupSiblings.set(row.groupId, siblings);
+    if (!groupFirstIndex.has(row.groupId)) {
+      groupFirstIndex.set(row.groupId, order.length);
+      order.push(row); // placeholder — substituído abaixo
+    }
+  }
+
+  for (const [groupId, index] of groupFirstIndex) {
+    const siblings = groupSiblings.get(groupId)!;
+    const sorted = [...siblings].sort(
+      (a, b) => (a.priceMin ?? Infinity) - (b.priceMin ?? Infinity)
+    );
+    const [cheapest, ...rest] = sorted;
+    order[index] = {
+      ...cheapest,
+      otherOffers: rest.slice(0, 3).map((r) => ({ platform: r.platform, priceMin: r.priceMin })),
+    };
+  }
+
+  return order;
 }
 
 const FALLBACK_REVALIDATE_SECONDS = 3600;
@@ -78,7 +126,7 @@ async function queryHomeOffers(): Promise<SiteProduct[]> {
     .limit(24);
 
   if (error) throw new Error(`Falha ao buscar ofertas da home: ${error.message}`);
-  return (data ?? []).map(mapRow);
+  return dedupeByGroup((data ?? []).map(mapRow));
 }
 
 async function queryCategoryProducts(categorySlug: string): Promise<SiteProduct[]> {
@@ -93,7 +141,7 @@ async function queryCategoryProducts(categorySlug: string): Promise<SiteProduct[
     .limit(48);
 
   if (error) throw new Error(`Falha ao buscar categoria ${categorySlug}: ${error.message}`);
-  return (data ?? []).map(mapRow);
+  return dedupeByGroup((data ?? []).map(mapRow));
 }
 
 async function queryProductBySlug(slug: string): Promise<SiteProduct | null> {
@@ -137,7 +185,7 @@ async function querySearch(term: string, sort: SortOption): Promise<SiteProduct[
     .limit(24);
 
   if (error) throw new Error(`Falha na busca "${term}": ${error.message}`);
-  return (data ?? []).map(mapRow);
+  return dedupeByGroup((data ?? []).map(mapRow));
 }
 
 export function getCachedHomeOffers(): Promise<SiteProduct[]> {
