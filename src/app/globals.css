@@ -1028,7 +1028,7 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
 }
 
 .dc-coupon-cta {
-  margin-top: 4px;
+  margin-top: auto;
   text-align: center;
   padding: 9px 12px;
   border-radius: 999px;
