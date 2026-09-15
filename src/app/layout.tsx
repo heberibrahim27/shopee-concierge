@@ -35,6 +35,11 @@ export const metadata = {
       "Comparador de preços da Shopee: manda o que você quer, a gente acha onde vale mais a pena comprar.",
     images: ["/BANNER-FINAL.png"],
   },
+  // Verificação de propriedade do site pro Pinterest (Configurações > Link
+  // para o Pinterest > Sites) — sem isso os Pins não creditam a marca.
+  other: {
+    "p:domain_verify": "7c6cd09f937ecd8ab729bd3073dbdd65",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
