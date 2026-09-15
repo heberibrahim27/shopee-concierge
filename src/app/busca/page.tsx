@@ -1,14 +1,18 @@
 import { Header } from "../../components/site/Header";
 import { Footer } from "../../components/site/Footer";
 import { ProductGrid } from "../../components/site/ProductGrid";
+import { LiveProductCard } from "../../components/site/LiveProductCard";
 import { searchProducts } from "../../lib/site/catalog";
+import { searchShopeeLive } from "../../lib/site/liveSearch";
 
 export const metadata = { title: "Busca" };
 
 /**
- * Busca sobre o catálogo JÁ PUBLICADO (site_catalog), nunca ao vivo na
- * Shopee — ver ARQUITETURA-SITE.md. Se não achar nada aqui, o CTA de
- * WhatsApp (no Footer) cobre a busca "de verdade" via foto/IA.
+ * Quem pesquisa já quer comprar — por isso a busca não fica só no
+ * catálogo curado (site_catalog): se faltar aqui, complementa com busca
+ * ao vivo na Shopee (ver liveSearch.ts) pra não perder a venda. O
+ * catálogo curado continua vindo primeiro/em destaque; o resultado ao
+ * vivo aparece depois, marcado como tal (não passou pelo Growth OS).
  */
 export default async function SearchPage({
   searchParams,
@@ -16,7 +20,13 @@ export default async function SearchPage({
   searchParams: { q?: string };
 }) {
   const term = searchParams.q ?? "";
-  const results = term.trim().length >= 2 ? await searchProducts(term) : [];
+  const hasTerm = term.trim().length >= 2;
+
+  const [results, liveResults] = hasTerm
+    ? await Promise.all([searchProducts(term), searchShopeeLive(term)])
+    : [[], []];
+
+  const nothingFound = hasTerm && results.length === 0 && liveResults.length === 0;
 
   return (
     <>
@@ -25,12 +35,32 @@ export default async function SearchPage({
         <section className="dc-hero">
           <h1>{term ? `Resultados pra "${term}"` : "Busca"}</h1>
         </section>
-        <section className="dc-section">
-          <ProductGrid
-            products={results}
-            emptyMessage="Não achamos nada com esse termo no nosso catálogo ainda — manda uma foto no WhatsApp que a gente procura na hora."
-          />
-        </section>
+
+        {results.length > 0 ? (
+          <section className="dc-section">
+            <ProductGrid products={results} emptyMessage="" />
+          </section>
+        ) : null}
+
+        {liveResults.length > 0 ? (
+          <section className="dc-section">
+            <h2>{results.length > 0 ? "Mais opções direto da Shopee" : "Direto da Shopee agora"}</h2>
+            <div className="dc-grid">
+              {liveResults.map((product) => (
+                <LiveProductCard key={product.itemId} product={product} />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {nothingFound || !hasTerm ? (
+          <section className="dc-section">
+            <p className="dc-empty">
+              Não achamos nada com esse termo — manda uma foto no WhatsApp que a gente procura na
+              hora.
+            </p>
+          </section>
+        ) : null}
       </main>
       <Footer />
     </>
