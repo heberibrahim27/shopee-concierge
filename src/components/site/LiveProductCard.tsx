@@ -8,6 +8,7 @@ import {
 } from "../../lib/site/format";
 import { CartIcon, StarIcon } from "./icons";
 import { PLATFORM_INFO } from "../../lib/site/platforms";
+import { TrackedOfferLink } from "./TrackedOfferLink";
 
 /**
  * Card de resultado puxado ao vivo da Shopee (não passou pela curadoria
@@ -24,7 +25,15 @@ export function LiveProductCard({ product }: { product: LiveProduct }) {
   const shopee = PLATFORM_INFO.shopee;
 
   return (
-    <a className="dc-card" href={product.offerLink} target="_blank" rel="noopener noreferrer sponsored">
+    <TrackedOfferLink
+      className="dc-card"
+      href={product.offerLink}
+      target="_blank"
+      rel="noopener noreferrer sponsored"
+      platform="shopee"
+      productName={product.productName}
+      source="busca-ao-vivo"
+    >
       <div className="dc-card-image">
         {product.priceDiscountRate && product.priceDiscountRate >= 15 ? (
           <span className="dc-card-badge price">-{Math.round(product.priceDiscountRate)}%</span>
@@ -60,6 +69,6 @@ export function LiveProductCard({ product }: { product: LiveProduct }) {
           Ver na {shopee.label}
         </span>
       </div>
-    </a>
+    </TrackedOfferLink>
   );
 }

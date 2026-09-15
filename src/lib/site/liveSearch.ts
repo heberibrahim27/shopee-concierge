@@ -30,6 +30,27 @@ function isDecentOffer(offer: ShopeeProductOffer): boolean {
   return !(Number.isFinite(rating) && rating > 0 && rating < 4);
 }
 
+const STOPWORDS = new Set([
+  "de", "da", "do", "das", "dos", "e", "com", "para", "pra", "em", "a", "o",
+  "as", "os", "um", "uma", "sem", "no", "na",
+]);
+
+/** A busca por palavra-chave da Shopee às vezes acha o termo em qualquer
+ * parte (descrição, tag) e devolve acessório/peça avulsa em vez do produto
+ * em si (ex: buscar "impressora térmica" trouxe "caneta de limpeza de
+ * cabeça de impressão"). Exige que pelo menos uma palavra significativa da
+ * busca apareça de verdade no título — filtro simples, mas evita a maior
+ * parte do lixo fora de contexto sem arriscar cortar resultado bom. */
+function isRelevantTitle(term: string, productName: string): boolean {
+  const words = term
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length >= 4 && !STOPWORDS.has(w));
+  if (words.length === 0) return true; // termo curto/genérico demais pra filtrar com segurança
+  const title = productName.toLowerCase();
+  return words.some((w) => title.includes(w));
+}
+
 function mapOffer(offer: ShopeeProductOffer): LiveProduct {
   return {
     itemId: offer.itemId,
@@ -66,7 +87,10 @@ export async function searchShopeeLive(term: string, sort: SortOption = "relevan
       limit: 20,
       sortType: toShopeeSortType(sort),
     });
-    let products = offers.filter(isDecentOffer).map(mapOffer);
+    let products = offers
+      .filter(isDecentOffer)
+      .filter((offer) => isRelevantTitle(term, offer.productName))
+      .map(mapOffer);
     if (sort === "avaliacao") {
       products = products.sort((a, b) => (b.ratingStar ?? 0) - (a.ratingStar ?? 0));
     }

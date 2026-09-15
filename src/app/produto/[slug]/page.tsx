@@ -6,6 +6,7 @@ import { formatPriceBRL, formatRating, formatSales } from "../../../lib/site/for
 import { getProductAffiliateHref, AFFILIATE_LINK_REL } from "../../../lib/site/affiliateLink";
 import { AwardIcon, StarIcon } from "../../../components/site/icons";
 import { getPlatformInfo } from "../../../lib/site/platforms";
+import { TrackedOfferLink } from "../../../components/site/TrackedOfferLink";
 
 export async function generateMetadata({ params }: { params: { slug: string } }) {
   const product = await getCachedProduct(params.slug);
@@ -108,14 +109,18 @@ export default async function ProductPage({ params }: { params: { slug: string }
             ) : null}
 
             {affiliateHref ? (
-              <a
+              <TrackedOfferLink
                 className="dc-buy-button"
                 href={affiliateHref}
                 target="_blank"
                 rel={AFFILIATE_LINK_REL}
+                platform={bestOffer.platform}
+                productSlug={bestOffer.slug}
+                productName={bestOffer.productName}
+                source="produto"
               >
                 Ver oferta {bestPlatform.ctaPreposition}
-              </a>
+              </TrackedOfferLink>
             ) : (
               <p className="dc-empty" style={{ marginTop: 16 }}>
                 Link indisponível no momento.
@@ -140,9 +145,17 @@ export default async function ProductPage({ params }: { params: { slug: string }
                           {info.label}
                         </span>
                         <span className="dc-compare-price">{offerPrice}</span>
-                        <a href={offerHref} target="_blank" rel={AFFILIATE_LINK_REL}>
+                        <TrackedOfferLink
+                          href={offerHref}
+                          target="_blank"
+                          rel={AFFILIATE_LINK_REL}
+                          platform={offer.platform}
+                          productSlug={offer.slug}
+                          productName={offer.productName}
+                          source="produto-comparar"
+                        >
                           Ver oferta
-                        </a>
+                        </TrackedOfferLink>
                       </li>
                     );
                   })}
