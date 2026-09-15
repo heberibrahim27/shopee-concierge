@@ -73,6 +73,10 @@ async function getStats() {
   ]);
 
   const catalogRows = (catalog.data ?? []) as CatalogRow[];
+  const debugErrors = [catalog.error, productGroups.error, linkChecksRecent.error, searchEventsRecent.error]
+    .filter(Boolean)
+    .map((e) => e?.message);
+  console.error("[admin][debug] linkChecksRecent.data?.length =", linkChecksRecent.data?.length, "error=", linkChecksRecent.error);
 
   // --- Cliques por loja / produtos mais clicados / páginas mais vistas ---
   const clicksByPlatform = new Map<string, number>();
@@ -203,6 +207,8 @@ async function getStats() {
     },
     busca: { topZeroResult, topSearched },
     alerts,
+    debugErrors,
+    debugLinkChecksRawCount: linkChecksRecent.data?.length ?? -1,
   };
 }
 
@@ -272,6 +278,12 @@ export default async function AdminPage() {
         <StatCard label="CTR (7 dias)" value={stats.ctr7d !== null ? `${stats.ctr7d.toFixed(1)}%` : "—"} />
         <StatCard label="Produtos publicados" value={stats.produtos.total} />
       </div>
+
+      {stats.debugErrors.length > 0 || stats.debugLinkChecksRawCount !== 60 ? (
+        <pre style={{ fontSize: 11, background: "#fee", padding: 10, marginBottom: 20, whiteSpace: "pre-wrap" }}>
+          DEBUG rawCount={stats.debugLinkChecksRawCount} errors={JSON.stringify(stats.debugErrors)}
+        </pre>
+      ) : null}
 
       {/* 2. Alertas */}
       <section
