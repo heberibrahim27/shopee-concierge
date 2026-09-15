@@ -959,6 +959,22 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   }
 }
 
+.dc-coupon-scroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  padding-bottom: 4px;
+  margin: 0 -18px;
+  padding-inline: 18px;
+}
+
+.dc-coupon-scroll .dc-coupon-card {
+  flex: 0 0 auto;
+  width: 250px;
+  scroll-snap-align: start;
+}
+
 .dc-coupon-card {
   background: var(--dc-card-bg);
   border: 1px solid var(--dc-border);

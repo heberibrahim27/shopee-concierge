@@ -19,7 +19,7 @@ export function CouponSection({ coupons, showViewAll }: { coupons: SiteCoupon[];
           </a>
         ) : null}
       </div>
-      <div className="dc-coupon-grid">
+      <div className="dc-coupon-scroll">
         {coupons.map((coupon) => (
           <CouponCard key={coupon.id} coupon={coupon} />
         ))}
