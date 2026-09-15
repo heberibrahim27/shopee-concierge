@@ -4,6 +4,40 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-15 (sessão seguinte, parte 22) — 3º e último lote de expansão de categorias (madrugada, autônomo)
+
+Fechamento do plano de expansão de categorias, mesma madrugada do 2º lote.
+Categorias: Alimentos, Móveis, Viagem, Livros — as 4 últimas "em breve"
+do catálogo.
+
+- Mesma receita: `productOfferV2` ITEM_SOLD_DESC, 5 keywords/categoria,
+  limite 50, filtro `scoreOffer` >= 75. Boa colheita: 20/101/111/16
+  aprovados em alimentos/móveis/viagem/livros antes da dedup.
+- Deduplicados contra os 554 produtos já existentes (17 duplicatas).
+- Revisão manual encontrou bem mais contaminação que nos lotes
+  anteriores — 3 rodadas de ajuste no filtro de exclusão até a lista
+  ficar limpa:
+  - Alimentos: quadros decorativos de cozinha e um kit de colheres
+    vintage (não são comida) batidos por "café gourmet"/"temperos".
+  - Móveis: mais de 15 itens de suporte de celular/notebook/tablet,
+    ganchos de parede, porta-shampoo e prateleiras adesivas pequenas —
+    "estante organizadora"/"puff decorativo" trouxe muito acessório de
+    parede junto. Mantidos só móveis de fato (mesas, cadeiras, estantes,
+    puffs, carrinhos, sapateiras).
+  - Viagem: produtos de bebê (almofada de pescoço pra cadeirinha,
+    "canguru" carregador de bebê) batidos por "travesseiro de pescoço" e
+    "mochila de viagem"; um cadeado antifurto de moto/bike batido por
+    "mala de viagem". Removidos.
+  - Livros: nenhuma contaminação encontrada, lista já veio limpa.
+- 83 produtos publicados no total (17/25/25/16 por categoria) via
+  Supabase MCP. Confirmado por SQL em `site_catalog`.
+- Ativadas as 4 categorias em [`categories.ts`](src/lib/site/categories.ts)
+  e [`categoryTiles.ts`](src/lib/site/categoryTiles.ts). Typecheck e
+  build limpos (18 categorias estáticas geradas). **Publicado**: commit
+  `2707a01`.
+- **Todas as categorias do catálogo agora têm produto publicado** — o
+  plano de expansão de 3 lotes (ver CONTINUIDADE.md) está concluído.
+
 ## 2026-09-15 (sessão seguinte, parte 21) — 2º lote de expansão de categorias (madrugada, autônomo)
 
 Continuação do 1º lote, feito de madrugada enquanto o usuário dormia ("Vou

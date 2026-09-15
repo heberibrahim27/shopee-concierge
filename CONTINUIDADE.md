@@ -467,13 +467,20 @@ chegaram e foram integrados na Home — ver detalhe completo em FEITO.md
   FEITO.md parte 20. Total agora: 11 categorias com produto publicado.
 - **2º lote CONCLUÍDO (2026-09-15, madrugada, feito autonomamente):**
   Papelaria, Brinquedos e Bebês coletados (25 produtos cada, score >= 75)
-  e ativados — ver FEITO.md parte 21, commit `dee98f7`. Total agora: 14
-  categorias com produto publicado.
-- Falta o 3º lote (Alimentos, Móveis, Viagem, Livros), ainda "em breve".
-  Mesmo processo: rodar coleta (keywords + `scoreOffer` >= 75), publicar
-  em `products` + `offer_snapshots` via Supabase, marcar
-  `available: true` em [categoryTiles.ts](src/lib/site/categoryTiles.ts)
-  e adicionar o slug em [categories.ts](src/lib/site/categories.ts).
+  e ativados — ver FEITO.md parte 21, commit `dee98f7`.
+- **3º lote CONCLUÍDO (2026-09-15, madrugada, feito autonomamente):**
+  Alimentos, Móveis, Viagem e Livros coletados (17/25/25/16 produtos,
+  score >= 75) e ativados — ver FEITO.md parte 22, commit `2707a01`.
+- **Plano de expansão de categorias concluído.** Todas as 18 categorias
+  do catálogo têm produto publicado. Se surgirem novas categorias no
+  futuro, o processo é o mesmo: rodar coleta (keywords + `scoreOffer`
+  >= 75), publicar em `products` + `offer_snapshots` via Supabase,
+  marcar `available: true` em
+  [categoryTiles.ts](src/lib/site/categoryTiles.ts) e adicionar o slug em
+  [categories.ts](src/lib/site/categories.ts). **Atenção**: quanto mais
+  "distante" o tema da categoria (ex.: Alimentos, Móveis), maior a
+  chance de a busca por palavra-chave trazer produto errado — sempre
+  revisar a lista de nomes antes de gerar o SQL de inserção.
 - **Pendência aberta:** não veio arte nova pra "Infantil" (o lote trouxe
   "Bebês"/"Brinquedos" separados dela, já ativos). O ladrilho da Infantil
   hoje usa o ícone antigo (`GiftIcon`) montado num cartão equivalente em
