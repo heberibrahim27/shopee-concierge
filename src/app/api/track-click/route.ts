@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "../../../lib/db/client";
+import { isAuthedAdminRequest } from "../../../middleware";
 
 /**
  * Registra um clique num link de afiliado (Shopee/Mercado Livre/etc) —
@@ -9,6 +10,8 @@ import { getDb } from "../../../lib/db/client";
  */
 export async function POST(request: NextRequest) {
   try {
+    if (await isAuthedAdminRequest(request)) return NextResponse.json({ ok: true, skipped: true });
+
     const body = await request.json().catch(() => null);
     const platform = typeof body?.platform === "string" ? body.platform.slice(0, 40) : null;
     if (!platform) return NextResponse.json({ ok: false }, { status: 400 });
