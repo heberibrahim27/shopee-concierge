@@ -463,6 +463,54 @@ manutenção, mais frágil), ou aceitar que o comparador multi-marketplace
 fica só Shopee por enquanto e revisitar isso se o Mercado Livre mudar
 de política? Não decidido ainda.
 
+**✅ SOLUÇÃO ENCONTRADA (2026-09-15): inverter a direção resolve o problema.**
+Ideia do usuário: em vez de partir da Shopee e tentar achar o preço no ML
+(que é o lado bloqueado), fazer o contrário — **curar produto+preço no ML
+manualmente/semi-automático (navegador, sem API) e usar a API da Shopee
+(que funciona perfeitamente) pra achar o produto equivalente e comparar.**
+A Shopee nunca foi o problema; só o ML que não libera preço por API.
+
+**Testado com 25 produtos reais** (TVs e caixas de som, coletados
+navegando `lista.mercadolivre.com.br`, preço e link pegos direto da
+página — nada de API do ML): rodei cada título contra
+`productOfferV2` da Shopee (mesma API já usada pra coleta de
+categorias) e tentei casar pelo **código de modelo** (ex: `50PUG7300`,
+`32RL601CBSA`, `AWS-BBS-01-B`) em vez de só pegar o mais vendido.
+
+- **~12-13 de 25 deram match genuíno** (código de modelo idêntico nos
+  dois lados, preço real comparável). Exemplos: Philips 50" 4K
+  50PUG7300 (ML R$2.799 / Shopee R$2.399,90), AIWA 32" AWS-TV-32-BL-02-A
+  (empate em R$1.399), Philco 32" P32crb (ML R$949,90 / Shopee
+  R$1.049,99 — aqui o ML que ficou mais barato), AIWA Boombox Plus 200W
+  (ML R$2.299 / Shopee R$1.449), JBL PartyBox Encore 2 (ML R$2.699 /
+  Shopee R$2.599).
+- **~12 deram match errado** — o script pegava "o mais vendido" da
+  busca quando não achava o código exato, e pra caixa de som genérica
+  isso frequentemente pega produto errado (ex: tentou comparar "AIWA
+  Speaker AWS-SP-01" com "AIWA Boombox Plus", produtos diferentes).
+  Precisa de lógica de matching melhor antes de publicar qualquer coisa
+  — nunca publicar um match "chutado" (mais vendido sem código bater).
+- Scripts em `C:\Users\HOME\AppData\Local\Temp\claude\...\scratchpad\compare-ml-shopee.js`
+  (não é parte do repo, só protótipo de validação).
+
+**Isso muda a arquitetura recomendada**: não precisa mais de app OAuth
+nem de token do Mercado Livre pra comparação de preço — o item 7 acima
+(Awin) e a investigação de API do ML continuam válidas por outros
+motivos (Awin pra ter mais lojas com comissão, ML só como fonte de
+produto pra comparar), mas o **bloqueio de preço do ML deixou de ser um
+impeditivo** pro objetivo original do usuário (comparador multi-loja).
+Existe a tabela `product_groups` no Supabase (hoje vazia, RLS
+desativado — ver item de segurança no topo deste arquivo) pensada
+exatamente pra isso: agrupar o mesmo produto físico entre plataformas.
+
+**Próximo passo (não feito ainda, decisão do usuário):** virar isso de
+protótipo em fluxo real — (1) melhorar o matching (rejeitar código
+genérico tipo "200W"/"HDR10", exigir código de pelo menos 6
+caracteres/formato de SKU), (2) decidir onde entra no site (aba
+"Comparar preços"? Badge extra no card do produto?), (3) definir o
+processo de curadoria do lado do Mercado Livre (contínuo, manual,
+quantos produtos por vez).
+
 **✅ Achado que muda o plano (2026-09-15): o "Gerador de produtos
 recomendados" do Mercado Livre** (`mercadolivre.com.br/afiliados/linkbuilder`)
 aceita **várias URLs de produto de uma vez** (cole a lista, gera todos os
