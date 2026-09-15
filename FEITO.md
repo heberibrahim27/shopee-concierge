@@ -4,6 +4,20 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-15 (sessão seguinte, parte 25) — Primeira integração Awin: 52 produtos Nike/Olympikus publicados
+
+Depois de descobrir o caminho certo pra puxar catálogo de produto real da
+Awin (chave separada de datafeed, não o token OAuth principal — ver
+CONTINUIDADE.md item de Awin), publicados 52 produtos reais (26 Nike BR +
+26 Olympikus BR) nas categorias `moda` (roupas/jaquetas) e `esporte`
+(tênis/chuteiras), com preço, imagem e link de afiliado (`aw_deep_link`)
+reais direto do feed. Também descoberta a API de cupom real da Awin
+(`POST /publisher/<id>/promotions`) — achado um cupom ativo (`AQUECE20`,
+Olympikus). Novos badges `nike`/`olympikus` em `src/lib/site/platforms.ts`.
+Script de ingestão ficou só no scratchpad (não faz parte do repo) —
+reusável pra próximas rodadas ou pra quando Kabum/Fastshop/Samsung/
+Motorola/JBL/Webfones forem aprovados na Awin.
+
 ## 2026-09-15 (sessão seguinte, parte 24) — Painel /admin: senha ativada em produção + 6 blocos operacionais
 
 Dois problemas/entregas nesta parte:
