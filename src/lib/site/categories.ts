@@ -23,6 +23,10 @@ export const SITE_CATEGORIES: SiteCategory[] = [
   { slug: "papelaria", label: "Papelaria" },
   { slug: "brinquedos", label: "Brinquedos" },
   { slug: "bebes", label: "Bebês" },
+  { slug: "alimentos", label: "Alimentos" },
+  { slug: "moveis", label: "Móveis" },
+  { slug: "viagem", label: "Viagem" },
+  { slug: "livros", label: "Livros" },
 ];
 
 export function getCategoryBySlug(slug: string): SiteCategory | undefined {

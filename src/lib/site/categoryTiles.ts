@@ -39,11 +39,11 @@ export const CATEGORY_TILES: CategoryTile[] = [
   { slug: "brinquedos", label: "Brinquedos", image: "/icones-categorias/brinquedos.jpg", available: true },
   { slug: "bebes", label: "Bebês", image: "/icones-categorias/bebes.jpg", available: true },
 
-  // 3º lote
-  { slug: "alimentos", label: "Alimentos", image: "/icones-categorias/alimentos.jpg", available: false },
-  { slug: "moveis", label: "Móveis", image: "/icones-categorias/moveis.jpg", available: false },
-  { slug: "viagem", label: "Viagem", image: "/icones-categorias/viagem.jpg", available: false },
-  { slug: "livros", label: "Livros", image: "/icones-categorias/livros.jpg", available: false },
+  // 3º lote — coletado e publicado em 2026-09-15 (17/25/25/16 produtos).
+  { slug: "alimentos", label: "Alimentos", image: "/icones-categorias/alimentos.jpg", available: true },
+  { slug: "moveis", label: "Móveis", image: "/icones-categorias/moveis.jpg", available: true },
+  { slug: "viagem", label: "Viagem", image: "/icones-categorias/viagem.jpg", available: true },
+  { slug: "livros", label: "Livros", image: "/icones-categorias/livros.jpg", available: true },
 
   { slug: "outros", label: "Outros", image: "/icones-categorias/outros.jpg", available: true, href: "/categorias" },
 ];
