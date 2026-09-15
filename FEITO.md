@@ -4,6 +4,25 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-15 (sessão seguinte, parte 26) — 9º par Shopee×Mercado Livre: JBL Go 4
+
+Segunda rodada de comparação cross-marketplace (a primeira foi as 8 Smart
+TVs). Curados 4 candidatos reais no Mercado Livre (JBL Tune 510BT, JBL Go
+4, Xiaomi Redmi Buds 5, Motorola Moto Buds 125), buscados na Shopee via
+API — só **1 dos 4** achou correspondência genuína e verificável (JBL Go
+4: R$259,67 no ML vs R$307,90 na Shopee). Os outros 3 foram descartados
+porque a Shopee não tinha o modelo exato à venda (só acessórios pro Tune
+510BT, só gerações diferentes — Buds 6/8 — pro Redmi Buds 5, e nada pro
+Moto Buds 125 especificamente).
+
+**Aprendizado registrado** (útil pra próximas rodadas): produtos com
+código de modelo curto/genérico (ex: "510BT", "Go 4", "Buds 5") têm taxa
+de match muito menor entre marketplaces do que produtos com código longo
+e específico (ex: TV "50PUG7300") — o catálogo de cada marketplace varia
+mais nas gerações/variantes de fone e caixa de som do que em modelos de
+TV. Taxa real observada: 1/4 (25%) nesta rodada vs. praticamente 100% na
+rodada de TVs.
+
 ## 2026-09-15 (sessão seguinte, parte 25) — Primeira integração Awin: 52 produtos Nike/Olympikus publicados
 
 Depois de descobrir o caminho certo pra puxar catálogo de produto real da
