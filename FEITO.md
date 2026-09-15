@@ -39,6 +39,18 @@
   `icones-categorias/` são usadas pelo site; ~20MB de fonte bruta sem uso
   não precisa ir pro histórico do git).
 
+## 2026-09-14 (sessão seguinte, parte 19) — filtros de ordenação + zoom do iOS
+
+- **Filtros na `/busca`**: "Relevância / Mais vendidos / Melhor avaliação /
+  Menor preço" (`sort.ts`, `SortBar.tsx`). Curado ordena via
+  `.order()` no Supabase; busca ao vivo usa `sortType` da API da Shopee
+  quando existe (vendidos/preço), e reordena no nosso lado pra
+  avaliação (a API não tem esse sortType).
+- **Zoom automático no iOS corrigido**: campo de busca do cabeçalho
+  tinha `font-size: 14.5px` — abaixo de 16px, Safari/Chrome no iOS dão
+  zoom automático ao focar o campo. Subido pra 16px.
+- **Publicado**: commit `a807318` na `main`.
+
 ## 2026-09-14 (sessão seguinte, parte 18) — busca ao vivo na Shopee
 
 Ideia do usuário: quem pesquisa no site já quer comprar, então se o
