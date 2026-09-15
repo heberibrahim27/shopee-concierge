@@ -8,6 +8,26 @@
 
 ## Pendências ativas
 
+### 💡 Ideia (2026-09-14): aviso de queda de preço por produto
+Usuário perguntou se o ícone do sino no cabeçalho tem funcionalidade — hoje
+não tem nenhuma (só "Notificações em breve", enfeite). Ideia proposta e
+aprovada pelo usuário pra implementar depois: botão "Avisar quando baixar"
+em cada produto.
+
+**Abordagem recomendada:** via WhatsApp, não push do navegador.
+- Botão no `/produto/[slug]` pede o WhatsApp da pessoa e salva um
+  "acompanhamento" (produto + telefone + preço no momento do pedido).
+- Quando o Growth OS atualizar o snapshot de preço e o novo valor ficar
+  abaixo do salvo, dispara mensagem via bot (infraestrutura de envio já
+  existe, é só reaproveitar).
+- Alternativa descartada por enquanto: push notification do navegador —
+  exige permissão que a maioria nega/esquece, e o site não tem sistema de
+  conta pra guardar "quem quer ser avisado" (push precisa de
+  service worker + chaves VAPID + isso tudo). WhatsApp aproveita o que já
+  existe e é o canal que o público já usa.
+- Ainda não iniciado — usuário disse "depois vamos implementar", só
+  registrar por enquanto.
+
 ### 1. 🚨 Cartão de pagamento da Vercel — risco de a conta ser DESATIVADA
 A conta Vercel (time `babamananger`, projeto `shopee-concierge-prod`) ficou sem
 forma de pagamento válida — o cartão foi recusado. Isso já causou um incidente

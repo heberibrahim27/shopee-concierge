@@ -320,18 +320,15 @@ a.dc-cat-page-tile:hover .dc-cat-tile-fallback {
   transition: transform 0.2s ease;
 }
 
-a.dc-cat-tile-link:hover {
+a.dc-cat-tile-link:hover,
+.dc-cat-tile-active {
   transform: translateY(-3px);
 }
 
+a.dc-cat-tile-link:hover .dc-cat-tile-img,
+a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
 .dc-cat-tile-active .dc-cat-tile-img,
 .dc-cat-tile-active .dc-cat-tile-fallback {
-  outline: 2px solid var(--dc-green-deep);
-  outline-offset: 2px;
-}
-
-a.dc-cat-tile-link:hover .dc-cat-tile-img,
-a.dc-cat-tile-link:hover .dc-cat-tile-fallback {
   box-shadow: 14px 14px 26px rgba(0, 0, 0, 0.16), -14px -14px 26px rgba(255, 255, 255, 1);
 }
 
