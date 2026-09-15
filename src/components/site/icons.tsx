@@ -192,3 +192,14 @@ export function GiftIcon({ size = 18, style }: IconProps) {
     </svg>
   );
 }
+
+export function ShareIcon({ size = 18, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...lineProps} aria-hidden="true" style={style}>
+      <circle cx="18" cy="5" r="2.3" />
+      <circle cx="6" cy="12" r="2.3" />
+      <circle cx="18" cy="19" r="2.3" />
+      <path d="M8.1 10.8 15.9 6.2M8.1 13.2l7.8 4.6" />
+    </svg>
+  );
+}

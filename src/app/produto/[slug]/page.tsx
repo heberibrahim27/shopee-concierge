@@ -7,6 +7,7 @@ import { getProductAffiliateHref, AFFILIATE_LINK_REL } from "../../../lib/site/a
 import { AwardIcon, StarIcon } from "../../../components/site/icons";
 import { getPlatformInfo } from "../../../lib/site/platforms";
 import { TrackedOfferLink } from "../../../components/site/TrackedOfferLink";
+import { ShareButton } from "../../../components/site/ShareButton";
 
 export async function generateMetadata({ params }: { params: { slug: string } }) {
   const product = await getCachedProduct(params.slug);
@@ -83,10 +84,13 @@ export default async function ProductPage({ params }: { params: { slug: string }
             {product.imageUrl ? <img src={product.imageUrl} alt={product.productName} /> : null}
           </div>
           <div className="dc-product-body">
-            <span className="dc-choice-badge">
-              <AwardIcon size={14} />
-              Nossa escolha
-            </span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+              <span className="dc-choice-badge">
+                <AwardIcon size={14} />
+                Nossa escolha
+              </span>
+              <ShareButton productName={product.productName} />
+            </div>
             <h1 style={{ fontSize: 18, margin: "0 0 8px" }}>{product.productName}</h1>
             {rating || sales ? (
               <div className="dc-card-meta dc-icon-inline" style={{ marginBottom: 8 }}>
