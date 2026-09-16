@@ -13,6 +13,7 @@ export function TrackPageView() {
   const pathname = usePathname();
 
   useEffect(() => {
+    if (pathname?.startsWith("/admin")) return;
     try {
       const payload = JSON.stringify({ path: pathname });
       const blob = new Blob([payload], { type: "application/json" });

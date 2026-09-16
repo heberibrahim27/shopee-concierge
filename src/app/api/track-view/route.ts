@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => null);
     const path = typeof body?.path === "string" ? body.path.slice(0, 300) : null;
     if (!path) return NextResponse.json({ ok: false }, { status: 400 });
+    if (path.startsWith("/admin")) return NextResponse.json({ ok: true, skipped: true });
 
     const db = getDb();
     await db.from("page_views").insert({ path });
