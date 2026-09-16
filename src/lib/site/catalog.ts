@@ -242,3 +242,59 @@ export function getCachedGroupOffers(groupId: string, excludeSlug: string): Prom
     revalidate: FALLBACK_REVALIDATE_SECONDS,
   })();
 }
+
+/**
+ * Produtos postados no Instagram nas últimas 24h (ver
+ * `/api/cron/publish-product`) — usado pela página `/hoje`, que era um
+ * redirect fixo pro último produto e virou uma listagem de verdade
+ * (pedido do Heber: com 20 posts/dia, um redirect só mostra 1 produto
+ * aleatório, ninguém vê o resto). Janela é ROLANTE (últimas 24h a partir
+ * de agora), igual ao Story sumir 24h depois de postado — não reseta à
+ * meia-noite. É também o link que a resposta automática do Instagram
+ * manda pra quem comenta "QUERO" no Story. Depois de 24h o produto some
+ * daqui mas continua na categoria dele no site. Um mesmo produto gera 2
+ * linhas em `social_posts` (feed + story) — deduplica por slug, mantendo
+ * a ordem do post mais recente primeiro.
+ */
+async function queryTodayPosts(): Promise<SiteProduct[]> {
+  if (!hasSupabaseEnv()) return [];
+
+  const db = getDb();
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await db
+    .from("social_posts")
+    .select("posted_at, deal_candidates(products(slug))")
+    .eq("status", "posted")
+    .gte("posted_at", since)
+    .order("posted_at", { ascending: false });
+
+  if (error) throw new Error(`Falha ao buscar posts de hoje: ${error.message}`);
+
+  const slugsInOrder: string[] = [];
+  const seen = new Set<string>();
+  for (const row of (data ?? []) as any[]) {
+    const slug = row.deal_candidates?.products?.slug as string | undefined;
+    if (slug && !seen.has(slug)) {
+      seen.add(slug);
+      slugsInOrder.push(slug);
+    }
+  }
+  if (slugsInOrder.length === 0) return [];
+
+  const { data: catalogRows, error: catalogError } = await db
+    .from("site_catalog")
+    .select(SITE_CATALOG_COLUMNS)
+    .in("slug", slugsInOrder);
+
+  if (catalogError) throw new Error(`Falha ao buscar catálogo dos posts de hoje: ${catalogError.message}`);
+
+  const bySlug = new Map((catalogRows ?? []).map((row) => [String(row.slug), mapRow(row)]));
+  return slugsInOrder.map((slug) => bySlug.get(slug)).filter((p): p is SiteProduct => Boolean(p));
+}
+
+export function getCachedTodayPosts(): Promise<SiteProduct[]> {
+  return unstable_cache(queryTodayPosts, ["today-posts"], {
+    tags: ["today:posts"],
+    revalidate: 300,
+  })();
+}

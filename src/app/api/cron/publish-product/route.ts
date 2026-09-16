@@ -66,11 +66,15 @@ function buildTemplateUrl(c: Candidate, variant: "feed" | "story"): string {
   return `${SITE_URL}/api/story-template?${params.toString()}`;
 }
 
-// A forma exata da resposta do Windsor pra create_image_post/create_story
-// não está documentada publicamente — tenta os caminhos mais prováveis
-// (visto na prática: 1o post real, 2026-09-16, veio com o campo do media
-// id vazio nos dois primeiros que tentei, então isso cobre mais opções).
+// Confirmado na prática (post real, 2026-09-16): a Windsor devolve
+// {"result": "Published image post to Instagram account X. Media id: 123."}
+// — o id vem embutido numa frase em `result` (string), não num campo
+// separado. Mantém os outros formatos como fallback caso isso mude.
 function extractMediaId(resp: any): string | null {
+  if (typeof resp?.result === "string") {
+    const match = resp.result.match(/Media id:\s*(\d+)/i);
+    if (match) return match[1];
+  }
   return (
     resp?.id ??
     resp?.media_id ??

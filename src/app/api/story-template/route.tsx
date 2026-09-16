@@ -241,6 +241,12 @@ export async function GET(request: NextRequest) {
         { name: "Poppins", data: fontBold, weight: 700, style: "normal" },
         { name: "Poppins", data: fontExtraBold, weight: 800, style: "normal" },
       ],
+      // ImageResponse cacheia por padrão com max-age de 1 ano (CDN da
+      // Vercel). Isso serviu uma versão antiga do template pro Feed no
+      // teste real de 2026-09-16 (mesma URL de um teste manual anterior
+      // ao fix do selo) mesmo já com o código novo no ar. Sem cache: o
+      // Windsor só busca essa imagem 1x por post mesmo, custo é zero.
+      headers: { "Cache-Control": "no-store" },
     }
   );
 }
