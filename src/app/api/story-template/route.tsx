@@ -126,7 +126,10 @@ export async function GET(request: NextRequest) {
         alignItems: "center",
         justifyContent: "center",
         gap: "14px",
-        background: BRAND_GREEN,
+        // A cor sólida ficava "achatada" perto do gradiente real do selo
+        // no Canva — medido pixel a pixel no PNG exportado (topo mais
+        // claro, base mais escura, vertical, não diagonal).
+        backgroundImage: "linear-gradient(180deg, #00B539 0%, #008027 100%)",
         borderRadius: "20px",
         padding: "18px 28px",
         width: `${L.badgeSize.width}px`,
