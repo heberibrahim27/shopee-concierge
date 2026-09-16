@@ -8,6 +8,20 @@
 
 ## Pendências ativas
 
+### 🤖 Escalado pra 20 posts/dia no Instagram (2026-09-16, não deployado ainda)
+Heber pediu pra aumentar de 1 pra ~20 posts/dia (confirmado: conta Vercel é
+plano Pro, sem limite de "1x/dia" do Hobby pra cron — 100 publicações/24h
+é o teto real do Instagram, bem acima de 20 feed + 20 story). Mudanças:
+- `vercel.json`: 20 horários de `/api/cron/publish-product` espalhados
+  das 11h30 à 1h45 UTC (8h30-22h45 BRT, horário de maior movimento),
+  a cada ~45min, em vez de 1 chamada fixa às 13h.
+- `source-deals/route.ts`: fila de candidatos subiu de 8 pra 25/dia
+  (senão o cron ficaria "sem candidato novo" depois do 8º disparo) — isso
+  também aumenta o ritmo de publicação automática no site (mesmo código
+  publica no site e alimenta a fila do Instagram). Keywords/dia subiram
+  de 6 pra 10 (do mesmo pool de 28) pra sustentar o volume. `maxDuration`
+  subiu de 60s pra 300s por causa do volume maior de chamadas de rede.
+
 ### 🤖 Automação de posts no Instagram (código pronto 2026-09-16, falta ligar e testar)
 Construída uma esteira pra publicar sozinha no Instagram (@descontoschegando)
 todo dia, sem toque manual — pedido explícito do Heber ("quero automação 24

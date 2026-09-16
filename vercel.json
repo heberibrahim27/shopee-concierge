@@ -4,9 +4,25 @@
       "path": "/api/cron/source-deals",
       "schedule": "0 11 * * *"
     },
-    {
-      "path": "/api/cron/publish-product",
-      "schedule": "0 13 * * *"
-    }
+    { "path": "/api/cron/publish-product", "schedule": "30 11 * * *" },
+    { "path": "/api/cron/publish-product", "schedule": "15 12 * * *" },
+    { "path": "/api/cron/publish-product", "schedule": "0 13 * * *" },
+    { "path": "/api/cron/publish-product", "schedule": "45 13 * * *" },
+    { "path": "/api/cron/publish-product", "schedule": "30 14 * * *" },
+    { "path": "/api/cron/publish-product", "schedule": "15 15 * * *" },
+    { "path": "/api/cron/publish-product", "schedule": "0 16 * * *" },
+    { "path": "/api/cron/publish-product", "schedule": "45 16 * * *" },
+    { "path": "/api/cron/publish-product", "schedule": "30 17 * * *" },
+    { "path": "/api/cron/publish-product", "schedule": "15 18 * * *" },
+    { "path": "/api/cron/publish-product", "schedule": "0 19 * * *" },
+    { "path": "/api/cron/publish-product", "schedule": "45 19 * * *" },
+    { "path": "/api/cron/publish-product", "schedule": "30 20 * * *" },
+    { "path": "/api/cron/publish-product", "schedule": "15 21 * * *" },
+    { "path": "/api/cron/publish-product", "schedule": "0 22 * * *" },
+    { "path": "/api/cron/publish-product", "schedule": "45 22 * * *" },
+    { "path": "/api/cron/publish-product", "schedule": "30 23 * * *" },
+    { "path": "/api/cron/publish-product", "schedule": "15 0 * * *" },
+    { "path": "/api/cron/publish-product", "schedule": "0 1 * * *" },
+    { "path": "/api/cron/publish-product", "schedule": "45 1 * * *" }
   ]
 }

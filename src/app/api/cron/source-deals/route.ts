@@ -9,7 +9,11 @@ import { notifyCatalogUpdate } from "../../../../lib/site/notifyRevalidate";
 import crypto from "node:crypto";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// Subiu de 60s pra 300s: agora busca mais palavras-chave (10, era 6) e
+// cria mais candidatos (25, era 8) pra alimentar os 20 posts/dia do
+// Instagram — mais chamadas de rede (Shopee + geração de link de
+// afiliado) por execução. Plano é Pro, 300s é suportado.
+export const maxDuration = 300;
 
 /**
  * Rotina diária de descoberta + publicação automática de produtos.
@@ -34,7 +38,7 @@ const KEYWORD_POOL = [
   "kit ferramentas", "capa celular", "mochila feminina", "tenis esportivo", "bolsa termica",
 ];
 
-function keywordsForToday(count = 6): string[] {
+function keywordsForToday(count = 10): string[] {
   const dayOfYear = Math.floor(
     (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
   );
@@ -95,9 +99,11 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Publica até 8 por dia (em vez dos 3 do script original) — é rotina
-  // automática diária, não uma revisão humana pontual.
-  const top = selectTopCandidates(allOffers.filter((o) => persisted.has(o.itemId)), 8);
+  // Publica até 25 por dia — sobe de 8 pra alimentar os 20 posts/dia do
+  // Instagram (src/app/api/cron/publish-product, ver vercel.json) com
+  // folga, já que nem todo candidato vira post (pode já ter sido usado
+  // ou reprovar depois no filtro visual do Windsor/expert).
+  const top = selectTopCandidates(allOffers.filter((o) => persisted.has(o.itemId)), 25);
   const weekToken = isoWeekToken();
   const published: string[] = [];
   const failed: Array<{ itemId: string; erro: string }> = [];
