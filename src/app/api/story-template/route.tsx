@@ -211,7 +211,14 @@ export async function GET(request: NextRequest) {
             <div style={{ display: "flex", position: "absolute", top: `${L.priceRow.top}px`, left: `${L.priceRow.left}px` }}>
               {PriceBlock}
             </div>
-            <div style={{ display: "flex", position: "absolute", top: `${L.badge.top}px`, right: `${L.badge.right}px` }}>
+            <div
+              style={{
+                display: "flex",
+                position: "absolute",
+                top: `${L.badge.top}px`,
+                left: `${L.width - (L.badge.right ?? 0) - L.badge.width}px`,
+              }}
+            >
               {DiscountBadge}
             </div>
           </>
