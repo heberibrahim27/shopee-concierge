@@ -42,11 +42,13 @@ const LAYOUT = {
     frame: frameFeedDataUri,
     photo: { left: 194, top: 171, width: 692, height: 659 },
     // Cobre o texto de amostra que ainda está gravado na moldura exportada
-    // do Canva ("Nome do produto aqui", "R$ 29,90", "50% OFF").
+    // do Canva ("Nome do produto aqui", "R$ 29,90", "50% OFF"). CTA fixo
+    // da moldura começa em ~1155 — o conteúdo dinâmico se centraliza
+    // verticalmente nesse vão, então funciona igual com ou sem selo de
+    // desconto (sem isso, sem desconto sobrava um vão vazio feio).
     mask: { top: 832, height: 1150 - 832 },
-    title: { left: 90, top: 858, width: 900, center: false },
-    priceRow: { top: 975, left: 90 as number | undefined },
-    badge: { right: 76 as number | undefined, top: 975, width: 290, height: 170 },
+    paddingX: { left: 90, right: 76 },
+    badgeSize: { width: 290, height: 170 },
   },
   story: {
     width: 1080,
@@ -54,9 +56,8 @@ const LAYOUT = {
     frame: frameStoryDataUri,
     photo: { left: 164, top: 248, width: 751, height: 784 },
     mask: { top: 1034, height: 1660 - 1034 },
-    title: { left: 0, top: 1088, width: 1080, center: true },
-    priceRow: { top: 1225, left: undefined as number | undefined },
-    badge: { right: undefined as number | undefined, top: 1420, width: 440, height: 170 },
+    paddingX: { left: 0, right: 0 },
+    badgeSize: { width: 440, height: 170 },
   },
 } as const;
 
@@ -128,8 +129,8 @@ export async function GET(request: NextRequest) {
         background: BRAND_GREEN,
         borderRadius: "20px",
         padding: "18px 28px",
-        width: `${L.badge.width}px`,
-        height: `${L.badge.height}px`,
+        width: `${L.badgeSize.width}px`,
+        height: `${L.badgeSize.height}px`,
       }}
     >
       <div style={{ display: "flex", fontSize: "34px" }}>🏷️</div>
@@ -191,47 +192,44 @@ export async function GET(request: NextRequest) {
         <div
           style={{
             display: "flex",
+            flexDirection: "column",
             position: "absolute",
-            top: `${L.title.top}px`,
-            left: `${L.title.left}px`,
-            width: `${L.title.width}px`,
-            fontSize: variant === "story" ? "44px" : "40px",
-            fontWeight: 800,
-            color: "#141414",
-            lineHeight: 1.2,
-            justifyContent: L.title.center ? "center" : "flex-start",
-            textAlign: L.title.center ? "center" : "left",
+            top: `${L.mask.top}px`,
+            left: `${L.paddingX.left}px`,
+            width: `${L.width - L.paddingX.left - L.paddingX.right}px`,
+            height: `${L.mask.height}px`,
+            justifyContent: "center",
+            alignItems: variant === "story" ? "center" : "flex-start",
+            gap: "26px",
           }}
         >
-          {title}
-        </div>
+          <div
+            style={{
+              display: "flex",
+              width: "100%",
+              fontSize: variant === "story" ? "44px" : "40px",
+              fontWeight: 800,
+              color: "#141414",
+              lineHeight: 1.2,
+              justifyContent: variant === "story" ? "center" : "flex-start",
+              textAlign: variant === "story" ? "center" : "left",
+            }}
+          >
+            {title}
+          </div>
 
-        {variant === "feed" ? (
-          <>
-            <div style={{ display: "flex", position: "absolute", top: `${L.priceRow.top}px`, left: `${L.priceRow.left}px` }}>
+          {variant === "feed" ? (
+            <div style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between" }}>
               {PriceBlock}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                position: "absolute",
-                top: `${L.badge.top}px`,
-                left: `${L.width - (L.badge.right ?? 0) - L.badge.width}px`,
-              }}
-            >
               {DiscountBadge}
             </div>
-          </>
-        ) : (
-          <>
-            <div style={{ display: "flex", position: "absolute", top: `${L.priceRow.top}px`, left: 0, width: `${L.width}px`, justifyContent: "center" }}>
+          ) : (
+            <>
               {PriceBlock}
-            </div>
-            <div style={{ display: "flex", position: "absolute", top: `${L.badge.top}px`, left: 0, width: `${L.width}px`, justifyContent: "center" }}>
               {DiscountBadge}
-            </div>
-          </>
-        )}
+            </>
+          )}
+        </div>
       </div>
     ),
     {
