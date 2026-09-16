@@ -47,7 +47,14 @@ horas", "não quero ter que ficar pedindo pra vc"). Peças novas:
 1. ~~Variável de ambiente `WINDSOR_API_KEY`~~ — Heber está configurando
    isso no Vercel em 2026-09-16 (chave já testada e confirmada válida via
    curl direto na API do Windsor, HTTP 200).
-2. **⚠️ Ainda não confirmado se a automação Windsor realmente publica.**
+2. **✅ Template verificado ao vivo (2026-09-16)**: `/api/story-template`
+   (feed e story) testado direto na URL de produção depois do deploy —
+   moldura real do Canva, foto, nome, preço e selo de desconto todos
+   renderizando certinho (achado e corrigido um bug real: o selo "% OFF"
+   sumia no Feed por falta de `display:flex` no wrapper). **Isso testa só
+   a geração da imagem, não posta nada** — ainda falta confirmar se o
+   Windsor de fato publica no Instagram de verdade (ver item abaixo).
+   **⚠️ Ainda não confirmado se a automação Windsor realmente publica.**
    Único teste real até agora: candidato mochila ROMANTIC CROWN, 2026-09-16
    20:23 UTC — os dois posts (feed e story) ficaram salvos como "posted" no
    `social_posts`, mas com `media_id` nulo nos dois, sem nenhum erro
