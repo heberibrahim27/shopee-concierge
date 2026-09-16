@@ -40,6 +40,10 @@ export const metadata = {
   other: {
     "p:domain_verify": "7c6cd09f937ecd8ab729bd3073dbdd65",
   },
+  icons: {
+    icon: "/logoperfil-favicon.png",
+    apple: "/logoperfil-favicon.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
