@@ -4,9 +4,60 @@
 > o que ainda está pendente. Atualize sempre que resolver ou descobrir algo novo.
 > Complementa o [FEITO.md](FEITO.md), que registra o que já está pronto.
 
-**Última atualização:** 2026-09-14
+**Última atualização:** 2026-09-16
 
 ## Pendências ativas
+
+### 🤖 Automação de posts no Instagram (código pronto 2026-09-16, falta ligar e testar)
+Construída uma esteira pra publicar sozinha no Instagram (@descontoschegando)
+todo dia, sem toque manual — pedido explícito do Heber ("quero automação 24
+horas", "não quero ter que ficar pedindo pra vc"). Peças novas:
+- `social_posts` (tabela nova no Supabase) — fila/histórico de posts (feed/story).
+- `src/app/api/story-template/route.tsx` — gera a imagem via `next/og`,
+  reconstruindo o padrão visual dos templates Canva do Heber (logo real,
+  selo "ACHADO SHOPEE", faixa de desconto, CTA preta, rodapé de aviso) —
+  ver `?variant=feed` (1080x1350) e `?variant=story` (1080x1920).
+  **Importante**: isso é uma recriação em código, não usa o arquivo Canva
+  original — ver nota sobre Canva Autofill abaixo.
+- `src/app/api/cron/source-deals/route.ts` — roda 1x/dia (11h UTC), busca
+  produtos novos na Shopee (pool de ~28 palavras-chave, rotaciona por dia),
+  pontua, e **já publica automaticamente no site** (`site_published=true`
+  + slug via `buildProductSlug`) os até 8 melhores do dia — fecha o loop
+  que antes exigia alguém marcar `site_published` manualmente (não havia
+  NENHUM código fazendo isso antes de hoje, só setado à mão via SQL pros
+  poucos produtos já publicados).
+- `src/app/api/cron/publish-product/route.ts` — roda 1x/dia (13h UTC),
+  pega o próximo `deal_candidate` ainda não postado (maior score), gera
+  as imagens (feed+story), posta no Feed via Windsor.ai REST API
+  (`POST https://connectors.windsor.ai/instagram/actions?api_key=...`),
+  **comenta o link de afiliado automaticamente** no post (técnica "link
+  no primeiro comentário" — Instagram não permite link clicável na
+  legenda nem em Story), e posta o Story.
+- `src/app/hoje/route.ts` — redirect fixo (`descontochegando.com.br/hoje`)
+  que sempre aponta pro link do último produto postado — é o destino do
+  QR/CTA que fica igual pra sempre, só o conteúdo por trás muda sozinho.
+- `vercel.json` — os 2 crons acima configurados (schedule diário).
+
+**Falta pra funcionar de verdade:**
+1. Variável de ambiente `WINDSOR_API_KEY` (pegar no painel windsor.ai,
+   Configurações → API Keys) — sem ela o cron falha com erro claro.
+2. Rodar manualmente uma vez (`GET /api/cron/publish-product`) pra
+   confirmar que o Windsor aceita as chamadas antes de deixar o cron solto.
+3. Deploy (nada disso foi commitado/publicado ainda até 2026-09-16).
+4. **Canva Autofill** (fidelidade 100% ao template Canva do Heber, em vez
+   da recriação em código): tentei publicar os 2 designs do Heber
+   (`DAHVYyRDaJ4` feed, `DAHVYyG_BwY` story) como Brand Template via MCP
+   — bloqueado com "Not allowed to access brand template" (provável
+   limite de plano/permissão Canva, não é bug de código). Além disso,
+   MESMO se resolver isso, ligar isso na automação 24h exigiria a API
+   REST oficial do Canva com OAuth (mais complexo que a chave simples do
+   Windsor) — não é trabalho de poucos minutos. Ficou como decisão em
+   aberto: manter o template em código (já bate bem no padrão visual) ou
+   investir na integração OAuth do Canva depois.
+
+Ver [[project_shopee_concierge_session_notes]] e o histórico completo da
+sessão 2026-09-16 pra mais contexto (inclui toda a novela da fatura da
+Vercel, resolvida na mesma sessão).
 
 ### 🚨 Segurança (achado em 2026-09-15): RLS desativado em `product_groups`
 O Supabase apontou automaticamente ao listar as tabelas do projeto
