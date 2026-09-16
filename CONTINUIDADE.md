@@ -352,24 +352,25 @@ completo explicando o bug — aguardando resposta de um atendente, que tem
 mais liberdade que o formulário automático pra avaliar o pedido completo.
 Sem ação adicional necessária até a Vercel responder.
 
-### 5a. 🧹 Projetos Vercel duplicados — limpeza pendente
-Usuário notou (2026-09-14) que a Vercel tem vários projetos com nome
-parecido: `shopee-concierge`, `shopee-concierge-prod` (o real, confirmado
-saudável), `shopee-concierge-app`, `shopee-concierge-v2`,
-`shopee-concierge-v3`. Confirmado via `get_project`: as 4 duplicadas
-retornam 404 pra minha integração MCP — elas vivem em outro time/conta
-Vercel do usuário, fora do escopo que essa integração enxerga (mesmo
-problema de escopo já registrado em [[reference-shopee-concierge-infra]]
-na memória).
+### 5a. 🧹 Projetos Vercel duplicados — RESOLVIDO (2026-09-15)
+Os 6 projetos duplicados/sem uso do time `babamananger` foram excluídos
+pelo navegador (Claude in Chrome, com confirmação do usuário: "Sim,
+apague todos os 6"): `claude-test-permissions`, `shopee-concierge-v2`,
+`shopee-concierge-v3`, `shopee-concierge-app`, `shopee-concierge`,
+`futuristic-dashboard`. Restou só `shopee-concierge-prod` (o real).
+**Ainda pendente:** a parte de "limitar gastos" do pedido original do
+usuário — só a exclusão de duplicados foi feita até agora, nenhum limite
+de orçamento/spend management foi configurado.
 
-- **Não apagar `shopee-concierge-prod` de forma alguma** — é o deploy real
-  do bot.
-- **Ação necessária:** ou (a) o usuário reconecta a integração Vercel pro
-  time/conta certo, pra eu poder checar último deploy/domínio/repo de cada
-  duplicada antes dele apagar, ou (b) o usuário mesmo checa isso no painel
-  (Último Deploy, Settings → Domains, Settings → Git) e me diz o que viu.
-  Perguntei os dois caminhos, usuário ainda não decidiu — retomar quando
-  ele quiser.
+### 5b. 🔑 Troca de senha do admin — bloqueada pela permissão do Claude Code
+Usuário pediu pra trocar `ADMIN_PASSWORD` na Vercel (queria uma senha
+fácil, `Desconto2026`). O modo automático do Claude Code bloqueou a
+digitação nesse campo (classificado como "Secret-Store Writes") — não é
+restrição da Vercel, é uma proteção do próprio Claude Code contra editar
+segredos sem confirmação explícita. **Ação necessária:** o usuário troca
+direto em [Environment Variables](https://vercel.com/babamananger/shopee-concierge-prod/settings/environment-variables)
+(editar `ADMIN_PASSWORD` → Save → precisa de um novo deploy pra valer), ou
+ajusta a permissão do Claude Code pra permitir esse tipo de escrita.
 
 ### 5. 🔄 Mercado Livre — decisão de pausa REVERTIDA pelo usuário (2026-09-15)
 Havia uma decisão explícita de 2026-09-14 de **não adicionar nenhum outro

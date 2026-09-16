@@ -4,6 +4,29 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-15 (sessão seguinte, parte 27) — favicon do site + fix no checker de links (403 falso-positivo da Nike)
+
+**Favicon aplicado**: `public/logoperfil-favicon.png` referenciado via
+`metadata.icons` em `src/app/layout.tsx` (`icon` + `apple`). Confirmado
+no `<head>` renderizado localmente antes de publicar.
+
+**Bug encontrado no checker de saúde de links** (painel `/admin`, bloco
+"Saúde dos Links"): 26 dos 60 produtos checados vinham como "com
+problema" (403), todos produtos Nike. Causa raiz: o checker
+(`src/app/api/admin/revalidate-links/route.ts`) mandava um User-Agent
+que se identifica como bot (`DescontoChegandoBot/1.0`) — a proteção
+Akamai da Nike bloqueia isso, mesmo o link funcionando normal pra quem
+clica de verdade num navegador. Corrigido trocando pro User-Agent de um
+Chrome real + header `Accept`. Efetividade da correção ainda não
+reconfirmada rodando "Revalidar agora" pós-deploy.
+
+**Limpeza de infra Vercel** (fora do repo): 6 projetos duplicados/sem
+uso excluídos do time `babamananger` (`claude-test-permissions`,
+`shopee-concierge-v2`, `shopee-concierge-v3`, `shopee-concierge-app`,
+`shopee-concierge`, `futuristic-dashboard`) — restou só
+`shopee-concierge-prod` em uso real. Parte de "limitar gastos" ainda não
+endereçada (só a parte de excluir duplicados).
+
 ## 2026-09-15 (sessão seguinte, parte 26) — 9º par Shopee×Mercado Livre: JBL Go 4
 
 Segunda rodada de comparação cross-marketplace (a primeira foi as 8 Smart
