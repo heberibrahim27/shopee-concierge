@@ -55,6 +55,12 @@ porque `SUPABASE_SERVICE_ROLE_KEY` está vazia no `.env` local (só
 desta sessão. `npx tsc --noEmit` e `npm run build` passaram limpos;
 validação real só rola em produção, pós-deploy.
 
+**Pendência anotada pelo usuário (2026-09-15):** o design do painel
+`/admin` vai precisar mudar. Ainda não especificado o quê exatamente
+incomoda (layout? visual mais trabalhado? algo que já viu com dados
+reais em produção?) — perguntar antes de mexer, só ficou registrado que
+vem por aí.
+
 ### 💡 Ideia (2026-09-14): aviso de queda de preço por produto
 Usuário perguntou se o ícone do sino no cabeçalho tem funcionalidade — hoje
 não tem nenhuma (só "Notificações em breve", enfeite). Ideia proposta e
