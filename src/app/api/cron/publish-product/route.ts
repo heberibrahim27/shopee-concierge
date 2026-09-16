@@ -22,18 +22,29 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>): Promise<Can
   const { data, error } = await db
     .from("deal_candidates")
     .select(
-      "id, score, products(product_name), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
+      "id, score, product_id, products(product_name), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
     )
     .order("score", { ascending: false, nullsFirst: false })
     .limit(50);
 
   if (error || !data) return null;
 
-  const { data: alreadyPosted } = await db.from("social_posts").select("deal_candidate_id");
-  const postedIds = new Set((alreadyPosted ?? []).map((r) => r.deal_candidate_id));
+  // Dedupe por PRODUTO, não por candidato: o source-deals pode gerar mais
+  // de um deal_candidate pro mesmo produto (achado de novo em outra busca
+  // por palavra-chave) — sem isso, o mesmo produto podia ser postado 2x
+  // no Instagram (aconteceu na prática em 2026-09-16, Kit Colmeia com 2
+  // deal_candidate_id diferentes).
+  const { data: alreadyPosted } = await db
+    .from("social_posts")
+    .select("deal_candidates(product_id)");
+  const postedProductIds = new Set(
+    (alreadyPosted ?? [])
+      .map((r: any) => r.deal_candidates?.product_id)
+      .filter(Boolean)
+  );
 
   for (const row of data as any[]) {
-    if (postedIds.has(row.id)) continue;
+    if (postedProductIds.has(row.product_id)) continue;
     const snap = row.offer_snapshots;
     if (!snap?.image_url || !snap?.offer_link || snap.price_min == null) continue;
     return {

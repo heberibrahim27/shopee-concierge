@@ -92,13 +92,13 @@ export async function GET(request: NextRequest) {
     >
       {de ? (
         <div style={{ display: "flex", alignItems: "baseline", gap: "10px" }}>
-          <div style={{ display: "flex", fontSize: "28px", fontWeight: 700, color: "#9A9A9A" }}>
+          <div style={{ display: "flex", fontSize: "30px", fontWeight: 700, color: "#9A9A9A" }}>
             De
           </div>
           <div
             style={{
               display: "flex",
-              fontSize: "28px",
+              fontSize: "30px",
               fontWeight: 700,
               color: "#9A9A9A",
               textDecoration: "line-through",
@@ -108,11 +108,16 @@ export async function GET(request: NextRequest) {
           </div>
         </div>
       ) : null}
+      {/* Tamanhos medidos direto no Canva (painel de fonte): título 41,9pt
+          e preço 71,4pt no design do Feed (1122px de largura nativa),
+          escalados pra largura do render (1080px) — ver conversa de
+          2026-09-16. Story usa a mesma proporção até medir o valor real
+          dele. */}
       <div style={{ display: "flex", alignItems: "baseline", gap: "14px" }}>
-        <div style={{ display: "flex", fontSize: variant === "story" ? "36px" : "32px", fontWeight: 700, color: BRAND_GREEN_DARK }}>
+        <div style={{ display: "flex", fontSize: variant === "story" ? "38px" : "34px", fontWeight: 700, color: BRAND_GREEN_DARK }}>
           Por
         </div>
-        <div style={{ display: "flex", fontSize: variant === "story" ? "80px" : "64px", fontWeight: 800, color: BRAND_GREEN_DARK }}>
+        <div style={{ display: "flex", fontSize: variant === "story" ? "86px" : "69px", fontWeight: 800, color: BRAND_GREEN_DARK }}>
           R$ {por}
         </div>
       </div>
