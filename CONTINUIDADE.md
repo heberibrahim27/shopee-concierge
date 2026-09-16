@@ -13,12 +13,17 @@ Construída uma esteira pra publicar sozinha no Instagram (@descontoschegando)
 todo dia, sem toque manual — pedido explícito do Heber ("quero automação 24
 horas", "não quero ter que ficar pedindo pra vc"). Peças novas:
 - `social_posts` (tabela nova no Supabase) — fila/histórico de posts (feed/story).
-- `src/app/api/story-template/route.tsx` — gera a imagem via `next/og`,
-  reconstruindo o padrão visual dos templates Canva do Heber (logo real,
-  selo "ACHADO SHOPEE", faixa de desconto, CTA preta, rodapé de aviso) —
-  ver `?variant=feed` (1080x1350) e `?variant=story` (1080x1920).
-  **Importante**: isso é uma recriação em código, não usa o arquivo Canva
-  original — ver nota sobre Canva Autofill abaixo.
+- `src/app/api/story-template/route.tsx` — gera a imagem via `next/og`.
+  **Atualizado em 2026-09-16**: não é mais uma recriação em código do zero
+  — usa como moldura de fundo os PNGs exportados de verdade dos designs
+  reais do Heber no Canva (`public/templates/frame-feed.png` e
+  `frame-story.png`, 1080x1350 e 1080x1920), então logo, selo "ACHADO
+  SHOPEE", faixas decorativas e CTA são pixel-a-pixel o design original.
+  Só a foto do produto, nome e preço são desenhados por cima em código
+  (coordenadas medidas diretamente nos PNGs exportados — ver histórico da
+  sessão de 2026-09-16 se precisar remedir depois de trocar o design no
+  Canva). Autofill do Canva continua bloqueado (ver nota abaixo) — essa é
+  a solução de contorno.
 - `src/app/api/cron/source-deals/route.ts` — roda 1x/dia (11h UTC), busca
   produtos novos na Shopee (pool de ~28 palavras-chave, rotaciona por dia),
   pontua, e **já publica automaticamente no site** (`site_published=true`
@@ -39,11 +44,39 @@ horas", "não quero ter que ficar pedindo pra vc"). Peças novas:
 - `vercel.json` — os 2 crons acima configurados (schedule diário).
 
 **Falta pra funcionar de verdade:**
-1. Variável de ambiente `WINDSOR_API_KEY` (pegar no painel windsor.ai,
-   Configurações → API Keys) — sem ela o cron falha com erro claro.
-2. Rodar manualmente uma vez (`GET /api/cron/publish-product`) pra
-   confirmar que o Windsor aceita as chamadas antes de deixar o cron solto.
-3. Deploy (nada disso foi commitado/publicado ainda até 2026-09-16).
+1. ~~Variável de ambiente `WINDSOR_API_KEY`~~ — Heber está configurando
+   isso no Vercel em 2026-09-16 (chave já testada e confirmada válida via
+   curl direto na API do Windsor, HTTP 200).
+2. **⚠️ Ainda não confirmado se a automação Windsor realmente publica.**
+   Único teste real até agora: candidato mochila ROMANTIC CROWN, 2026-09-16
+   20:23 UTC — os dois posts (feed e story) ficaram salvos como "posted" no
+   `social_posts`, mas com `media_id` nulo nos dois, sem nenhum erro
+   capturado (o código na época não checava erro embutido no corpo da
+   resposta do Windsor, nem tinha o log de fallback pro Story). Verifiquei
+   no Instagram @descontoschegando ao vivo e **não achei esse post** —
+   os posts de template visíveis lá hoje são de uma sessão anterior que
+   usou Canva + navegador manualmente, não passaram pelo `route.ts`.
+   Ou seja: essa esteira Windsor pode nunca ter publicado nada de verdade
+   ainda. Corrigido agora (2026-09-16, não commitado): `extractMediaId`
+   (que só cobria o Feed) passou a cobrir o Story também, com o mesmo log
+   de fallback; e `windsorAction` agora trata erro embutido no corpo da
+   resposta (HTTP 200 com `{"error": ...}`) como falha, em vez de seguir
+   como se tivesse dado certo. Falta rodar de novo pra confirmar de
+   verdade — **atenção: isso posta de verdade no Instagram
+   @descontoschegando**, não é sandbox. Pedir confirmação explícita antes
+   de disparar.
+3. ~~Deploy~~ — feito em 2026-09-16 (commit `5fd4b7e`, push pra `main`);
+   os 2 fixes do item 2 acima ainda não foram deployados.
+4. **🚨 Segurança: `CRON_SECRET` gerado (2026-09-16), falta colar no
+   Vercel.** A rota `/api/cron/publish-product` (e `/api/cron/source-deals`)
+   checa o header `Authorization` só SE a env var `CRON_SECRET` existir —
+   até isso ser configurado no Vercel, a rota fica **aberta**: qualquer um
+   que descobrir a URL pode disparar um post real no Instagram. Valor já
+   gerado e salvo no `.env` local (gitignorado); falta o Heber colar o
+   mesmo valor em Vercel → Project Settings → Environment Variables →
+   `CRON_SECRET` (todas as envs). O próprio Cron do Vercel já manda
+   `Authorization: Bearer $CRON_SECRET` sozinho quando a env var existe —
+   não precisa mexer no `vercel.json`.
 4. **Canva Autofill** (fidelidade 100% ao template Canva do Heber, em vez
    da recriação em código): tentei publicar os 2 designs do Heber
    (`DAHVYyRDaJ4` feed, `DAHVYyG_BwY` story) como Brand Template via MCP

@@ -66,6 +66,22 @@ function buildTemplateUrl(c: Candidate, variant: "feed" | "story"): string {
   return `${SITE_URL}/api/story-template?${params.toString()}`;
 }
 
+// A forma exata da resposta do Windsor pra create_image_post/create_story
+// não está documentada publicamente — tenta os caminhos mais prováveis
+// (visto na prática: 1o post real, 2026-09-16, veio com o campo do media
+// id vazio nos dois primeiros que tentei, então isso cobre mais opções).
+function extractMediaId(resp: any): string | null {
+  return (
+    resp?.id ??
+    resp?.media_id ??
+    resp?.data?.id ??
+    resp?.data?.media_id ??
+    resp?.result?.id ??
+    resp?.media?.id ??
+    null
+  );
+}
+
 async function windsorAction(action: string, params: Record<string, unknown>) {
   const apiKey = process.env.WINDSOR_API_KEY;
   if (!apiKey) {
@@ -79,7 +95,10 @@ async function windsorAction(action: string, params: Record<string, unknown>) {
     body: JSON.stringify({ account: IG_ACCOUNT_ID, action, params }),
   });
   const json = await resp.json().catch(() => null);
-  if (!resp.ok) {
+  // A Windsor às vezes devolve 200 com um erro embutido no corpo (em vez de
+  // um status HTTP de erro) — sem checar isso, o post falha de verdade na
+  // Instagram mas o código segue achando que deu certo.
+  if (!resp.ok || json?.error) {
     throw new Error(`Windsor ${action} falhou (${resp.status}): ${JSON.stringify(json)}`);
   }
   return json;
@@ -108,7 +127,7 @@ export async function GET(request: NextRequest) {
   let feedMediaId: string | null = null;
   try {
     const feedResp: any = await windsorAction("create_image_post", { image_url: feedImageUrl, caption });
-    feedMediaId = feedResp?.id ?? feedResp?.media_id ?? null;
+    feedMediaId = extractMediaId(feedResp);
     await db.from("social_posts").insert({
       deal_candidate_id: candidate.dealCandidateId,
       post_type: "feed",
@@ -116,6 +135,10 @@ export async function GET(request: NextRequest) {
       caption,
       status: "posted",
       media_id: feedMediaId,
+      // Se não achou o id por nenhum caminho conhecido, guarda a resposta
+      // crua aqui pra dar pra inspecionar depois (não tenho acesso aos
+      // logs de runtime desse projeto Vercel).
+      error: feedMediaId ? null : `sem media_id na resposta: ${JSON.stringify(feedResp).slice(0, 1000)}`,
       posted_at: new Date().toISOString(),
     });
     results.feed = { ok: true, mediaId: feedMediaId };
@@ -152,15 +175,17 @@ export async function GET(request: NextRequest) {
   // 3) Story (sem legenda — o QR code + "comente EU QUERO" já vêm na própria imagem)
   try {
     const storyResp: any = await windsorAction("create_story", { image_url: storyImageUrl });
+    const storyMediaId = extractMediaId(storyResp);
     await db.from("social_posts").insert({
       deal_candidate_id: candidate.dealCandidateId,
       post_type: "story",
       image_url: storyImageUrl,
       status: "posted",
-      media_id: storyResp?.id ?? storyResp?.media_id ?? null,
+      media_id: storyMediaId,
+      error: storyMediaId ? null : `sem media_id na resposta: ${JSON.stringify(storyResp).slice(0, 1000)}`,
       posted_at: new Date().toISOString(),
     });
-    results.story = { ok: true };
+    results.story = { ok: true, mediaId: storyMediaId };
   } catch (err: any) {
     await db.from("social_posts").insert({
       deal_candidate_id: candidate.dealCandidateId,
