@@ -227,10 +227,10 @@ export async function GET(request: NextRequest) {
               {DiscountBadge}
             </div>
           ) : (
-            <>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "26px" }}>
               {PriceBlock}
               {DiscountBadge}
-            </>
+            </div>
           )}
         </div>
       </div>
