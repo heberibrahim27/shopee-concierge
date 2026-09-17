@@ -1,18 +1,23 @@
 import { AdminShell } from "../../../components/admin/AdminShell";
 import { FunnelCard } from "../../../components/admin/FunnelCard";
 import { RankingCard } from "../../../components/admin/RankingCard";
-import { getAnalyticsStats } from "../../../lib/admin/stats";
+import { DailyTrendCard } from "../../../components/admin/DailyTrendCard";
+import { getAnalyticsStats, getDailyTrend } from "../../../lib/admin/stats";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminAnalyticsPage() {
-  const stats = await getAnalyticsStats();
+  const [stats, dailyTrend] = await Promise.all([getAnalyticsStats(), getDailyTrend(14)]);
 
   return (
     <AdminShell title="Analytics">
       <p style={{ margin: "-8px 0 16px", fontSize: 12.5, color: "var(--dc-text-muted)" }}>
         Busca, cliques e intenção do usuário — últimos 7 dias.
       </p>
+
+      <section className="dc-admin-section">
+        <DailyTrendCard points={dailyTrend} />
+      </section>
 
       <section className="dc-admin-section">
         <FunnelCard

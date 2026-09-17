@@ -350,3 +350,51 @@ export async function getAnalyticsStats() {
     topPaths,
   };
 }
+
+/** Dia calendário no fuso de Brasília (fixo UTC-3), formato "AAAA-MM-DD" —
+ * mesma lógica de `queryTodayPosts` em lib/site/catalog.ts. */
+function brtDayKey(iso: string): string {
+  const brt = new Date(new Date(iso).getTime() - 3 * 60 * 60 * 1000);
+  return brt.toISOString().slice(0, 10);
+}
+
+function lastNDayKeys(n: number): string[] {
+  const keys: string[] = [];
+  for (let i = n - 1; i >= 0; i--) {
+    keys.push(brtDayKey(daysAgoIso(i)));
+  }
+  return keys;
+}
+
+/** Visitantes (page_views) e cliques (click_events) por dia, últimos 14
+ * dias, agrupado no fuso de Brasília — usado no gráfico de barras simples
+ * da Analytics. Sem lib de gráfico no projeto: a UI desenha a barra com
+ * CSS puro a partir do valor máximo do período. */
+export async function getDailyTrend(days = 14) {
+  const db = getDbFresh();
+  const since = daysAgoIso(days - 1);
+
+  const [viewsRes, clicksRes] = await Promise.all([
+    db.from("page_views").select("created_at").gte("created_at", since),
+    db.from("click_events").select("created_at").gte("created_at", since),
+  ]);
+
+  const dayKeys = lastNDayKeys(days);
+  const visitsByDay = new Map(dayKeys.map((k) => [k, 0]));
+  const clicksByDay = new Map(dayKeys.map((k) => [k, 0]));
+
+  for (const row of viewsRes.data ?? []) {
+    const key = brtDayKey(row.created_at);
+    if (visitsByDay.has(key)) visitsByDay.set(key, (visitsByDay.get(key) ?? 0) + 1);
+  }
+  for (const row of clicksRes.data ?? []) {
+    const key = brtDayKey(row.created_at);
+    if (clicksByDay.has(key)) clicksByDay.set(key, (clicksByDay.get(key) ?? 0) + 1);
+  }
+
+  return dayKeys.map((key) => ({
+    day: key,
+    visits: visitsByDay.get(key) ?? 0,
+    clicks: clicksByDay.get(key) ?? 0,
+  }));
+}
