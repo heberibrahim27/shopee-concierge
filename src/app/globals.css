@@ -33,6 +33,13 @@ html,
 body {
   padding: 0;
   margin: 0;
+  /* Sem isso, qualquer elemento um pouco mais largo que a tela (ex: o
+     funil do admin com scroll horizontal próprio) empurra a PÁGINA
+     inteira pra largura maior, e o navegador mobile zoom-out a tela toda
+     pra caber — sintoma real reportado: "texto muito grande, precisando
+     diminuir a tela pra ver". Isso trava a largura no viewport real e
+     força cada elemento a rolar só dentro de si mesmo. */
+  overflow-x: hidden;
 }
 
 body {
@@ -1601,9 +1608,9 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
 
 .dc-admin-funnel-step {
   flex: 1;
-  min-width: 108px;
+  min-width: 92px;
   text-align: center;
-  padding: 14px 10px;
+  padding: 12px 8px;
   border-radius: var(--dc-radius-sm);
   background: #fafcfa;
   border: 1px solid var(--dc-border);
