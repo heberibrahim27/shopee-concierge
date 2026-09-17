@@ -1,40 +1,10 @@
-import { Header } from "../../components/site/Header";
-import { Footer } from "../../components/site/Footer";
-import { ProductGrid } from "../../components/site/ProductGrid";
-import { getCachedTodayPosts } from "../../lib/site/catalog";
+import { redirect } from "next/navigation";
 
-export const metadata = {
-  title: "Ofertas de hoje",
-  description: "Todos os produtos postados hoje no Instagram do Desconto Chegando.",
-  alternates: { canonical: "/hoje" },
-};
-
-// Sempre busca de novo — é o destino do link fixo da bio/QR code, tem que
-// refletir o post mais recente rápido (cache curto vive em getCachedTodayPosts).
-export const dynamic = "force-dynamic";
-
-export default async function HojePage() {
-  const products = await getCachedTodayPosts();
-
-  return (
-    <>
-      <Header />
-      <main className="dc-shell">
-        <section className="dc-hero">
-          <h1>Ofertas de hoje</h1>
-          <p>Tudo que a gente postou hoje no Instagram, num lugar só.</p>
-        </section>
-        <section className="dc-section">
-          <ProductGrid
-            products={products}
-            emptyMessage="Ainda não postamos nada hoje — volta daqui a pouco."
-          />
-        </section>
-        <a className="dc-back-link" href="/">
-          ← Voltar pra Home
-        </a>
-      </main>
-      <Footer />
-    </>
-  );
+// A Home (`/`) virou a própria listagem de "postado no Instagram nas
+// últimas 24h" (pedido do Heber, 2026-09-16) — /hoje continua existindo
+// só porque é o link fixo que a resposta automática do Instagram manda
+// pra quem comenta "QUERO" no Story (não dá pra trocar isso sem mexer
+// nesse fluxo separado), mas agora só redireciona pra Home.
+export default function HojePage() {
+  redirect("/");
 }

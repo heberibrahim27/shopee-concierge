@@ -4,11 +4,18 @@ import { CategoryGrid } from "../components/site/CategoryGrid";
 import { PromoBanner } from "../components/site/PromoBanner";
 import { ProductGrid } from "../components/site/ProductGrid";
 import { CouponSection } from "../components/site/CouponSection";
-import { getCachedHomeOffers } from "../lib/site/catalog";
+import { getCachedTodayPosts } from "../lib/site/catalog";
 import { getCachedCoupons } from "../lib/site/coupons";
 
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
-  const [offers, coupons] = await Promise.all([getCachedHomeOffers(), getCachedCoupons()]);
+  // Home = o que saiu no Instagram nas últimas 24h (pedido do Heber:
+  // "sempre atualizando" é o próprio diferencial do site agora que a
+  // automação posta 20x/dia). Produtos publicados fora desse fluxo (ex:
+  // Awin/Nike/Olympikus) continuam visíveis nas categorias, só não
+  // aparecem mais aqui.
+  const [offers, coupons] = await Promise.all([getCachedTodayPosts(), getCachedCoupons()]);
 
   return (
     <>

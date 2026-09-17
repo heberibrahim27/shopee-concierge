@@ -1,15 +1,14 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { FlameIcon, GridIcon, HeartIcon, HomeIcon, SearchIcon, WhatsAppIcon } from "./icons";
+import { GridIcon, HeartIcon, HomeIcon, SearchIcon, WhatsAppIcon } from "./icons";
 import { buildWhatsAppLink } from "./constants";
 
 const ITEMS = [
+  // Início já É a listagem "postado no Instagram nas últimas 24h" desde
+  // 2026-09-16 — /hoje virou um redirect pra cá, não precisa de item
+  // separado na navegação.
   { href: "/", label: "Início", Icon: HomeIcon, exact: true },
-  // Único jeito de voltar pra cá antes era digitar a URL de novo — é o
-  // link que a resposta automática do Instagram manda pra quem comenta
-  // "QUERO" no Story, precisa ser navegável a partir do site também.
-  { href: "/hoje", label: "Hoje", Icon: FlameIcon, exact: false },
   { href: "/busca", label: "Buscar", Icon: SearchIcon, exact: false },
   { href: "/favoritos", label: "Favoritos", Icon: HeartIcon, exact: false },
   { href: "/categorias", label: "Categorias", Icon: GridIcon, exact: false },
