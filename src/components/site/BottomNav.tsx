@@ -23,6 +23,10 @@ const ITEMS = [
 export function BottomNav() {
   const pathname = usePathname();
 
+  // O admin tem a própria navegação (AdminBottomNav) — o menu público não
+  // deve aparecer por cima dele.
+  if (pathname?.startsWith("/admin")) return null;
+
   return (
     <nav className="dc-bottom-nav" aria-label="Navegação principal">
       {ITEMS.map(({ href, label, Icon, exact }) => {
