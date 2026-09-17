@@ -8,17 +8,36 @@
 
 ## Pendências ativas
 
-### 🤖 Resposta automática "QUERO" no Instagram — funciona só entre testadores, falta Análise do App (2026-09-17)
+### 🤖 Resposta automática "QUERO" no Instagram — funciona só entre testadores, decisão de PAUSAR a Análise do App (2026-09-17)
 Webhook próprio (`/api/webhook/instagram`) criado, configurado e testado
 com sucesso de ponta a ponta — ver [FEITO.md](FEITO.md) pro detalhe
 completo do setup (app, permissões, token, webhook, política de
-privacidade). **Falta pra funcionar com o público real:** submeter o app
-pra Análise do App (App Review) da Meta, que exige gravar vídeo de
-demonstração do fluxo e pode levar dias pra aprovar. Sem isso, só contas
-com papel de Testador no app (ex: um segundo Instagram do próprio Heber)
-recebem a resposta automática — clientes reais comentando "QUERO" ainda
-não vão receber nada. Decisão de quando iniciar essa análise é do
-usuário.
+privacidade). Sem isso, só contas com papel de Testador no app (ex: um
+segundo Instagram do próprio Heber) recebem a resposta automática —
+clientes reais comentando "QUERO" ainda não recebem nada.
+
+**Investigado em 2026-09-17: pra avançar pra clientes reais é bem mais
+que só "enviar pra análise".** Tentei adicionar `instagram_business_basic`,
+`instagram_business_manage_comments` e `instagram_business_manage_messages`
+à Análise do App (Casos de uso → API do Instagram → Permissões e
+recursos → menu "⋮" de cada permissão → "Adicionar à análise do app") e a
+Meta bloqueia com um diálogo: pra adicionar QUALQUER permissão à análise,
+o app precisa antes virar **"Tech Provider"** — status que o próprio
+diálogo avisa ser **irreversível** ("This decision cannot be reversed
+after you've been identified as a Tech Provider"). Isso exige 3 etapas:
+1. **Verificação da empresa** (comprovar CNPJ/entidade legal via Meta).
+2. **Verificação de acesso** (não se aplica ao nosso caso).
+3. **Análise do App** propriamente dita (questionário de uso/tratamento
+   de dados + vídeo de demonstração).
+
+**Decisão do usuário (2026-09-17): não prosseguir agora.** Fica pausado
+até ele ter CNPJ/documentação de empresa pronta pra fazer a verificação
+(hoje não tem, ou não quis confirmar formalizar isso só pra essa
+automação). **Não cliquei em "Continue" nesse diálogo — nada foi
+efetivado, decisão 100% reversível ainda.** Quando for retomar: mesmo
+caminho (Casos de uso → API do Instagram → Permissões e recursos →
+menu da permissão → "Adicionar à análise do app"), mas só vale a pena
+entrar nisso com a documentação da empresa já em mãos.
 
 ### 🤖 Escalado pra 20 posts/dia no Instagram (2026-09-16, não deployado ainda)
 Heber pediu pra aumentar de 1 pra ~20 posts/dia (confirmado: conta Vercel é
