@@ -1,4 +1,5 @@
 import { getDbFresh } from "../db/client";
+import { getConversionReport } from "../shopee/queries";
 import { classifyLinkCheck, LinkHealthKind } from "./linkHealth";
 import { marketplaceDisplayLabel } from "./marketplaces";
 
@@ -397,4 +398,58 @@ export async function getDailyTrend(days = 14) {
     visits: visitsByDay.get(key) ?? 0,
     clicks: clicksByDay.get(key) ?? 0,
   }));
+}
+
+function startOfTodayBrtEpoch(): number {
+  const now = new Date();
+  const brtNow = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+  const startBrt = Date.UTC(brtNow.getUTCFullYear(), brtNow.getUTCMonth(), brtNow.getUTCDate());
+  return Math.floor((startBrt + 3 * 60 * 60 * 1000) / 1000);
+}
+
+function sumCommission(conversions: { totalCommission: string }[]): number {
+  return conversions.reduce((acc, c) => acc + (Number(c.totalCommission) || 0), 0);
+}
+
+/**
+ * Vendas/comissão reais via `conversionReport` da Shopee (confirmado ao
+ * vivo em 2026-09-17 — ver lib/shopee/queries.ts). Pedido do Heber: fechar
+ * o gap de "Receita e conversões" que antes só mostrava "—". Se a API da
+ * Shopee falhar (rate limit, credencial, rede), a página não pode quebrar
+ * por causa disso — devolve `error: true` e a UI mostra "—" como sempre.
+ */
+export async function getRevenueStats() {
+  const nowEpoch = Math.floor(Date.now() / 1000);
+  const todayStartEpoch = startOfTodayBrtEpoch();
+  const sevenDaysAgoEpoch = nowEpoch - 7 * 24 * 60 * 60;
+
+  try {
+    const [todayConversions, last7dConversions] = await Promise.all([
+      getConversionReport({ purchaseTimeStart: todayStartEpoch, purchaseTimeEnd: nowEpoch, limit: 200 }),
+      getConversionReport({ purchaseTimeStart: sevenDaysAgoEpoch, purchaseTimeEnd: nowEpoch, limit: 200 }),
+    ]);
+
+    const pendingToday = todayConversions.filter((c) => c.conversionStatus === "PENDING");
+    const completedToday = todayConversions.filter((c) => c.conversionStatus === "COMPLETED");
+    const pending7d = last7dConversions.filter((c) => c.conversionStatus === "PENDING");
+    const completed7d = last7dConversions.filter((c) => c.conversionStatus === "COMPLETED");
+
+    return {
+      error: false as const,
+      today: {
+        pedidos: new Set(todayConversions.flatMap((c) => c.orderIds)).size,
+        comissaoPendente: sumCommission(pendingToday),
+        comissaoValidada: sumCommission(completedToday),
+      },
+      last7d: {
+        pedidos: new Set(last7dConversions.flatMap((c) => c.orderIds)).size,
+        comissaoPendente: sumCommission(pending7d),
+        comissaoValidada: sumCommission(completed7d),
+        receitaTotal: sumCommission([...pending7d, ...completed7d]),
+      },
+    };
+  } catch (err) {
+    console.error("[admin] falha ao buscar conversionReport da Shopee:", err);
+    return { error: true as const, today: null, last7d: null };
+  }
 }

@@ -4,16 +4,17 @@ import { AlertSummary } from "../../components/admin/AlertSummary";
 import { RevenueSummaryCard } from "../../components/admin/RevenueSummaryCard";
 import { MarketplaceComparisonCard } from "../../components/admin/MarketplaceComparisonCard";
 import { EyeIcon, ClickIcon, ChartIcon, PackageIcon } from "../../components/admin/icons";
-import { getAttentionSummary, getComparisonStats, getOverviewStats } from "../../lib/admin/stats";
+import { getAttentionSummary, getComparisonStats, getOverviewStats, getRevenueStats } from "../../lib/admin/stats";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminOverviewPage() {
   const now = new Date().toISOString();
-  const [overview, attention, comparison] = await Promise.all([
+  const [overview, attention, comparison, revenue] = await Promise.all([
     getOverviewStats(),
     getAttentionSummary(),
     getComparisonStats(),
+    getRevenueStats(),
   ]);
 
   return (
@@ -38,7 +39,13 @@ export default async function AdminOverviewPage() {
       </section>
 
       <section className="dc-admin-section">
-        <RevenueSummaryCard cliquesHoje={overview.clicksToday} cliques7d={overview.clicks7d} />
+        <RevenueSummaryCard
+          cliquesHoje={overview.clicksToday}
+          cliques7d={overview.clicks7d}
+          today={revenue.today}
+          last7d={revenue.last7d}
+          shopeeError={revenue.error}
+        />
       </section>
 
       <section className="dc-admin-section">

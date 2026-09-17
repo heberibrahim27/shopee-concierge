@@ -44,3 +44,26 @@ export enum ShopeeSortType {
   PRICE_ASC = 4,
   COMMISSION_DESC = 5,
 }
+
+/**
+ * Venda/pedido real atribuído a um link de afiliado nosso — confirmado ao
+ * vivo em 2026-09-17 via `conversionReport` (schema descoberto por
+ * introspecção, não documentado publicamente). `purchaseTime`/`clickTime`
+ * vêm em epoch segundos; `totalCommission` já vem como string decimal em
+ * reais.
+ */
+export interface ShopeeConversion {
+  conversionId: string;
+  conversionStatus: "PENDING" | "COMPLETED" | "CANCELLED";
+  purchaseTime: number;
+  clickTime: number;
+  totalCommission: string;
+  orderIds: string[];
+}
+
+export interface ConversionReportResponse {
+  conversionReport: {
+    nodes: ShopeeConversion[];
+    pageInfo: { hasNextPage: boolean; scrollId: string };
+  };
+}

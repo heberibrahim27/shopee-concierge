@@ -1,7 +1,9 @@
 import { shopeeGraphQL } from "./client";
 import {
+  ConversionReportResponse,
   ProductOfferV2Response,
   GenerateShortLinkResponse,
+  ShopeeConversion,
   ShopeeProductOffer,
   ShopeeSortType,
 } from "./types";
@@ -95,4 +97,49 @@ export async function generateAffiliateShortLink(params: {
   });
 
   return data.generateShortLink;
+}
+
+/**
+ * Vendas reais atribuídas aos nossos links de afiliado, com comissão —
+ * schema `conversionReport` descoberto por introspecção (não documentado
+ * publicamente), confirmado ao vivo em 2026-09-17. `purchaseTimeStart`/
+ * `purchaseTimeEnd` em epoch segundos; a API exige esses dois como STRING
+ * na variável (Int64 escalar, mesma pegadinha do itemId/shopId).
+ */
+export async function getConversionReport(params: {
+  purchaseTimeStart: number;
+  purchaseTimeEnd: number;
+  limit?: number;
+}): Promise<ShopeeConversion[]> {
+  const { purchaseTimeStart, purchaseTimeEnd, limit = 200 } = params;
+
+  const query = `
+    query ConversionReport($start: Int64, $end: Int64, $limit: Int) {
+      conversionReport(purchaseTimeStart: $start, purchaseTimeEnd: $end, limit: $limit) {
+        nodes {
+          conversionId
+          conversionStatus
+          purchaseTime
+          clickTime
+          totalCommission
+          orders { orderId }
+        }
+        pageInfo { hasNextPage scrollId }
+      }
+    }
+  `;
+
+  const data = await shopeeGraphQL<ConversionReportResponse>({
+    query,
+    variables: { start: String(purchaseTimeStart), end: String(purchaseTimeEnd), limit },
+  });
+
+  return data.conversionReport.nodes.map((n: any) => ({
+    conversionId: String(n.conversionId),
+    conversionStatus: n.conversionStatus,
+    purchaseTime: n.purchaseTime,
+    clickTime: n.clickTime,
+    totalCommission: n.totalCommission,
+    orderIds: (n.orders ?? []).map((o: any) => String(o.orderId)),
+  }));
 }
