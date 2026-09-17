@@ -4,9 +4,21 @@
 > o que ainda está pendente. Atualize sempre que resolver ou descobrir algo novo.
 > Complementa o [FEITO.md](FEITO.md), que registra o que já está pronto.
 
-**Última atualização:** 2026-09-16
+**Última atualização:** 2026-09-17
 
 ## Pendências ativas
+
+### 🤖 Resposta automática "QUERO" no Instagram — funciona só entre testadores, falta Análise do App (2026-09-17)
+Webhook próprio (`/api/webhook/instagram`) criado, configurado e testado
+com sucesso de ponta a ponta — ver [FEITO.md](FEITO.md) pro detalhe
+completo do setup (app, permissões, token, webhook, política de
+privacidade). **Falta pra funcionar com o público real:** submeter o app
+pra Análise do App (App Review) da Meta, que exige gravar vídeo de
+demonstração do fluxo e pode levar dias pra aprovar. Sem isso, só contas
+com papel de Testador no app (ex: um segundo Instagram do próprio Heber)
+recebem a resposta automática — clientes reais comentando "QUERO" ainda
+não vão receber nada. Decisão de quando iniciar essa análise é do
+usuário.
 
 ### 🤖 Escalado pra 20 posts/dia no Instagram (2026-09-16, não deployado ainda)
 Heber pediu pra aumentar de 1 pra ~20 posts/dia (confirmado: conta Vercel é

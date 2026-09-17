@@ -4,6 +4,39 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-17 — Automação "QUERO" no Instagram (webhook próprio) validada entre contas testadoras
+
+Fechado o fluxo: alguém manda "quero" (DM ou resposta de Story) pro
+@descontoschegando → webhook próprio (`/api/webhook/instagram`) responde
+automaticamente com o link de `/hoje`. Testado ao vivo entre uma segunda
+conta e @descontoschegando — resposta automática confirmada chegando.
+
+Setup feito no Meta for Developers (app "Desconto Chegando Automacoes",
+App ID `2400373754101189`): permissões (`instagram_business_basic`,
+`instagram_business_manage_comments`, `instagram_business_manage_messages`)
+adicionadas, conta @descontoschegando vinculada como testador (convite
+aceito em Instagram → Configurações → Apps e sites → Convites do
+testador), token de acesso gerado (`INSTAGRAM_PAGE_ACCESS_TOKEN` salvo no
+`.env` local e na Vercel produção), webhook configurado e verificado
+(`INSTAGRAM_WEBHOOK_VERIFY_TOKEN` também salvo nos dois lugares),
+assinatura de webhook "Ativado" pra conta. Política de privacidade do app
+vinculada à página real do site (`/privacidade`), domínio e categoria
+("Compras") preenchidos em Configurações do app → Básico.
+
+**Limitação atual, confirmada pela própria tela "5. Concluir a análise do
+app" do Meta**: isso só funciona hoje entre contas com papel de
+Testador no app. Pra funcionar com clientes reais (público comentando
+"QUERO" de verdade), a Meta exige **Análise do App** (App Review) —
+processo que pede vídeo de demonstração do fluxo e pode levar dias.
+Ainda não iniciado — decisão do usuário sobre quando começar.
+
+**Nota de infraestrutura**: durante o setup, um `vercel link --project
+descontochegando` sem o nome exato criou por engano um projeto vazio
+("descontochegando", sem deploys) na Vercel, distinto do projeto real de
+produção (`shopee-concierge-prod`). Corrigido religando ao projeto certo;
+o projeto vazio ficou pra trás e pode ser apagado manualmente em
+Settings → Advanced → Delete Project (não afeta nada, nunca teve deploy).
+
 ## 2026-09-15 (sessão seguinte, parte 27) — favicon do site + fix no checker de links (403 falso-positivo da Nike)
 
 **Favicon aplicado**: `public/logoperfil-favicon.png` referenciado via

@@ -61,8 +61,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, ignored: true });
   }
 
-  console.log("[webhook/instagram] payload recebido:", JSON.stringify(body));
-
   for (const entry of body.entry ?? []) {
     for (const event of entry.messaging ?? []) {
       const senderId = event.sender?.id;
@@ -71,22 +69,12 @@ export async function POST(request: NextRequest) {
 
       // is_echo = mensagem que NÓS mandamos (o próprio webhook nos
       // notifica disso) — nunca responder a nós mesmos.
-      if (!senderId || !text || event.message?.is_echo) {
-        console.log("[webhook/instagram] evento ignorado (sem texto/sender ou é echo)");
-        continue;
-      }
-      if (mid && isDuplicate(mid)) {
-        console.log("[webhook/instagram] evento ignorado (duplicado)", mid);
-        continue;
-      }
-      if (!text.toLowerCase().includes(KEYWORD)) {
-        console.log("[webhook/instagram] evento ignorado (sem palavra-chave):", text);
-        continue;
-      }
+      if (!senderId || !text || event.message?.is_echo) continue;
+      if (mid && isDuplicate(mid)) continue;
+      if (!text.toLowerCase().includes(KEYWORD)) continue;
 
       try {
         await sendInstagramMessage({ recipientId: senderId, text: REPLY_TEXT });
-        console.log("[webhook/instagram] resposta enviada com sucesso para", senderId);
       } catch (err) {
         console.error("[webhook/instagram] falha ao responder:", err);
       }
