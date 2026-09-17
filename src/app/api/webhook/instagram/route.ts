@@ -13,13 +13,33 @@
  *    INSTAGRAM_PAGE_ACCESS_TOKEN.
  * 3. Webhook apontando pra esta URL, assinando o campo "messages",
  *    verify token = INSTAGRAM_WEBHOOK_VERIFY_TOKEN.
+ * 4. Chave secreta do app (Configurações do app → Básico → "Chave Secreta
+ *    do Aplicativo"), salva em INSTAGRAM_APP_SECRET — usada pra validar
+ *    a assinatura X-Hub-Signature-256 que a Meta manda em todo POST.
  *
  * A API em si é gratuita (sem cobrança por mensagem) — confirmado
  * 2026-09-17.
  */
 import { NextRequest, NextResponse } from "next/server";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { sendInstagramMessage } from "@/lib/channel/instagramGraph";
 import { isDuplicate } from "@/lib/dedupe";
+
+// A Meta assina o corpo bruto do POST com o App Secret (HMAC SHA-256) e
+// manda o resultado no header X-Hub-Signature-256. Sem validar isso,
+// qualquer um que descubra a URL pode mandar payload falso pro webhook.
+function hasValidSignature(rawBody: string, signatureHeader: string | null): boolean {
+  const appSecret = process.env.INSTAGRAM_APP_SECRET;
+  if (!appSecret || !signatureHeader?.startsWith("sha256=")) return false;
+
+  const expected = createHmac("sha256", appSecret).update(rawBody, "utf8").digest("hex");
+  const received = signatureHeader.slice("sha256=".length);
+
+  const expectedBuf = Buffer.from(expected, "hex");
+  const receivedBuf = Buffer.from(received, "hex");
+  if (expectedBuf.length !== receivedBuf.length) return false;
+  return timingSafeEqual(expectedBuf, receivedBuf);
+}
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -55,7 +75,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const body = (await request.json()) as InstagramWebhookBody;
+  const rawBody = await request.text();
+
+  if (!hasValidSignature(rawBody, request.headers.get("x-hub-signature-256"))) {
+    console.error("[webhook/instagram] assinatura invalida ou ausente");
+    return NextResponse.json({ ok: false, error: "assinatura inválida" }, { status: 401 });
+  }
+
+  const body = JSON.parse(rawBody) as InstagramWebhookBody;
 
   if (body.object !== "instagram") {
     return NextResponse.json({ ok: true, ignored: true });
