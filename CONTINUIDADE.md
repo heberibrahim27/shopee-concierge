@@ -4,9 +4,32 @@
 > o que ainda está pendente. Atualize sempre que resolver ou descobrir algo novo.
 > Complementa o [FEITO.md](FEITO.md), que registra o que já está pronto.
 
-**Última atualização:** 2026-09-17
+**Última atualização:** 2026-09-18
 
 ## Pendências ativas
+
+### 🚨 Segurança (corrigido em 2026-09-18, falta confirmar): webhook Z-API não validava origem
+Achado durante o debate de arquitetura da Skill 25 (Segurança/Auditoria,
+Máquina de Vídeos): `/api/webhook/zapi` aceitava **qualquer POST, de
+qualquer origem, sem nenhuma validação** — diferente do webhook do
+Instagram, que já valida assinatura HMAC. Alguém que descobrisse a URL
+podia disparar o pipeline completo do Concierge, inclusive mensagens
+reais no WhatsApp.
+
+**Corrigido**: a rota agora exige o header `Client-Token` (o mesmo valor
+de `ZAPI_CLIENT_TOKEN` já usado nas chamadas de saída) em toda chamada —
+sem ele, ou com valor errado, a requisição é rejeitada (401) antes de
+tocar no Concierge. Ver `src/app/api/webhook/zapi/route.ts`.
+
+**⚠️ Falta confirmar**: a Z-API reenvia esse mesmo Client-Token como
+header nas chamadas de webhook — isso é o comportamento documentado da
+Z-API, mas não foi testado ao vivo contra esta conta. **Depois do
+próximo deploy, mande uma mensagem de teste pro número do WhatsApp do
+Concierge e confirme que o bot ainda responde.** Se parar de responder,
+avise — provavelmente a Z-API não está reenviando esse header nesta
+conta, e a validação precisa trocar pra um token na URL do webhook (mais
+simples de garantir, mas exige atualizar o campo "Ao receber" no painel
+da Z-API).
 
 ### 🤖 Resposta automática "QUERO" no Instagram — funciona só entre testadores, decisão de PAUSAR a Análise do App (2026-09-17)
 Webhook próprio (`/api/webhook/instagram`) criado, configurado e testado
@@ -38,6 +61,27 @@ efetivado, decisão 100% reversível ainda.** Quando for retomar: mesmo
 caminho (Casos de uso → API do Instagram → Permissões e recursos →
 menu da permissão → "Adicionar à análise do app"), mas só vale a pena
 entrar nisso com a documentação da empresa já em mãos.
+
+**Alternativa encontrada (2026-09-17), pesquisada mas ainda NÃO
+implementada — usuário pediu pra pausar aqui e retomar depois:**
+ferramentas prontas de automação (Huggy, Comentta, ManyChat, ReplyRush
+etc.) já passaram pela Análise do App/Tech Provider da Meta por conta
+própria — conectar nossa conta a uma delas via OAuth simples ("Entrar
+com Instagram") funciona pra clientes reais IMEDIATAMENTE, sem CNPJ
+nosso. Comparação rápida de planos grátis: ManyChat caiu pra só 25
+contatos/mês desde março/2026 (inutilizável); **ReplyRush** parece a
+melhor opção — 1.500 DMs/mês grátis, inclui "Story Auto-Reply" (exatamente
+nosso caso: alguém responde Story → DM automática), API oficial da Meta
+(sem pedir senha), 200M+ DMs enviados/41mil+ criadores segundo o site
+deles. Se passar de 1.500 DMs/mês, plano Lite é US$10/mês por 7.500. Não
+cobre resposta automática em comentário público no grátis, mas não
+precisamos disso (nosso fluxo é resposta de Story → DM).
+
+**Próximo passo combinado:** guiar o usuário a criar conta no
+ReplyRush e autorizar o Instagram via OAuth (não posso criar a conta
+por ele — ver regra de segurança sobre criação de contas). Webhook
+próprio (`/api/webhook/instagram`) fica pronto e pausado como plano B
+pra quando/se decidir virar Tech Provider no futuro.
 
 ### 🤖 Escalado pra 20 posts/dia no Instagram (2026-09-16, não deployado ainda)
 Heber pediu pra aumentar de 1 pra ~20 posts/dia (confirmado: conta Vercel é

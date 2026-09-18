@@ -25,10 +25,42 @@
  * completa que estava em "Ao receber" antes da troca (com o token na
  * query string). Sem essa variável, o repasse é pulado (log de aviso).
  */
+import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createZApiConnector } from "@/lib/channel/zapi";
 import { handleIncomingMessage } from "@/lib/concierge/orchestrator";
 import { isDuplicate } from "@/lib/dedupe";
+
+/**
+ * Validação de origem do webhook (achado de segurança real da Skill 25 —
+ * ver src/modules/video-machine/skills/25-seguranca-auditoria/SPEC.md):
+ * até 18/09/2026 esta rota aceitava qualquer POST, de qualquer origem, sem
+ * nenhuma validação — diferente do webhook do Instagram, que já valida
+ * assinatura HMAC.
+ *
+ * A Z-API reenvia o mesmo "Client-Token" da conta (o mesmo valor de
+ * ZAPI_CLIENT_TOKEN já usado pra autenticar as chamadas de SAÍDA em
+ * src/lib/channel/zapi.ts) como header "Client-Token" em toda chamada de
+ * webhook — é o mecanismo de validação de origem que a própria Z-API
+ * disponibiliza pra isso. Falha fechado: sem ZAPI_CLIENT_TOKEN configurado
+ * ou com token divergente, a requisição é rejeitada antes de tocar no
+ * pipeline do Concierge.
+ *
+ * Depois do deploy, mande uma mensagem de teste pro número do WhatsApp
+ * pra confirmar que o bot ainda responde. Se parar de responder, é sinal
+ * de que a Z-API não está reenviando esse header nos webhooks desta conta
+ * — nesse caso avise que precisa trocar pra validação por token na URL.
+ */
+function hasValidClientToken(req: NextRequest): boolean {
+  const expected = process.env.ZAPI_CLIENT_TOKEN;
+  const received = req.headers.get("client-token");
+  if (!expected || !received) return false;
+
+  const expectedBuf = Buffer.from(expected, "utf8");
+  const receivedBuf = Buffer.from(received, "utf8");
+  if (expectedBuf.length !== receivedBuf.length) return false;
+  return timingSafeEqual(expectedBuf, receivedBuf);
+}
 
 // Sem isso, a function usa o limite padrão da Vercel pro plano do
 // projeto — curto demais pro pipeline do concierge numa foto (reconhecer +
@@ -97,6 +129,11 @@ async function forwardToBancaZap(rawBody: unknown, ownHost: string | null): Prom
 }
 
 export async function POST(req: NextRequest) {
+  if (!hasValidClientToken(req)) {
+    console.error("[concierge] webhook Z-API rejeitado: Client-Token ausente ou inválido.");
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+
   const rawBody = await req.json();
   const ownHost = req.headers.get("host");
 
