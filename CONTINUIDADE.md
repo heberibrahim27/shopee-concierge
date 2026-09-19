@@ -8,6 +8,89 @@
 
 ## Pendências ativas
 
+### 🔐 Security findings rastreados (Skill 25 — Segurança/Auditoria)
+Registro formal dos achados operacionais de segurança que alimentaram o
+desenho da SPEC da Skill 25 (`src/modules/video-machine/skills/25-seguranca-auditoria/SPEC.md`).
+A partir do Ponto M6 (reparo transversal pós-revisão Fable, 2026-09-18),
+essa SPEC só guarda a regra genérica e durável (todo ingress externo
+capaz de causar efeito colateral de negócio precisa de autenticação
+comprovada, fail-closed) — o estado concreto de cada achado real deste
+projeto vive só aqui, não na SPEC. Cada item abaixo tem o detalhe
+completo na seção correspondente mais adiante neste arquivo.
+
+```
+SEC-025-ZAPI-WEBHOOK-AUTH
+Status: CONTAINED (fix aplicado em 2026-09-18, pendente verificação em produção)
+
+Current implementation finding:
+o webhook Z-API (src/app/api/webhook/zapi/route.ts) não validava
+nenhuma assinatura/token — aceitava POST de qualquer origem e podia
+disparar mensagens reais no WhatsApp. Corrigido: a rota agora exige o
+header Client-Token (mesmo valor de ZAPI_CLIENT_TOKEN), falha fechado
+se ausente/divergente. Ver seção "🚨 Segurança" abaixo.
+
+Required runtime validation:
+confirmar em produção que a Z-API de fato reenvia esse header nos
+webhooks desta conta (mensagem de teste pro WhatsApp do Concierge após
+o próximo deploy) antes de considerar RESOLVED.
+
+---
+SEC-025-PRODUCT-GROUPS-ANON-RLS
+Status: OPEN
+
+Current implementation finding:
+a tabela public.product_groups está com Row Level Security desativado —
+qualquer um com a chave anon consegue ler ou escrever nela livremente.
+Ver seção "🚨 Segurança (achado em 2026-09-15)" abaixo.
+
+Required runtime validation:
+decisão explícita do usuário: PUBLIC_BY_DESIGN (com policy explícita) ou
+NOT_PUBLIC (ativar RLS com policy adequada) — nunca deixar aberta por
+acidente.
+
+---
+SEC-025-CRON-PRODUCTION-AUTH
+Status: OPEN / UNVERIFIED
+
+Current implementation finding:
+/api/cron/publish-product e /api/cron/source-deals só checam o header
+Authorization SE a env var CRON_SECRET existir — sem ela, a rota fica
+aberta. Valor já gerado, mas sem confirmação de que foi colado nas env
+vars de produção da Vercel. Ver item 4 da seção de automação de posts
+abaixo.
+
+Required runtime validation:
+confirmar em Vercel → Environment Variables que CRON_SECRET está
+configurado em produção, e que uma chamada sem o header é rejeitada.
+
+---
+SEC-025-ML-SECRET-ROTATION
+Status: OPEN / rotation unconfirmed
+
+Current implementation finding:
+um pedaço do MERCADOLIVRE_APP_SECRET passou pelo terminal desta sessão
+durante uma correção de arquivo (2026-09-15) — rotação manual
+recomendada, sem confirmação de que foi feita. Ver seção "5. 🔄 Mercado
+Livre" abaixo.
+
+Required runtime validation:
+confirmar que a chave secreta foi renovada no painel do Mercado Livre e
+que o .env foi atualizado com o novo valor.
+
+---
+SEC-025-RETENTION-NOT-CONFIGURED
+Status: OPEN / NOT_CONFIGURED
+
+Current implementation finding:
+não existe mecanismo de retenção/deleção de dados em nenhuma tabela do
+projeto (ex.: concierge_sessions, search_events) — linhas com dados
+pessoais/operacionais persistem indefinidamente por padrão hoje.
+
+Required runtime validation:
+decisão de negócio/legal sobre prazos de retenção por categoria de
+dado, depois implementação do mecanismo de deleção com evidência.
+```
+
 ### 🚨 Segurança (corrigido em 2026-09-18, falta confirmar): webhook Z-API não validava origem
 Achado durante o debate de arquitetura da Skill 25 (Segurança/Auditoria,
 Máquina de Vídeos): `/api/webhook/zapi` aceitava **qualquer POST, de
