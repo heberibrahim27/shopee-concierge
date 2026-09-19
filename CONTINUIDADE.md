@@ -8,29 +8,48 @@
 
 ## Pendências ativas
 
-### 🎬 Máquina de Vídeos — 2ª rodada real do GPT-6 Astra fechada (2026-09-19)
-Depois do fechamento interno de R1-R6/N1-N8 (madrugada de 2026-09-19), o
-commit `4689f1b` foi de fato enviado ao GPT-6 Astra (ZIP + snapshot).
-Veredito real: **"not implementable, ainda"** — Astra confirmou 11/13 de
-R1-R6/N1-N7 + N8 como `VERIFIED CLOSED`, mas achou 4 conflitos
-arquiteturais reais (R1 reaberto/BLOCKER, N9, N10, N11) + 1 bug mecânico
-no próprio lint (N12, guarda de shape do R2 que assumia que `Job` sempre
-existia). Todos os 5 corrigidos e debatidos com o ChatGPT antes de
-aplicar (ordem N10→N11→R1 revisado→N9), incluindo uma segunda rodada de
-fechamento onde o ChatGPT apontou 2 buracos reais (imutabilidade de
-`providerRequestKey` no R1; identidade do work unit ausente em
-`StageTransitionMember` + regra de serialização claim×seal no N9) — ambos
-corrigidos e confirmados `CLOSED`. Estado final: `R1-R6 → CLOSED`,
-`N1-N12 → CLOSED`, `contract-lint.mjs`: `errorCount=0, PASS`, 25/25
-SPEC.md. Commit novo: `d487eec` (local, nunca enviado ao GitHub). Detalhe
-técnico completo em `src/modules/video-machine/feito.md`, seção
-"Terceira passagem". **Isso NÃO é "aprovado definitivamente"** — a
-própria história desta rodada (R1-R6/N1-N8 "fechados" internamente
-depois provaram ter 4 conflitos reais sob revisão externa) é a prova viva
-de por que só uma nova revisão externa confirma ausência de nova
-contradição. Próximo passo: mandar o ZIP `shopee-concierge-d487eec.zip`
-(gerado, entregue ao Heber) pro Astra revisar de novo — depende do Heber
-mandar. Nenhum push feito — só commits locais.
+### 🎬 Máquina de Vídeos — Astra confirma "implementable" pra especificação V1 (2026-09-19)
+Depois de 3 rodadas reais de revisão do GPT-6 Astra sobre bytes de
+verdade (nunca só declaração interna): `4689f1b` → "not implementable"
+(4 conflitos arquiteturais + 1 bug de lint); `d487eec` → "not
+implementable, ainda" (2 achados mecânicos + 1 BLOCKER real — faltava
+uma operação pra confirmar/reconciliar efeito externo por occurrence,
+resolvido com `reportExternalEffectObservation`, desenhada em debate
+com o ChatGPT); `ea48d35` → **"FINAL: implementable — especificação
+V1"**, sem nenhum BLOCKER ou SIGNIFICANT novo. Matriz completa
+`R1-R6`/`N1-N12`/`S1-S17`/`M1-M8`/`A-G` → todos `VERIFIED CLOSED` pelo
+próprio Astra (não mais só "fechado internamente"). `contract-lint.mjs`:
+`errorCount=0, PASS`, 25/25 SPEC.md, com contraprovas de lint executadas
+pelo próprio Astra. Commit de referência: `ea48d35` (local, nunca
+enviado ao GitHub). Detalhe técnico completo em
+`src/modules/video-machine/feito.md`, seção "Quinta passagem".
+
+**O que isso significa e o que não significa** (nas palavras do
+próprio Astra): o parecer valida a especificação, mas **não autoriza
+runtime, migrations, deploy ou push**, e não comprova funcionamento em
+produção — concorrência/falha/replay/provider/segurança precisam ser
+demonstrados por testes quando a implementação for separadamente
+autorizada. A fase de especificação está genuinamente completa e
+validada externamente pela primeira vez nesta jornada — mas decidir
+avançar pra implementação real é decisão do Heber. Nenhum push feito —
+só commits locais.
+
+### 🎬 Máquina de Vídeos — Fase 1 de implementação (kernel) CONCLUÍDA (2026-09-19)
+O Heber autorizou avançar pra implementação real ("Vamos avançar"). Fase
+1 = walking skeleton do kernel (Skill01+02): 16 tabelas novas criadas no
+Supabase de produção (`babamanager-pro`, migration
+`20260919160000_create_video_machine_kernel.sql`), código real em
+`src/modules/video-machine/kernel/`, worker em
+`src/app/api/cron/video-machine-worker/route.ts` (ainda não registrado
+em `vercel.json`). Testado de ponta a ponta contra o banco real —
+`scripts/test-video-machine-kernel.ts`, 5/5 testes passaram (caminho
+feliz, replay idempotente, fencing contra worker zumbi, máquina de
+estados do efeito externo, vetor de hash canônico batendo com a SPEC).
+Limpeza confirmada (zero linhas residuais). Detalhe técnico completo em
+`src/modules/video-machine/feito.md`, seção "Fase 1 de implementação".
+Fora de escopo, explicitamente adiado: as 20 Skills de conteúdo,
+fan-out EXPANDABLE, cron em produção, providers externos reais — tudo
+isso é Fase 2 em diante.
 
 ### 🔐 Security findings rastreados (Skill 25 — Segurança/Auditoria)
 Registro formal dos achados operacionais de segurança que alimentaram o

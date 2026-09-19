@@ -205,7 +205,7 @@ zipFile: shopee-concierge-4689f1b.zip
 zipSha256: 9c012c791433a7d886b6c66548e6650905b46d2982ceeb82dc765ade91a0508a
 ```
 
-## Commit de referência (atual — pra próxima rodada de revisão do Astra)
+## Commit de referência (histórico — revisado pelo Astra, achou R1/N9 parciais)
 
 ```text
 reviewSnapshotCommit: d487eec
@@ -214,12 +214,28 @@ zipFile: shopee-concierge-d487eec.zip
 zipSha256: ef8553f892f2e59f7931747532944babde7ed9ac4f45c3eea13693ce839f2496
 ```
 
-Fecha N9, N10, N11, N12 e R1 (revisado) sobre o commit `4689f1b`
-acima — ver `feito.md` seção "Terceira passagem" pro detalhamento
-completo de cada fix. `contract-lint.mjs`: 25/25 SPEC.md, errorCount=0,
-PASS. Commit local (**nunca enviado ao GitHub** — nenhum push foi
-autorizado). O ZIP foi gerado via `git archive --format=zip d487eec`,
-296 arquivos, verificado sem `.env`/`node_modules` (só `.env.example`).
+Fechou N9, N10, N11, N12 e R1 (revisado) sobre o commit `4689f1b`
+acima. O Astra revisou este ZIP de fato e confirmou N10/N11/N12 como
+`VERIFIED CLOSED`, mas achou R1 e N9 `PARTIALLY RESOLVED` (ver
+`feito.md`, "Quarta passagem").
+
+## Commit de referência (atual — pra próxima rodada de revisão do Astra)
+
+```text
+reviewSnapshotCommit: ea48d35
+branch: main
+zipFile: shopee-concierge-ea48d35.zip
+zipSha256: d8b5ae596985965c64f858e43e2a69060e66b6d09d9d29a1ea32105d7b7f2b27
+```
+
+Fecha R1 (BLOCKER: nova operação `reportExternalEffectObservation`; +
+2 achados mecânicos) e N9 (seal vazio) sobre o commit `d487eec` acima —
+ver `feito.md` seção "Quarta passagem" pro detalhamento completo de
+cada fix, confirmado pelo ChatGPT. `contract-lint.mjs`: 25/25 SPEC.md,
+errorCount=0, PASS. Commit local (**nunca enviado ao GitHub** — nenhum
+push foi autorizado). O ZIP foi gerado via `git archive --format=zip
+ea48d35`, 296 arquivos, verificado sem `.env`/`node_modules` (só
+`.env.example`).
 
 Commit local (**nunca enviado ao GitHub** — nenhum push foi autorizado).
 O ZIP entregue junto com este documento foi gerado via

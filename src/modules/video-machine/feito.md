@@ -2525,6 +2525,138 @@ novos de fato. Próximo passo (ChatGPT): gerar snapshot/commit/ZIP novo
 devolver ao Astra focando especialmente em R1 e N9 — pendente
 autorização do Heber pra criar o commit.
 
+## Quinta passagem — Astra confirma "implementable" no commit ea48d35 (2026-09-19)
+
+**FINAL do Astra: "implementable — especificação V1."** ZIP/SHA
+conferidos (`shopee-concierge-ea48d35.zip`,
+`d8b5ae596985965c64f858e43e2a69060e66b6d09d9d29a1ea32105d7b7f2b27`),
+lint PASS/0 erros/23 avisos com 9 contraprovas executadas (todas as 7
+regras novas/alteradas do R1/N9 mais `G_R2_JOB_TYPE_MISSING`
+dispararam corretamente quando testadas isoladamente).
+
+- **R1 → VERIFIED CLOSED.** `ExternalEffectObservation` confirmada
+  como união real (`CONFIRMED`/`NOT_APPLIED`/`UNKNOWN`, sem
+  `RECONCILED` artificial); `reportExternalEffectObservation` com CAS
+  correto sobre `ExternalEffectCheckpoint.version` (distinto de
+  `Job.version`); transições `SUBMITTING/UNKNOWN → *` corretas,
+  terminais fechados; `externalOperationId` com congelamento/conflito;
+  `providerRequestKey` permanece só sob autoridade de
+  `beginExternalSubmission` (a nova operação não tem parâmetro pra
+  sobrescrevê-lo); `beginExternalSubmission`+`reportExternalEffectObservation`
+  confirmadas como as únicas autoridades; transação de `BLOCKED` usa a
+  operação nova pra occurrence exata, sem mais o write direto no campo
+  removido de `JobAttempt`. Traço completo (C1 confirma, C2 fica
+  `UNKNOWN`, reconciliação posterior resolve C2 sem tocar C1)
+  confirmado representável. Nota de precisão do Astra, sem contradizer
+  o fechamento: `expectedCheckpointVersion` divergente continua
+  rejeitado — `ALREADY_*` nunca deve ser lido como "ignora o CAS".
+- **N9 → VERIFIED CLOSED**, para o defeito específico de seal vazio.
+  Confirmado: sem `Wi` `NOT_STARTED`, nenhum seal é materializado, a
+  resolution fecha só com `EXECUTED`, `shortCircuitDecisionRef`
+  ausente — as duas condições que antes contradiziam agora coincidem
+  sempre. Identidade de `Wi` por branch, cobertura exata do manifest e
+  serialização claim×seal — todas preservadas.
+- **Nenhum BLOCKER ou SIGNIFICANT novo** nas interfaces examinadas.
+  `R1-R6 → VERIFIED CLOSED`, `N1-N12 → VERIFIED CLOSED`, matriz
+  original `S1-S17`/`M1-M8` → `VERIFIED CLOSED` inteira, `A-G →
+  VERIFIED CLOSED`.
+
+Nota de higiene do Astra, não um achado: uma contraprova de "remoção
+PARCIAL da proibição de settlement" continuou passando porque a mesma
+frase ainda existia em outro trecho (o plano de testes) — confirma que
+a regra é textual (checa presença, não autoridade semântica única) mas
+não invalida a proibição normativa real, que está presente.
+
+**Status oficial agora**:
+
+```
+SPEC REPAIR COMPLETE
+ALL KNOWN ASTRA FINDINGS VERIFIED CLOSED (não mais só "CLOSED" interno)
+CONTRACT-LINT PASS
+RUNTIME NOT IMPLEMENTED
+FINAL DO ASTRA: implementable — especificação V1
+```
+
+**O que isso significa e o que NÃO significa** (nas palavras do
+próprio Astra, preservadas): "o parecer não autoriza runtime nem
+comprova funcionamento em produção... não equivale a comprovação de
+funcionamento ou segurança em produção... os cenários de concorrência,
+falha, replay, provider e segurança deverão ser demonstrados por
+testes quando a implementação for separadamente autorizada." Ou seja:
+a fase de especificação está genuinamente completa e validada
+externamente — mas decidir avançar pra implementação/runtime real é
+decisão do Heber, não algo que este processo autoriza sozinho.
+
+Depois de 3 revisões reais do Astra sobre bytes de verdade (`4689f1b`
+→ "not implementable", `d487eec` → "not implementable, ainda" com 3
+progressos, `ea48d35` → "implementable"), a lição registrada em
+memória permanece válida e vale repetir: cada rodada pegou algo real
+que a rodada anterior achava fechada. Desta vez não pegou nada — mas
+isso só se sabe DEPOIS da revisão, nunca antes.
+
+## Fase 1 de implementação — kernel (Skill01+02) walking skeleton (2026-09-19)
+
+Depois da confirmação "implementable" do Astra, o Heber autorizou
+avançar pra implementação real. Escopo da Fase 1 (plano completo em
+`.claude/plans/swirling-pondering-papert.md`): provar que o kernel
+(Skill01 orquestrador + Skill02 gestor de fila) funciona de ponta a
+ponta em código real — `ProductionRun` → `StageIteration`/`StageExecution`
+→ `Job`/lease/fence/outbox → `ExternalEffectCheckpoint` — usando um
+handler trivial ("echo", sem provider externo real). Caminho
+RUN_SCOPED + `workUnitContract=SINGLE`, sem approval gate — o
+subconjunto V1 sequencial que a própria SPEC já declarava.
+
+**Schema**: `supabase/migrations/20260919160000_create_video_machine_kernel.sql`
+— 16 tabelas novas (`video_machine_production_run`,
+`_runtime_state`, `_stage_iteration`, `_stage_execution` (+
+`_runtime_state`), `_prepared_skill_invocation`,
+`_skill_execution_resolution`, `_logical_job_intent`,
+`_outbox_consumer_delivery`, `_job` (+ `_attempt`),
+`_external_effect_checkpoint`, `_job_execution_result`,
+`_job_execution_settlement`, `_job_blocked_event`,
+`_job_result_event`), aplicada via MCP do Supabase no projeto
+`babamanager-pro` — mesmo padrão de RLS habilitado sem policy (só
+service_role) das tabelas existentes. `ProductionPipelineSnapshot`/
+`StageKernelContract`/`SkillExecutionAdapterDescriptor` ficam como
+constantes TypeScript congeladas (`kernel/pipeline.ts`), não viram
+tabela nesta fase (config imutável, sem consumidor de autoria ainda).
+
+**Código**: `src/modules/video-machine/kernel/` — `canonicalHash.ts`
+(implementação de `CANONICAL_SERIALIZATION_V1`, verificada contra o
+vetor de teste normativo do próprio contrato), `run.ts`
+(`startEchoProductionRun`), `jobs.ts` (`ensureJob`, `acquireLease`,
+`beginExternalSubmission`, `reportExternalEffectObservation`,
+`reportJobExecutionResult`), `transitions.ts`
+(`drainPendingRunTransitions`), `outbox.ts`, `echoHandler.ts`,
+`worker.ts`. Worker exposto em
+`src/app/api/cron/video-machine-worker/route.ts` (mesmo padrão
+`CRON_SECRET`/`runtime=nodejs`/`maxDuration=60` dos crons existentes)
+— **não registrado em `vercel.json` ainda**, só chamada manual até
+uma Fase 2 justificar produção real.
+
+**Verificação**: `npx tsc --noEmit` limpo; `scripts/test-video-machine-kernel.ts`
+rodado contra o Supabase real (`babamanager-pro`, não há banco de dev
+separado) — 5/5 testes passaram: vetor de hash canônico bate exato
+com o esperado pela SPEC; caminho feliz completo (Run SUCCEEDED, Job
+SUCCEEDED, settlement JOB_SUCCEEDED, outbox DELIVERED); replay do
+mesmo `runKey` é idempotente (sem duplicar Run/StageExecution/Job);
+fencing rejeita fence velho (worker zumbi) e lease concorrente;
+`ExternalEffectCheckpoint` completa `NOT_STARTED → SUBMITTING →
+CONFIRMED` via as duas operações canônicas. Linhas de teste limpas ao
+final — confirmado por contagem zero nas 4 tabelas centrais depois da
+rodada.
+
+**Achados de segurança verificados, nenhum novo**: `get_advisors`
+(security) do projeto mostra 2 findings `ERROR` pré-existentes, sem
+relação com esta migration — `product_groups` sem RLS e a view
+`site_catalog` com `SECURITY DEFINER` — ambos já existiam antes desta
+Fase 1 e ficam fora de escopo (mexer neles sem revisão dedicada
+poderia quebrar funcionalidade real do site/Concierge).
+
+**Fora de escopo, explicitamente adiado**: as 20 Skills de conteúdo
+(04-21 exceto 01/02), `EXPANDABLE`/fan-out multi-work-unit, registrar
+o cron em produção, qualquer provider externo real.
+
 - **N10 — contradição entre R3 e o boundary Skill01↔Skill03 (Skill 01)**:
   a frase adicionada no R3 ("`WAITING_APPROVAL` só depois da
   materialização durável do `ApprovalRequest` pela Skill03")
