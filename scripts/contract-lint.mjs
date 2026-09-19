@@ -844,19 +844,102 @@ function lintSkillSpec(skillDirName) {
           detail: "StageTransitionResolution não tem workUnitContract/source — o fan-out EXPANDABLE precisa existir no type real como discriminated union, nunca só em comentário \"PATCH\" (achado N3)",
         });
       }
-      // Checagem dirigida via tipo real do AST (não texto/regex): "sources"
-      // sozinho não basta — a branch SINGLE também declara "sources?: never"
+      // Checagem dirigida via tipo real do AST (não texto/regex): "members"
+      // sozinho não basta — a branch SINGLE também declara "members?: never"
       // como marcador de exclusão mútua, então só checar presença do nome
       // de propriedade não detecta a branch EXPANDABLE real sendo removida
       // (nem markdown.includes(...) basta — a prosa deste próprio SPEC.md
       // cita o mesmo texto ao descrever o campo). Precisa do typeText real
       // da AST apontando pro array, não pra "never".
-      const sourcesType = allPropertyDetailsByType.get("StageTransitionResolution")?.get("sources")?.typeText;
-      if (!sourcesType || !sourcesType.includes("StageTransitionSource[]")) {
+      // PATCH (N9, kernel repair pós re-review GPT-6 Astra, 2026-09-19):
+      // o campo real virou "members: StageTransitionMember[]" (era
+      // "sources: StageTransitionSource[]") — StageTransitionMember cobre
+      // EXECUTED e SKIPPED_SHORT_CIRCUIT, resolvendo a contradição N9
+      // entre "sources precisa ser exatamente esse conjunto [de execuções]"
+      // e o short-circuit que nunca executa work units seladas.
+      const membersType = allPropertyDetailsByType.get("StageTransitionResolution")?.get("members")?.typeText;
+      if (!membersType || !membersType.includes("StageTransitionMember[]")) {
         findings.push({
           rule: "G_N123_EXPANDABLE_TRANSITION_BRANCH_MISSING",
-          detail: `StageTransitionResolution.sources não é 'StageTransitionSource[]' (encontrado: ${sourcesType || "ausente"}) — a branch EXPANDABLE precisa carregar o conjunto real de sources, não só o marcador 'sources?: never' da branch SINGLE (achado N3)`,
+          detail: `StageTransitionResolution.members não é 'StageTransitionMember[]' (encontrado: ${membersType || "ausente"}) — a branch EXPANDABLE precisa carregar o conjunto real de members (EXECUTED/SKIPPED_SHORT_CIRCUIT), não só o marcador 'members?: never' da branch SINGLE (achados N3+N9)`,
         });
+      }
+
+      // PATCH (N9): StageTransitionMember precisa existir como
+      // discriminated union real com as duas branches — sem isso, o
+      // fix N9 vira só comentário/prosa, exatamente a classe de bug que
+      // N3 já ensinou (fan-out em comentário nunca chega no type real).
+      if (!seenSymbols.has("StageTransitionMember")) {
+        findings.push({
+          rule: "G_N9_STAGE_TRANSITION_MEMBER_MISSING",
+          detail: "type StageTransitionMember não está declarado — sem ele, EXECUTED/SKIPPED_SHORT_CIRCUIT não existem como discriminated union real (achado N9)",
+        });
+      } else {
+        const memberProps = allPropertyNamesByType.get("StageTransitionMember");
+        if (!memberProps || !memberProps.has("memberStatus") || !memberProps.has("shortCircuitDecisionId")) {
+          findings.push({
+            rule: "G_N9_STAGE_TRANSITION_MEMBER_SHAPE_INVALID",
+            detail: "StageTransitionMember não tem memberStatus/shortCircuitDecisionId — a branch SKIPPED_SHORT_CIRCUIT precisa referenciar o seal real, nunca ser um skip solto (achado N9)",
+          });
+        }
+        // PATCH (N9, fechamento com o ChatGPT, 2026-09-19): a primeira
+        // versão não carregava identidade do Wi em NENHUMA branch — dois
+        // members SKIPPED_SHORT_CIRCUIT do mesmo seal eram
+        // indistinguíveis entre si. allPropertyNamesByType agrega
+        // propriedades de TODAS as branches num Set só (mesma limitação
+        // já documentada acima pra "members"), então só checar
+        // memberProps.has("stageWorkUnitIdentityHash") passaria mesmo se
+        // o campo existisse em só uma das duas branches. Precisa contar
+        // ocorrências dentro do span de texto da própria declaração —
+        // union de 2 branches, campo obrigatório nas duas → >= 2
+        // ocorrências de "stageWorkUnitIdentityHash: string" ali dentro.
+        if (memberProps && memberProps.has("stageWorkUnitIdentityHash")) {
+          const declStart = markdown.indexOf("type StageTransitionMember =");
+          const declEnd = markdown.indexOf("// hash: STAGE_TRANSITION_MEMBER_V1", declStart);
+          const declSpan = declStart !== -1
+            ? markdown.slice(declStart, declEnd !== -1 ? declEnd : declStart + 2000)
+            : "";
+          const idOccurrences = (declSpan.match(/stageWorkUnitIdentityHash\s*:\s*string/g) || []).length;
+          if (idOccurrences < 2) {
+            findings.push({
+              rule: "G_N9_TRANSITION_MEMBER_WORK_UNIT_IDENTITY_MISSING",
+              detail: `StageTransitionMember.stageWorkUnitIdentityHash aparece em menos de 2 branches (encontrado: ${idOccurrences}) — sem identidade do Wi em AMBAS EXECUTED e SKIPPED_SHORT_CIRCUIT, dois members não são distinguíveis entre si, quebrando "exact manifest coverage" (achado N9)`,
+            });
+          }
+        } else {
+          findings.push({
+            rule: "G_N9_TRANSITION_MEMBER_WORK_UNIT_IDENTITY_MISSING",
+            detail: "StageTransitionMember não tem stageWorkUnitIdentityHash — sem identidade do Wi, dois members SKIPPED_SHORT_CIRCUIT do mesmo seal são indistinguíveis entre si (achado N9)",
+          });
+        }
+      }
+
+      // PATCH (N9, fechamento com o ChatGPT, 2026-09-19): a regra
+      // normativa de serialização claim×seal é prosa (não um shape de
+      // type), então a checagem é textual/dirigida — igual ao padrão já
+      // usado pros achados R1 nesta mesma família de regras.
+      if (
+        !markdown.includes("Serialização claim × seal") &&
+        !markdown.includes("Serialização claim x seal")
+      ) {
+        findings.push({
+          rule: "G_N9_SHORT_CIRCUIT_CLAIM_SEAL_SERIALIZATION_MISSING",
+          detail: "Não encontrei a seção normativa 'Serialização claim × seal' — sem ela, claim de Wi e criação do seal podem correr em paralelo e ambos vencerem pro mesmo Wi, quebrando a cobertura exata do manifest (achado N9)",
+        });
+      }
+      if (!seenSymbols.has("StageExpansionShortCircuitDecision")) {
+        findings.push({
+          rule: "G_N9_SHORT_CIRCUIT_DECISION_MISSING",
+          detail: "type StageExpansionShortCircuitDecision não está declarado — sem ele, SKIPPED_SHORT_CIRCUIT não tem seal atômico correspondente, e work units poderiam ser 'puladas' sem congelamento real do conjunto NOT_STARTED (achado N9)",
+        });
+      } else {
+        const sealProps = allPropertyNamesByType.get("StageExpansionShortCircuitDecision");
+        if (!sealProps || !sealProps.has("sealedWorkUnitIdentityHashes") || !sealProps.has("triggeringSource")) {
+          findings.push({
+            rule: "G_N9_SHORT_CIRCUIT_DECISION_SHAPE_INVALID",
+            detail: "StageExpansionShortCircuitDecision não tem sealedWorkUnitIdentityHashes/triggeringSource — o seal precisa congelar o conjunto exato de work units NOT_STARTED e registrar qual source disparou o short-circuit (achado N9)",
+          });
+        }
       }
     }
 
@@ -929,29 +1012,34 @@ function lintSkillSpec(skillDirName) {
   // ao contrário de reportExecution — um worker zumbi (fence velho)
   // podia em tese commitar o checkpoint e disparar o side effect.
   if (skillDirName.startsWith("02-")) {
+    // PATCH (R1 revisado pra ExternalEffectCheckpoint por occurrence,
+    // kernel repair pós re-review GPT-6 Astra, 2026-09-19): a assinatura
+    // canônica ganhou um parâmetro novo (externalEffectOccurrenceKey,
+    // antes de providerRequestKey) quando o checkpoint deixou de ser
+    // por Attempt e passou a ser por (jobId, externalEffectOccurrenceKey).
     const hasFencedOperation = markdown.includes(
-      "beginExternalSubmission(jobId, leaseFence, expectedVersion, attemptNumber, providerRequestKey?)"
+      "beginExternalSubmission(jobId, leaseFence, expectedVersion, attemptNumber, externalEffectOccurrenceKey, providerRequestKey?)"
     );
     if (!hasFencedOperation) {
       findings.push({
         rule: "G_R1_FENCED_EXTERNAL_SUBMISSION_OPERATION_MISSING",
-        detail: "Não encontrei a assinatura canônica beginExternalSubmission(jobId, leaseFence, expectedVersion, attemptNumber, providerRequestKey?) — checkpoint SUBMITTING precisa de uma operação fenced única, nos mesmos moldes de reportExecution (achado R1)",
+        detail: "Não encontrei a assinatura canônica beginExternalSubmission(jobId, leaseFence, expectedVersion, attemptNumber, externalEffectOccurrenceKey, providerRequestKey?) — checkpoint SUBMITTING precisa de uma operação fenced única por occurrence, nos mesmos moldes de reportExecution (achado R1, revisado)",
       });
     }
     // Checagem dirigida (texto, não AST — a operação é comentário de
     // assinatura de função, não um type real): toda ocorrência do
-    // padrão antigo "persistir JobAttempt.externalEffectState =
-    // SUBMITTING" precisa ter beginExternalSubmission mencionado nas
-    // proximidades (mesmo bloco normativo) — senão é o write solto,
-    // desprotegido, que o R1 proibiu.
-    const unguardedPattern = /persistir\s+JobAttempt\.externalEffectState\s*=\s*SUBMITTING/g;
+    // padrão "persiste ... state = SUBMITTING" ligado ao
+    // ExternalEffectCheckpoint precisa ter beginExternalSubmission
+    // mencionado nas proximidades (mesmo bloco normativo) — senão é o
+    // write solto, desprotegido, que o R1 proibiu.
+    const unguardedPattern = /persiste\s+(?:o\s+)?ExternalEffectCheckpoint\.state\s*=\s*SUBMITTING|persiste\s+state\s*=\s*SUBMITTING/g;
     let m;
     while ((m = unguardedPattern.exec(markdown))) {
       const windowText = markdown.slice(Math.max(0, m.index - 300), m.index + 300);
       if (!windowText.includes("beginExternalSubmission")) {
         findings.push({
           rule: "G_R1_UNGUARDED_SUBMITTING_TRANSITION",
-          detail: `'persistir JobAttempt.externalEffectState = SUBMITTING' encontrado sem beginExternalSubmission nas proximidades (índice ~${m.index}) — write solto de SUBMITTING sem fencing é exatamente o buraco do R1`,
+          detail: `'ExternalEffectCheckpoint.state = SUBMITTING' encontrado sem beginExternalSubmission nas proximidades (índice ~${m.index}) — write solto de SUBMITTING sem fencing é exatamente o buraco do R1`,
         });
       }
     }
@@ -960,8 +1048,24 @@ function lintSkillSpec(skillDirName) {
     // (achado real: Ponto C prometia "adiciona executionScope/
     // executionScopeRef ao Job" só em prosa, nunca aplicado ao type real
     // — mesmo padrão de bug do N3).
+    // PATCH (N12, re-review GPT-6 Astra, 2026-09-19): as checagens abaixo
+    // usavam `if (jobProps && ...)` — se o type Job inteiro fosse
+    // removido do SPEC, jobProps vira undefined e TODAS as regras
+    // seguintes (G_R2_JOB_EXECUTION_SCOPE_MISSING,
+    // G_R2_JOB_SCOPE_UNION_MISSING, G_R2_STANDALONE_RUN_COORDINATES_NOT_FORBIDDEN)
+    // silenciosamente não disparavam — falso PASS confirmado por
+    // reprodução real (remover só "type Job = ..." preservando o resto
+    // do SPEC → PASS, 0 erros). G000 não cobre isso (só falha quando o
+    // arquivo INTEIRO extrai zero declarações, não quando falta um
+    // owner específico). Guarda de presença explícita, antes de validar
+    // shape/campos.
     const jobProps = allPropertyNamesByType.get("Job");
-    if (jobProps && (!jobProps.has("executionScope") || !jobProps.has("executionScopeRef"))) {
+    if (!seenSymbols.has("Job")) {
+      findings.push({
+        rule: "G_R2_JOB_TYPE_MISSING",
+        detail: "type Job não está declarado no SPEC da Skill02 — sem o owner, nenhuma das regras de shape (executionScope/union/never) pode ser verificada (achado N12)",
+      });
+    } else if (!jobProps || !jobProps.has("executionScope") || !jobProps.has("executionScopeRef")) {
       findings.push({
         rule: "G_R2_JOB_EXECUTION_SCOPE_MISSING",
         detail: "Job não tem executionScope/executionScopeRef — sem isso não existe autoridade real pra distinguir RUN_SCOPED de STANDALONE (achado R2)",

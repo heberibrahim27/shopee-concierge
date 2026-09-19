@@ -363,15 +363,88 @@ PublicationInput
 → PublicationPlan determinístico
 → publicationSemanticPayloadHash
 → LogicalPublicationIdentity
+── fronteira de stage (Ponto N11) ──
 → reservation/execution
 → provider
 → receipt
 → SocialPublicationBinding
 ```
 
+### Duas stages conceituais: `PLANNING` e `EXECUTION` (PATCH N11, kernel repair pós re-review GPT-6 Astra, 2026-09-19)
+
+**Achado real corrigido aqui**: o gate `FIRST_REAL_PUBLISH` (Skill01,
+"Approval subject resolution") exige que o subject exato (`PublicationPlan`)
+já exista como `upstreamArtifactRef` da `StageExecution` sendo gated —
+mas antes deste patch, o `PublicationPlan` só nascia DENTRO do mesmo
+Job/`StageExecution` que o gate estava bloqueando (fluxo original:
+"Um Job da Skill 17 trata exatamente um target", sem fronteira entre
+planejamento e execução). Isso é circular: o gate precisa do plano pra
+aprovar, mas nada materializava esse plano antes do Job gated existir.
+
+**A solução não é** relaxar o algoritmo de subject resolution da
+Skill01 pra permitir "buscar o `PublicationPlan` mais recente"
+(quebraria a garantia de refs exatas/nunca-latest que R3 formalizou),
+**nem** deixar `SkillExecutionAdapter.prepareInvocation()` materializar
+artifacts fora do seu escopo (violaria a invariante já congelada no
+Ponto A da Skill01 — adapter só transforma, nunca cria efeito/artifact
+persistido fora do que o kernel já autorizou). A solução correta é
+**separar planejamento de execução em duas stages/`StageExecution`
+distintas**, ambas owned pela Skill 17 (não cria Skill nova):
+
+```text
+PUBLICATION PLANNING (stage 1)
+  → puro/determinístico: PublicationInput → resolve PublicationPolicy
+    → PublicationPlan → publicationSemanticPayloadHash →
+    LogicalPublicationIdentity
+  → PROIBIDO nesta stage: provider mutation, publication reservation,
+    publication execution, qualquer external side effect
+  → termina com a materialização determinística e durável do
+    PublicationPlan — Job desta stage conclui com sucesso nesse ponto
+
+PUBLICATION EXECUTION (stage 2)
+  → recebe o PublicationPlan EXATO (publicationPlanId+planHash) como
+    upstreamArtifactRef, herdado da StageTransitionResolution normal
+    entre stage 1 e stage 2 — nunca "buscar latest"
+  → gated por FIRST_REAL_PUBLISH quando aplicável (Skill01/Skill03,
+    Ponto S4/F1) — só a partir daqui side effects são permitidos
+  → reservation/execution → provider → receipt → SocialPublicationBinding
+```
+
+Fluxo completo:
+
+```text
+finalized video / CTA / affiliate / target
+  → Skill17 stage PLANNING
+  → PublicationPlan P (publicationPlanId/planHash)
+  → StageTransitionResolution normal (mesmo mecanismo genérico de
+    qualquer stage — nenhum caso especial no kernel)
+  → Skill17 stage EXECUTION, upstreamArtifactRefs inclui P/planHash
+  → Skill01 approval subject resolution encontra P como candidato
+    real (já existe, não é mais circular)
+  → FIRST_REAL_PUBLISH subject = exact PublicationPlan P
+  → ApprovalRequestIntent → APPROVED (P/planHash)
+  → Skill17 stage EXECUTION prossegue: revalidação imediatamente
+    antes do side effect → reservation/execution/provider
+```
+
+Isso preserva todas as decisões já tomadas: `PublicationPlan` continua
+representando **O QUE** será publicado; `providerKey`/`providerAccountId`
+continuam fora da identidade (**COMO** será executado); o algoritmo de
+subject resolution da Skill01 (R3) permanece intacto — "candidatos
+SOMENTE das refs canônicas já existentes da StageExecution" volta a
+ser verdade de fato, porque agora o `PublicationPlan` realmente existe
+antes da stage gated. `prepareInvocation()` continua puro. Mudança
+semântica `P1/hash1 aprovado → P2/hash2` continua exigindo nova
+aprovação (N8/`ExactApprovalSubject` já garante isso).
+
+A stage `EXECUTION` deve referenciar o `PublicationPlan` exato via
+`publicationPlanId`+`publicationPlanHash` (o mesmo par já usado em
+`FirstRealPublishClaim`, Skill03) — nunca uma busca por "o plano mais
+recente daquele target".
+
 ### `PublicationInput`
 
-Um Job da Skill 17 trata exatamente um target.
+Consumido pela stage `PLANNING`. Um Job desta stage trata exatamente um target.
 
 ```typescript
 type PublicationInput = {

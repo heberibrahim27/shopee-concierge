@@ -270,33 +270,90 @@ type ExternalEffectState = "NOT_STARTED" | "SUBMITTING" | "CONFIRMED" | "NOT_APP
 // pode concluir com prova confiável de que o efeito NÃO ocorreu (distinto
 // de CONFIRMED e de UNKNOWN). UNKNOWN nunca autoriza retry automático,
 // mesmo depois de reconciliação tentada.
+
+// PATCH (R1 REVISADO, kernel repair pós re-review GPT-6 Astra,
+// 2026-09-19): achado real do Astra — externalEffectState NÃO pode
+// pertencer à JobAttempt. Attempt é uma execução TÉCNICA do Job (retry
+// técnico do handler); uma mesma Attempt pode produzir N ocorrências
+// LÓGICAS de side effect distintas (ex.: Skill17 numa única Attempt
+// publica o post principal E o comentário com o link — dois efeitos
+// externos, dois checkpoints, não um). O desenho anterior ("uma
+// Attempt = uma ocorrência de submissão externa") colidia com isso: a
+// segunda submissão não partia de NOT_STARTED (a primeira já tinha
+// levado a Attempt a CONFIRMED) e não podia reusar a key congelada.
 //
-// NOT_APPLIED é TERMINAL pra external-effect occurrence daquela Attempt —
-// beginExternalSubmission só aceita NOT_STARTED como estado de partida
-// (ver assinatura acima), então NOT_APPLIED nunca volta a ser submetível
-// na MESMA Attempt. NOT_APPLIED autoriza a Skill 02 a decidir um retry
-// técnico conforme RetryPolicy; se houver retry, ele materializa uma
-// NOVA Attempt (novo attemptNumber), cujo externalEffectState nasce em
-// NOT_STARTED — só aí beginExternalSubmission pode ser avaliado de novo.
-// Proibido: NOT_APPLIED → NOT_STARTED (apagaria histórico da Attempt
-// antiga) e NOT_APPLIED → SUBMITTING na mesma Attempt (enfraqueceria
-// "uma Attempt = uma ocorrência de submissão externa"). Tentar
-// beginExternalSubmission numa Attempt já em NOT_APPLIED →
-// REJECTED_INVALID_STATE, zero provider calls.
+// Corrigido com um owner separado: `ExternalEffectCheckpoint`.
+// `externalEffectOccurrenceKey` (identidade semântica de QUAL side
+// effect) fica separado de `providerRequestKey` (chave técnica enviada
+// ao provider) — owners consumidores (ex. Skill17) derivam
+// `externalEffectOccurrenceKey` de algo como
+// `logicalPublicationIdentityHash+stepKey+submissionSequence`, e
+// continuam livres pra compor `providerRequestKey` com
+// `providerAccountId`/`providerProfileSnapshotHash`/etc. — a Skill02
+// nunca interpreta nenhum dos dois, só transporta.
+type ExternalEffectCheckpoint = {
+  externalEffectCheckpointId: string;
+
+  jobId: string;
+  externalEffectOccurrenceKey: string; // identidade lógica do side
+    // effect protegido por este checkpoint — nunca reaproveitado entre
+    // ocorrências semanticamente diferentes
+
+  providerRequestKey?: string; // determinístico, quando o provider
+    // suportar idempotência nativa; opaco pra Skill02
+
+  state: ExternalEffectState;
+  externalOperationId?: string;
+  nextPollAt?: string;
+  deadlineAt?: string;
+  outcome?: string;
+  errorCode?: string;
+
+  firstAttemptNumber: number; // Attempt que criou este checkpoint
+  lastAttemptNumber: number; // Attempt mais recente que operou sobre
+    // ele — continuação normal (ex. reconciliação/poll numa Attempt
+    // seguinte) atualiza este campo, nunca cria checkpoint novo pra
+    // mesma occurrence
+
+  version: number; // optimistic concurrency
+  createdAt: string;
+  updatedAt: string;
+};
+// UNIQUE(jobId, externalEffectOccurrenceKey) — NUNCA
+// UNIQUE(jobId, attemptNumber). O estado do efeito externo pertence à
+// ocorrência lógica, não a uma Attempt específica nem a "a Attempt
+// atual". `JobAttempt` (abaixo) volta a ser só a execução técnica do
+// Job — sem campos de efeito externo.
+//
+// NOT_APPLIED é TERMINAL pra esta ExternalEffectCheckpoint —
+// beginExternalSubmission só aceita NOT_STARTED (checkpoint inexistente)
+// como estado de partida, então NOT_APPLIED nunca volta a ser
+// submetível pela MESMA externalEffectOccurrenceKey. Autoriza a Skill02
+// a decidir retry técnico via RetryPolicy; se houver retry semântico
+// (nova ocorrência lógica), materializa NOVO externalEffectOccurrenceKey
+// (ex.: novo submissionSequence) numa nova Attempt — nunca "reseta"
+// apagando o checkpoint antigo. Continuação normal (ex.: K1 confirmado
+// → K2 na mesma Attempt) NUNCA é tratada como retry — é uma nova
+// occurrence key, não uma reabertura da anterior. Proibido:
+// NOT_APPLIED → NOT_STARTED (apagaria histórico) e NOT_APPLIED →
+// SUBMITTING pra mesma occurrence key. Tentar beginExternalSubmission
+// sobre um checkpoint já NOT_APPLIED → REJECTED_INVALID_STATE, zero
+// provider calls.
 
 type JobAttempt = {
   jobId: string;
   attemptNumber: number; // UNIQUE(jobId, attemptNumber)
   startedAt: string;
   finishedAt?: string;
-  externalEffectState: ExternalEffectState;
-  externalOperationId?: string;
-  providerRequestKey?: string; // determinístico, quando o provider suportar idempotência nativa
-  nextPollAt?: string;
-  deadlineAt?: string;
   outcome?: string;
   errorCode?: string;
 };
+// PATCH (R1 REVISADO): externalEffectState/externalOperationId/
+// providerRequestKey/nextPollAt/deadlineAt REMOVIDOS — migraram pra
+// ExternalEffectCheckpoint. JobAttempt volta a representar só "esta
+// execução técnica do handler está viva?", nunca "qual side effect já
+// aconteceu" — essa pergunta agora tem um owner que suporta N
+// ocorrências por Attempt.
 
 // PATCH (Ponto S12, reparo transversal pós-revisão Fable, 2026-09-18):
 // JobExecutionReport é LEGACY/SUPERSEDED — protocolo canônico é
@@ -359,32 +416,88 @@ type JobResultEvent = {
 //   renova leaseExpiresAt com WHERE leaseFence = atual; NÃO altera estado
 //   lógico do Job e NÃO incrementa version (evita version churn a cada
 //   heartbeat) — toda mutação lógica usa leaseFence + expectedVersion.
-// beginExternalSubmission(jobId, leaseFence, expectedVersion, attemptNumber, providerRequestKey?) ->
+// beginExternalSubmission(jobId, leaseFence, expectedVersion, attemptNumber, externalEffectOccurrenceKey, providerRequestKey?) ->
 //   { disposition: "ACCEPTED"; committedVersion: number }
+//   | { disposition: "ALREADY_CONFIRMED" }
+//   | { disposition: "RECONCILE_REQUIRED" }
 //   | { disposition: "REJECTED_STALE_FENCE" }
 //   | { disposition: "REJECTED_VERSION_CONFLICT" }
 //   | { disposition: "REJECTED_INVALID_STATE" }
-//   PATCH (R1, kernel repair pós re-review GPT-6 Astra, 2026-09-19) —
-//   ÚNICA autoridade capaz de transicionar JobAttempt.externalEffectState
-//   NOT_STARTED → SUBMITTING. Valida atomicamente, na mesma transação:
-//   Job existe, Attempt corrente é exatamente attemptNumber, lease ativo,
-//   leaseFence é o vigente, expectedVersion bate com o Job persistido, a
-//   transição de estado é válida, e providerRequestKey (quando
-//   aplicável) fica congelado pra aquela external-effect occurrence —
-//   nunca regenerado entre tentativas de reconciliação do mesmo efeito
-//   ambíguo. Nenhum handler escreve externalEffectState diretamente;
-//   todo handler SEMPRE solicita a transição por aqui (preserva o
-//   boundary de ownership do Attempt, que continua da Skill 02).
-//   REJECTED_* nunca muda externalEffectState e nunca autoriza nenhuma
-//   chamada ao provider (zero provider calls).
+//   PATCH (R1 REVISADO, kernel repair pós re-review GPT-6 Astra,
+//   2026-09-19) — ÚNICA autoridade capaz de transicionar
+//   ExternalEffectCheckpoint.state NOT_STARTED → SUBMITTING, pra uma
+//   externalEffectOccurrenceKey específica (não mais "a Attempt
+//   inteira"). Valida atomicamente, na mesma transação: Job existe,
+//   Attempt corrente é exatamente attemptNumber, lease ativo, leaseFence
+//   é o vigente, expectedVersion bate com o Job persistido, e resolve o
+//   ExternalEffectCheckpoint pela chave (jobId, externalEffectOccurrenceKey):
+//     checkpoint inexistente ou state=NOT_STARTED
+//       → cria/atualiza atomicamente pra SUBMITTING, congela
+//         providerRequestKey (quando aplicável) → disposition ACCEPTED
+//         → provider call autorizado
+//     state=CONFIRMED
+//       → disposition ALREADY_CONFIRMED → zero provider calls (mesmo
+//         efeito já confirmado, handler nunca resubmete)
+//     state=SUBMITTING (outra Attempt/tentativa em andamento ou
+//       crashada antes de reportar)
+//       → disposition RECONCILE_REQUIRED → zero fresh submit; handler
+//         deve reconciliar pela providerRequestKey já congelada
+//     state=UNKNOWN
+//       → disposition RECONCILE_REQUIRED → zero fresh submit
+//     state=NOT_APPLIED
+//       → disposition REJECTED_INVALID_STATE → zero provider calls
+//         (occurrence já concluída como "não ocorreu"; retry semântico
+//         exige NOVA externalEffectOccurrenceKey, nunca reabrir esta)
+//   `lastAttemptNumber` do checkpoint é atualizado pra refletir a
+//   Attempt que operou por último sobre ele (continuação normal, nunca
+//   cria checkpoint novo pra mesma occurrence key). Nenhum handler
+//   escreve ExternalEffectCheckpoint.state diretamente; todo handler
+//   SEMPRE solicita a transição por aqui (preserva o boundary de
+//   ownership, que continua da Skill 02). REJECTED_*/RECONCILE_REQUIRED
+//   nunca autorizam nenhuma chamada nova ao provider.
+//   PATCH (R1 revisado, fechamento com o ChatGPT, 2026-09-19) — dois
+//   invariantes de providerRequestKey, explícitos: (1) uma vez que
+//   providerRequestKey é congelado num ExternalEffectCheckpoint (na
+//   transição inicial NOT_STARTED→SUBMITTING), ele NUNCA muda
+//   silenciosamente — nenhuma chamada subsequente a
+//   beginExternalSubmission pra essa mesma externalEffectOccurrenceKey
+//   pode sobrescrevê-lo, em nenhuma disposition (ACCEPTED nunca
+//   reacontece pro mesmo checkpoint já não-NOT_STARTED; ALREADY_CONFIRMED/
+//   RECONCILE_REQUIRED por definição não tocam o checkpoint). (2) Se o
+//   caller passa um providerRequestKey que DIVERGE do já congelado
+//   naquele checkpoint (qualquer state exceto ausente/NOT_STARTED) →
+//   `PROVIDER_REQUEST_KEY_CONFLICT` (FATAL, fail-closed) — nunca
+//   silenciosamente ignorado nem sobrescrito. Isso fecha o caso onde um
+//   bug de handler tentaria reusar a operação com uma key diferente
+//   pra "forçar" nova tentativa sobre uma occurrence já em andamento.
 // reportExecution(jobId, leaseFence, expectedVersion, JobExecutionReport) -> aceito | REJECTED_STALE_FENCE
 // consumeRunCancellationIntent(intent: RunCancellationIntent) -> void
 ```
 
+**A frase antiga "uma Attempt = uma ocorrência de submissão externa"
+está BANIDA** (R1 revisado) — o modelo correto é: **uma Attempt pode
+operar zero ou mais `ExternalEffectCheckpoint`s; cada checkpoint
+representa exatamente uma ocorrência lógica de side effect.** Exemplo
+concreto (Skill17, ver seu SPEC.md): dentro da mesma Attempt A,
+`E1=CREATE_MEDIA_PUBLICATION` (checkpoint C1, `externalEffectOccurrenceKey`
+derivada de `logicalPublicationIdentityHash+stepKey(primary)+submissionSequence`)
+chega a `CONFIRMED`; o plano exige também
+`E2=ATTACH_AFFILIATE_LINK_COMMENT` (checkpoint C2, `stepKey(comment)`)
+— C1 `CONFIRMED` não interfere em C2, que segue seu próprio
+`NOT_STARTED → SUBMITTING → CONFIRMED` via uma segunda chamada de
+`beginExternalSubmission` com `externalEffectOccurrenceKey` diferente,
+ainda dentro da mesma Attempt A.
+
 `providerRequestKey`, quando aplicável (provider com suporte a idempotência
-nativa), é calculada e **persistida antes da primeira chamada externa** do
-`Attempt`, e permanece imutável durante aquele `Attempt` — nunca inventada
-depois da submissão, senão não protege o crash no ponto mais perigoso.
+nativa), é calculada e **persistida antes da primeira chamada externa**
+daquele `ExternalEffectCheckpoint`, e permanece imutável durante aquela
+occurrence — nunca inventada depois da submissão, senão não protege o
+crash no ponto mais perigoso. `externalEffectOccurrenceKey` representa
+semanticamente QUAL side effect está sendo protegido (owned pelo
+consumer — ex. Skill17 deriva de `logicalPublicationIdentityHash+stepKey+submissionSequence`);
+`providerRequestKey` é a chave técnica enviada ao provider (pode
+incluir `providerAccountId`/`providerProfileSnapshotHash`/etc.) — a
+Skill02 nunca interpreta nenhum dos dois, só transporta e protege.
 
 ## Estados
 
@@ -410,41 +523,46 @@ CANCEL_REQUESTED | SUCCEEDED | FAILED | CANCELLED)`.
     preenchidos, `Job` disponível para o handler especializado tentar
     cancelar/reconciliar no provider. Só depois vira `CANCELLED`.
 
-### Máquina de estado do efeito externo (`externalEffectState`, por Attempt)
+### Máquina de estado do efeito externo (`ExternalEffectCheckpoint.state`, por occurrence)
 
 ```
 antes da chamada externa:
   handler MUST obtain ACCEPTED de beginExternalSubmission(jobId,
-    leaseFence, expectedVersion, attemptNumber, providerRequestKey?)
-    before the first external side effect.
-  → beginExternalSubmission persiste JobAttempt.externalEffectState =
-    SUBMITTING (+ providerRequestKey, quando aplicável) e faz COMMIT
-    (transação fechada, durável) ATOMICAMENTE com a validação de
+    leaseFence, expectedVersion, attemptNumber,
+    externalEffectOccurrenceKey, providerRequestKey?)
+    before the first external side effect PARA AQUELA OCCURRENCE.
+  → beginExternalSubmission resolve o ExternalEffectCheckpoint por
+    (jobId, externalEffectOccurrenceKey), persiste state=SUBMITTING
+    (+ providerRequestKey, quando aplicável) e faz COMMIT (transação
+    fechada, durável) ATOMICAMENTE com a validação de
     fence/Attempt/version — nunca dois passos separados.
   No external provider submission is allowed before the durable
-  SUBMITTING checkpoint commits successfully.
-  → REJECTED_STALE_FENCE, REJECTED_VERSION_CONFLICT ou
-    REJECTED_INVALID_STATE MUST result in zero provider calls
-    (externalEffectState não muda).
+  SUBMITTING checkpoint commits successfully, PARA AQUELA OCCURRENCE.
+  → REJECTED_STALE_FENCE, REJECTED_VERSION_CONFLICT,
+    REJECTED_INVALID_STATE, ALREADY_CONFIRMED ou RECONCILE_REQUIRED
+    MUST result in zero provider calls (o state daquele checkpoint não
+    muda) — outras occurrences do mesmo Job não são afetadas.
   → só com ACCEPTED o handler chama o provider (nenhuma transação de
     banco aberta atravessando a chamada de rede)
 
 provider respondeu + operationId persistido:
-  CONFIRMED
+  CONFIRMED (só pra esta externalEffectOccurrenceKey)
 
 SUBMITTING + perda de lease/crash + nenhuma confirmação persistida:
   Lease loss after ACCEPTED does not authorize a second automatic
   submission by another worker. A later worker observing SUBMITTING
-  MUST enter reconciliation, not fresh submission:
+  (via disposition RECONCILE_REQUIRED) MUST enter reconciliation, not
+  fresh submission:
   → handler tenta reconciliação quando for segura (provider com
     idempotência nativa → reconcilia pela MESMA providerRequestKey,
     congelada desde o ACCEPTED original — nunca regenerada)
   → se o provider confirma que a operação ocorreu: CONFIRMED
   → se há prova confiável de que NÃO ocorreu: NOT_APPLIED — só então
-    uma nova submissão pode começar, sob um leaseFence/beginExternalSubmission
-    novo
+    uma NOVA externalEffectOccurrenceKey (nova occurrence semântica,
+    nunca a mesma reaberta) pode ser submetida, sob um
+    leaseFence/beginExternalSubmission novo
   → se o estado continuar indeterminável:
-      JobAttempt.externalEffectState = UNKNOWN
+      ExternalEffectCheckpoint.state = UNKNOWN (só desta occurrence)
       Job.status = BLOCKED
       Job.blockReason = EXTERNAL_STATE_UNKNOWN
       + JobBlockedEvent
@@ -452,61 +570,71 @@ SUBMITTING + perda de lease/crash + nenhuma confirmação persistida:
     autoriza repetição automática)
 ```
 
-**Invariante central (R1)**: nenhum external side effect pode começar
-sem um checkpoint `SUBMITTING` durável aceito pela Skill 02 sob a
-Attempt atual, `leaseFence` atual e `expectedVersion` atual. Uma vez
-aceito, `SUBMITTING` bloqueia qualquer nova submissão automática até
-que o efeito anterior seja reconciliado como `CONFIRMED` ou
-confiavelmente `NOT_APPLIED`; ambiguidade termina em `UNKNOWN`, nunca
-em repeat automático.
+**Invariante central (R1, revisado)**: nenhum external side effect pode
+começar sem um `ExternalEffectCheckpoint` `SUBMITTING` durável aceito
+pela Skill 02 sob a Attempt atual, `leaseFence` atual e
+`expectedVersion` atual, PARA AQUELA `externalEffectOccurrenceKey`
+específica. Uma Attempt pode operar zero ou mais checkpoints — cada um
+protege exatamente uma ocorrência lógica de side effect, de forma
+independente das demais. Uma vez aceito, `SUBMITTING` bloqueia
+qualquer nova submissão automática daquela MESMA occurrence até que o
+efeito seja reconciliado como `CONFIRMED` ou confiavelmente
+`NOT_APPLIED`; ambiguidade termina em `UNKNOWN`, nunca em repeat
+automático. Isso nunca bloqueia outras occurrences da mesma Attempt.
 
-`SUBMITTING` significa "a partir daqui o side effect pode ter acontecido".
-Commitá-lo **antes** de chamar o provider é deliberadamente conservador: se
-o processo cair depois desse commit mas antes de realmente chamar um
-provider sem idempotência, podemos bloquear um `Job` que na prática não foi
-enviado. Esse falso positivo é aceitável — é mais seguro do que
-cobrar/gerar duas vezes.
+`SUBMITTING` significa "a partir daqui este side effect específico pode
+ter acontecido". Commitá-lo **antes** de chamar o provider é
+deliberadamente conservador: se o processo cair depois desse commit
+mas antes de realmente chamar um provider sem idempotência, podemos
+bloquear um `Job` que na prática não enviou aquela occurrence. Esse
+falso positivo é aceitável — é mais seguro do que cobrar/gerar duas
+vezes.
 
 Isso fecha o cenário de crash mais perigoso: chamar o provider e cair antes
 de persistir o `externalOperationId`. `providerRequestKey` sozinho não
 basta quando o provider não oferece idempotência — só o marcador
-`externalEffectState = SUBMITTING`, persistido **antes** do side effect,
-permite detectar esse estado incerto depois.
+`state = SUBMITTING`, persistido **antes** do side effect, permite
+detectar esse estado incerto depois, occurrence por occurrence.
 
 **Sobre o "worker zumbi" (limite físico, não falha de desenho)**: se o
-worker A obtém `ACCEPTED` (fence 7) e depois perde o lease antes de
-chamar o provider — worker B adquire fence 8 nesse meio-tempo —, nada
-no `leaseFence` consegue impedir fisicamente A de ainda assim chamar o
-provider; nenhum fencing interno cancela uma chamada de rede que o
-processo já decidiu fazer. `leaseFence` não oferece exactly-once
-externo, e fingir que oferece seria um erro pior do que reconhecer o
-limite. A proteção real vem de duas regras já descritas acima: B nunca
-repete a submissão automaticamente ao observar `SUBMITTING` (sempre
-reconciliation); e `providerRequestKey`, quando existe, fica congelado
-pra aquela external-effect occurrence — nunca `Attempt 1 → key A, crash,
-Attempt 2 → key B` pro mesmo efeito ainda ambíguo.
+worker A obtém `ACCEPTED` (fence 7) pra uma occurrence e depois perde o
+lease antes de chamar o provider — worker B adquire fence 8 nesse
+meio-tempo —, nada no `leaseFence` consegue impedir fisicamente A de
+ainda assim chamar o provider; nenhum fencing interno cancela uma
+chamada de rede que o processo já decidiu fazer. `leaseFence` não
+oferece exactly-once externo, e fingir que oferece seria um erro pior
+do que reconhecer o limite. A proteção real vem de duas regras já
+descritas acima: B nunca repete a submissão automaticamente ao
+observar `SUBMITTING` (sempre reconciliation); e `providerRequestKey`,
+quando existe, fica congelado pra aquela `externalEffectOccurrenceKey`
+— nunca `Attempt 1 → key A, crash, Attempt 2 → key B` pro mesmo efeito
+ainda ambíguo.
 
-**Ownership do Attempt**: a Skill 02 mantém ownership exclusivo do
-`JobAttempt` — nenhum handler faz o equivalente a
-`attempt.externalEffectState = "SUBMITTING"; save()` diretamente. Todo
-handler solicita a transição via `beginExternalSubmission(...)`, que é
-quem de fato persiste. Isso preserva o boundary: `jobId + attemptNumber
-+ leaseFence + expectedVersion` como precondition set — `leaseFence`
-responde "você ainda é o owner autorizado?"; `expectedVersion` responde
-"o estado que você está mutando ainda é exatamente o que você leu?";
-`attemptNumber` protege uma dimensão diferente de ambos (lease
-ownership ≠ attempt identity — o checkpoint pertence à Attempt que está
-sendo executada). Não introduzimos nenhuma geração de fencing nova
-(`submissionFence`/`externalEffectFence`/etc.) — `leaseFence` já
-basta; duplicar geraria confusão sem resolver o problema externo real.
+**Ownership do Attempt e do checkpoint**: a Skill 02 mantém ownership
+exclusivo de `JobAttempt` e `ExternalEffectCheckpoint` — nenhum handler
+faz o equivalente a
+`checkpoint.state = "SUBMITTING"; save()` diretamente. Todo handler
+solicita a transição via `beginExternalSubmission(...)`, que é quem de
+fato persiste. Isso preserva o boundary: `jobId + attemptNumber +
+leaseFence + expectedVersion + externalEffectOccurrenceKey` como
+precondition set — `leaseFence` responde "você ainda é o owner
+autorizado?"; `expectedVersion` responde "o estado que você está
+mutando ainda é exatamente o que você leu?"; `attemptNumber` protege
+uma dimensão diferente de ambos (lease ownership ≠ attempt identity);
+`externalEffectOccurrenceKey` seleciona QUAL checkpoint entre os N
+possíveis da mesma Attempt. Não introduzimos nenhuma geração de
+fencing nova (`submissionFence`/`externalEffectFence`/etc.) —
+`leaseFence` já basta; duplicar geraria confusão sem resolver o
+problema externo real.
 
 `deadlineAt` expirar **não autoriza retry automático**. Mesmo com
 `externalOperationId` vencido, o handler especializado deve
 consultar/reconciliar o provider primeiro; só se continuar impossível
 determinar o estado é que o `Job` vai para
-`BLOCKED`/`EXTERNAL_STATE_UNKNOWN` (e o `JobAttempt` correspondente para
-`UNKNOWN`). `deadlineAt` significa "hora de reconciliar agora", não
-"a operação certamente morreu" nem "gerar novamente".
+`BLOCKED`/`EXTERNAL_STATE_UNKNOWN` (e o `ExternalEffectCheckpoint`
+correspondente — só ele, não os demais da mesma Attempt — para
+`UNKNOWN`). `deadlineAt` significa "hora de reconciliar agora", não "a
+operação certamente morreu" nem "gerar novamente".
 
 ## Idempotência contra provider externo
 
@@ -863,46 +991,61 @@ cobertura sim:
 - `SUBMITTING` persistido e commitado antes da chamada externa; crash antes
   da chamada real produz o comportamento conservador previsto (sem retry
   cego em provider sem idempotência).
-- **R1 — `beginExternalSubmission` fenced (kernel repair pós re-review
-  GPT-6 Astra, 2026-09-19)**:
+- **R1 — `beginExternalSubmission` fenced, revisado pra
+  `ExternalEffectCheckpoint` por occurrence (kernel repair pós
+  re-review GPT-6 Astra, 2026-09-19; revisão do modelo Attempt→checkpoint
+  também 2026-09-19, ver `ExternalEffectCheckpoint` e "Máquina de estado
+  do efeito externo" acima)**:
   1. `leaseFence` stale tenta `beginExternalSubmission` →
-     `REJECTED_STALE_FENCE`, `externalEffectState` não muda, zero
-     provider calls.
+     `REJECTED_STALE_FENCE`, o `ExternalEffectCheckpoint` daquela
+     `externalEffectOccurrenceKey` não muda, zero provider calls.
   2. `expectedVersion` stale → `REJECTED_VERSION_CONFLICT`, zero
      provider calls.
-  3. Attempt antiga tenta checkpoint depois que uma nova Attempt já
-     existe → rejeitada, zero provider calls.
-  4. `ACCEPTED` → `SUBMITTING` persistido → crash antes da chamada →
-     novo worker NÃO chama o provider automaticamente → entra em
-     reconciliation.
+  3. Attempt antiga tenta abrir/operar um checkpoint depois que uma
+     nova Attempt já existe → rejeitada, zero provider calls.
+  4. `ACCEPTED` → checkpoint `SUBMITTING` persistido → crash antes da
+     chamada → novo worker NÃO chama o provider automaticamente para
+     aquela `externalEffectOccurrenceKey` → observa disposition
+     `RECONCILE_REQUIRED` → entra em reconciliation.
   5. `ACCEPTED` → provider executa → crash antes de `reportExecution` →
      recovery reconcilia pela MESMA `providerRequestKey` → nunca gera
-     key nova.
-  6. `SUBMITTING` + resultado externo indeterminável mesmo após
-     reconciliação → `UNKNOWN` → nenhuma repetição automática.
+     key nova para a mesma occurrence.
+  6. Checkpoint `SUBMITTING` + resultado externo indeterminável mesmo
+     após reconciliação → `UNKNOWN` (só aquele checkpoint) → nenhuma
+     repetição automática.
   7. Provider com idempotência nativa → todo retry/reconciliation
-     daquele efeito usa a mesma `providerRequestKey` congelada.
+     daquele efeito usa a mesma `providerRequestKey` congelada, presa à
+     mesma `externalEffectOccurrenceKey`.
   8. `heartbeat` com `leaseFence` válido NÃO concede autoridade para
-     alterar `externalEffectState` — só `beginExternalSubmission` faz
-     isso.
-  9. Caso do "worker zumbi": Worker A com fence 10 obtém `ACCEPTED`;
-     Worker B adquire fence 11 antes de A chamar o provider; A tenta
-     `beginExternalSubmission` de novo com fence 10 (ex.: retry
-     interno) → rejeitado antes de qualquer chamada externa (o buraco
-     original do R1 — a chamada already-in-flight de A não é
-     fisicamente cancelável, mas nenhuma SEGUNDA tentativa de A ou
-     qualquer tentativa de B passa pelo guard sem fence atual).
-  10. `NOT_APPLIED` é terminal por Attempt (achado do ChatGPT ao
-      revisar o fechamento do R1 — sem isso `NOT_APPLIED` virava beco
-      sem saída, já que `beginExternalSubmission` só aceita
-      `NOT_STARTED` como estado de partida): Attempt `A1` vai
-      `SUBMITTING → NOT_APPLIED`; nova tentativa de
-      `beginExternalSubmission` ainda em `A1` → `REJECTED_INVALID_STATE`,
-      zero provider calls; Skill 02 cria `A2` conforme `RetryPolicy`;
-      `A2.externalEffectState = NOT_STARTED`; só então
-      `beginExternalSubmission` pode ser avaliado normalmente para
-      `A2`. `NOT_APPLIED → NOT_STARTED` (mesma Attempt) e `NOT_APPLIED
-      → SUBMITTING` (mesma Attempt) nunca acontecem.
+     alterar `ExternalEffectCheckpoint.state` — só
+     `beginExternalSubmission` faz isso.
+  9. Caso do "worker zumbi": Worker A com fence 10 obtém `ACCEPTED`
+     pra uma occurrence; Worker B adquire fence 11 antes de A chamar o
+     provider; A tenta `beginExternalSubmission` de novo com fence 10
+     pra MESMA occurrence (ex.: retry interno) → rejeitado antes de
+     qualquer chamada externa (o buraco original do R1 — a chamada
+     already-in-flight de A não é fisicamente cancelável, mas nenhuma
+     SEGUNDA tentativa de A ou qualquer tentativa de B passa pelo guard
+     sem fence atual).
+  10. `NOT_APPLIED` é terminal por `externalEffectOccurrenceKey`, não
+      por Attempt inteira (achado do ChatGPT ao revisar o fechamento do
+      R1 — sem isso `NOT_APPLIED` virava beco sem saída, já que
+      `beginExternalSubmission` só aceita ausência-de-checkpoint ou
+      `NOT_STARTED` como estado de partida): checkpoint `C1` (occurrence
+      `E1`) vai `SUBMITTING → NOT_APPLIED`; nova tentativa de
+      `beginExternalSubmission` ainda pra `E1` → `REJECTED_INVALID_STATE`,
+      zero provider calls; a retomada daquela occurrence exige uma NOVA
+      `externalEffectOccurrenceKey` (nunca `E1` reaberta) — outros
+      checkpoints da MESMA Attempt (ex.: `E2`, se o Job tiver mais de
+      uma occurrence) continuam sendo avaliados normalmente,
+      independentemente do que aconteceu com `C1`/`E1`.
+  11. Duas occurrences da mesma Attempt e do mesmo Job (ex. E1=
+      `CREATE_MEDIA_PUBLICATION`, E2=`ATTACH_AFFILIATE_LINK_COMMENT`,
+      ver Skill17): `beginExternalSubmission` pra E2 não depende do
+      estado do checkpoint de E1 — cada `externalEffectOccurrenceKey`
+      resolve pra um `ExternalEffectCheckpoint` isolado, com seu próprio
+      `state`; `E1=CONFIRMED` e `E2=SUBMITTING` simultaneamente é válido
+      e esperado.
 - `WAITING_EXTERNAL` com `deadlineAt` vencido → não cria novo `Attempt`;
   readquire com `POLL_EXISTING_ATTEMPT` e força reconciliação.
 - Heartbeat com `leaseFence` válido renova só o lease — não incrementa

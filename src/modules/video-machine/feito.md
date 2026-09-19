@@ -2266,24 +2266,205 @@ opcionalmente; `G_R5_V1_CREATIVE_VARIANT_WORK_UNIT_BANNED` — protege a
 frase normativa que já proibia `CREATIVE_VARIANT` derivado da Skill20
 no V1), testadas por fault injection. `errorCount=0, PASS`.
 
-## Estado final da re-review GPT-6 Astra (2026-09-19)
+## Segunda passagem da re-review Astra (commit 4689f1b, 2026-09-19)
 
-Com R5 fechado, **não sobra nenhum finding conhecido aberto desta
-re-review no nível de especificação**: `R1-R6 → CLOSED`, `N1-N8 →
-CLOSED` (N8 foi descoberto e fechado NO MEIO do trabalho do N5),
-`B/B4 → CLOSED`, `C/B1 → CLOSED`, `D/B2 → CLOSED`, `F/B5 → CLOSED`,
-`G → CLOSED`. `contract-lint.mjs`: `errorCount=0, PASS` no corpus
-completo (25/25 SPEC.md).
+O ZIP do commit `4689f1b` foi enviado ao GPT-6 Astra. Veredito:
+**"not implementable, ainda"** — mas com progresso real reconhecido: 11
+dos 13 itens R1-R6/N1-N7 `VERIFIED CLOSED`, N8 (achado extra do
+reparador) `VERIFIED CLOSED`, 23 dos 25 achados da matriz original
+Fable `VERIFIED CLOSED`. Restam 4 conflitos arquiteturais reais (R1
+revisado, N9, N10, N11) + 1 achado mecânico no próprio lint (N12) — os
+4 primeiros exigem decisão de design, então foram levados ao ChatGPT
+pra debate antes de qualquer patch (mesma disciplina da noite
+anterior); N12 foi corrigido direto por ser só uma lacuna na própria
+ferramenta de verificação.
 
-**Importante — "CLOSED" é resolução por escopo/spec, não confirmação
-externa**: o próprio ChatGPT foi explícito que isso não deve ser
-declarado "corpus implementável confirmado" por conta própria. Depois
-deste patch, o passo correto é congelar um novo snapshot/commit/archive
-e mandar pra uma nova revisão independente (Fable/Astra de novo), com
-commit SHA e SHA-256 do ZIP coerentes entre si — só uma revisão externa
-confirma que não apareceu nenhuma nova contradição transversal. Isso
-exige decisão do Heber (commit + eventual push/ZIP), não é algo pra
-decidir sozinho.
+**N12 — guardas do R2 não detectavam a ausência total do `Job`
+(fechado)**: `G_R2_JOB_EXECUTION_SCOPE_MISSING`/`G_R2_JOB_SCOPE_UNION_MISSING`/
+`G_R2_STANDALONE_RUN_COORDINATES_NOT_FORBIDDEN` usavam `if (jobProps &&
+...)` — se o `type Job` inteiro fosse removido do SPEC (preservando o
+resto do arquivo), `jobProps` virava `undefined` e as três regras
+simplesmente não disparavam. `G000_ZERO_DECLARATIONS_EXTRACTED` não
+cobre isso (só falha quando o arquivo INTEIRO extrai zero
+declarações, não quando falta um owner específico). Reproduzido o
+cenário exato do Astra (removida só a declaração `type Job = ...`,
+linhas 221-254, preservando o comentário de invariantes logo depois) e
+confirmado falso PASS antes da correção. Corrigido com uma guarda de
+presença explícita (`G_R2_JOB_TYPE_MISSING`, via `seenSymbols.has("Job")`)
+checada ANTES de qualquer verificação de shape/campos — mesmo padrão
+"checar existência do owner antes de checar forma" já usado em outras
+regras N123/R3. Fault injection confirmada: remover só a declaração →
+`FAIL` (`G_R2_JOB_TYPE_MISSING`); reverter → `PASS`.
+
+## Estado (primeira passagem, ANTES do envio ao Astra — histórico)
+
+Depois do R5, todos os 13 achados conhecidos até aquele ponto
+(`R1-R6`, `N1-N8`) estavam `CLOSED` na leitura interna, com
+`contract-lint.mjs: errorCount=0, PASS`. Isso foi corretamente
+qualificado na hora como "resolução por escopo/spec, não confirmação
+externa" — e a re-review real (ver seção acima, "Segunda passagem")
+confirmou por que essa cautela era necessária: 4 dos itens marcados
+`CLOSED` internamente tinham conflitos reais que só apareceram sob
+revisão externa adversarial (R1 incompleto pra multi-step, N9/N10/N11
+novos). A lição segue válida: nunca declarar "implementável
+confirmado" sem uma revisão externa que efetivamente reproduziu o
+corpus e testou os limites dos contratos, não só rodou o lint.
+
+## Terceira passagem — reparo dos 4 achados arquiteturais do Astra (2026-09-19)
+
+Depois do "FINAL: not implementable, ainda" do GPT-6 Astra (ZIP
+`4689f1b`, ver seção "Segunda passagem" acima), restavam 4 conflitos
+arquiteturais (R1 reaberto/BLOCKER, N9/N10/N11) + 1 achado mecânico
+(N12). N12 foi fechado sozinho (mecânico, ver seção própria acima). Os
+4 arquiteturais foram desenhados em debate com o ChatGPT (ordem
+acordada: N10 → N11 → R1 revisado → N9) e aplicados nessa ordem, cada
+um com `node scripts/contract-lint.mjs` confirmando `errorCount=0,
+PASS` logo depois, e — pra toda regra de lint nova/alterada —
+fault-injection (violação deliberada → `FAIL` → reverte → `PASS` de
+novo) antes de seguir pro próximo.
+
+Depois do reparo, reportei os 4 fechamentos ao ChatGPT (mesmo loop
+debate→aplicar→verificar→reportar da noite toda). Revisão dele:
+**N10 e N11 confirmados `CLOSED` de primeira.** R1 revisado tinha uma
+lacuna de contrato (faltava tornar explícito que `providerRequestKey`
+é imutável por `externalEffectOccurrenceKey` e que uma chamada com key
+divergente é conflito fail-closed, não sobrescrita silenciosa) — corrigida
+no `beginExternalSubmission` (Skill02), **R1 agora `CLOSED`**. N9 tinha
+um buraco estrutural real: `StageTransitionMember` não carregava a
+identidade do `Wi` em nenhuma branch (dois members
+`SKIPPED_SHORT_CIRCUIT` do mesmo seal eram indistinguíveis entre si,
+contradizendo a própria garantia de "exact manifest coverage"), e
+faltava a regra normativa de serialização entre claim de work unit e
+criação do seal (race: `T1` lê `Wi` `NOT_STARTED`, `T2` reivindica
+`Wi`, `T1` sela `Wi` — as duas nunca podem vencer pro mesmo `Wi`).
+Ambos corrigidos:
+
+- `StageTransitionMember` ganhou `stageWorkUnitIdentityHash`
+  obrigatório nas DUAS branches (`EXECUTED` e `SKIPPED_SHORT_CIRCUIT`)
+  — cada member agora prova por si só qual `Wi` exato do manifest
+  cobre. Validação: `EXECUTED` precisa resolver pro `Wi` declarado;
+  `SKIPPED_SHORT_CIRCUIT` precisa que o hash conste em
+  `sealedWorkUnitIdentityHashes` do seal referenciado; `members` da
+  resolution precisa ter exatamente 1 por `Wi` (sem ausente/extra/duplicado).
+- Nova seção normativa "Serialização claim × seal": um `Wi` só pode ser
+  selado se ainda estiver `NOT_STARTED` no commit do seal; um claim só
+  pode ser aceito se, no mesmo boundary de serialização, o `Wi` não
+  estiver coberto por um seal existente — as duas operações competem
+  pela mesma autoridade sobre `(M, Wi)`, uma necessariamente perde.
+
+Lint: `G_N9_TRANSITION_MEMBER_WORK_UNIT_IDENTITY_MISSING` (nova, conta
+ocorrências de `stageWorkUnitIdentityHash: string` dentro do span da
+declaração — `allPropertyNamesByType` agrega todas as branches num Set
+só, então checar só presença do nome não bastava, mesma lição do N12/R2)
+e `G_N9_SHORT_CIRCUIT_CLAIM_SEAL_SERIALIZATION_MISSING` (textual, checa
+a seção normativa) — ambas fault-injection confirmadas.
+
+**ChatGPT confirmou o fechamento dos 5 achados (2026-09-19).** Estado
+final desta rodada:
+
+```
+N9  → CLOSED (confirmado pelo ChatGPT)
+N10 → CLOSED (confirmado pelo ChatGPT)
+N11 → CLOSED (confirmado pelo ChatGPT)
+N12 → CLOSED (mecânico, fechado sozinho)
+R1  → CLOSED (confirmado pelo ChatGPT)
+```
+
+Juntando com R1-R6/N1-N8 já fechados na rodada anterior: **R1-R6 e
+N1-N12 todos `CLOSED`** na leitura interna. `contract-lint.mjs`:
+25/25 SPEC.md, `errorCount=0`, `PASS`.
+
+Status global (frase do ChatGPT, mantida deliberadamente cautelosa):
+
+```
+SPEC REPAIR COMPLETE
+ALL KNOWN ASTRA FINDINGS CLOSED
+CONTRACT-LINT PASS
+AWAITING INDEPENDENT RE-REVIEW
+RUNTIME NOT IMPLEMENTED
+```
+
+**Isso não é "implementável confirmado".** Como nas rodadas
+anteriores, `CLOSED` aqui significa "corrigido no corpus e protegido
+por lint/fault-injection", nunca "validado por revisão externa
+independente" — essa validação só acontece quando o GPT-6 Astra revisar
+os bytes novos de verdade (mesma lição documentada acima, depois do
+"not implementable, ainda" desta própria rodada). Próximo passo
+técnico (ChatGPT): congelar um snapshot novo (commit SHA + ZIP do
+mesmo commit + SHA-256 do ZIP + saída do contract-lint + matriz
+R1-R6/N1-N12 com status) e mandar pra próxima revisão independente do
+Astra — pendente autorização do Heber pra criar o commit (regra do
+projeto: nunca commitar sem perguntar de novo a cada vez).
+
+- **N10 — contradição entre R3 e o boundary Skill01↔Skill03 (Skill 01)**:
+  a frase adicionada no R3 ("`WAITING_APPROVAL` só depois da
+  materialização durável do `ApprovalRequest` pela Skill03")
+  contradizia o boundary Skill01↔Skill03 já congelado, que sempre disse
+  que a transação atômica da Skill01 escreve `ApprovalRequestIntent` +
+  `AuditEvent` + `RunStatus=WAITING_APPROVAL` juntos, ANTES da Skill03
+  consumir o intent. ChatGPT confirmou: a frase de R3 estava errada, não
+  o boundary antigo. Fix: reverteu a frase pro modelo correto
+  (`src/modules/video-machine/skills/01-orquestrador-de-producao/SPEC.md`,
+  bloco de comentário logo antes de `REQUEST_APPROVAL`).
+- **N11 — dependência circular no gate `FIRST_REAL_PUBLISH` da Skill 17
+  (Skill 17)**: o gate exigia que o subject (`PublicationPlan`) já
+  existisse como artifact ref upstream do `StageExecution` sendo
+  gateado, mas o `PublicationPlan` só nascia DENTRO desse mesmo Job
+  gateado — circular. Alternativas rejeitadas: relaxar o algoritmo de
+  subject-resolution do R3 pra permitir "buscar o mais recente", ou
+  deixar `prepareInvocation()` criar artifacts fora do escopo dele
+  (ambas degradariam contratos já estabilizados). Fix: Skill 17 dividida
+  em duas stages conceituais, `PLANNING` (pura, produz `PublicationPlan`,
+  proibida de qualquer side effect) e `EXECUTION` (recebe o
+  `PublicationPlan` exato via `upstreamArtifactRefs` normal, gateada por
+  `FIRST_REAL_PUBLISH`) —
+  `src/modules/video-machine/skills/17-publicador-multicanal/SPEC.md`.
+- **R1 revisado — uma Attempt só suportava uma ocorrência de submissão
+  externa (Skill 02)**: o modelo original prendia
+  `externalEffectState`/fencing à `JobAttempt`, mas a Skill 17 (E1
+  `CREATE_MEDIA_PUBLICATION` + E2 `ATTACH_AFFILIATE_LINK_COMMENT`) e
+  publicações multi-step em geral podem ter mais de um side effect
+  externo dentro da mesma Attempt. Fix: novo tipo
+  `ExternalEffectCheckpoint`, identidade `UNIQUE(jobId,
+  externalEffectOccurrenceKey)` — substitui `UNIQUE(jobId,
+  attemptNumber)`. `JobAttempt` encolhe pros campos técnicos de
+  execução; o efeito externo vira responsabilidade do checkpoint, um
+  por `externalEffectOccurrenceKey`, múltiplos por Attempt.
+  `beginExternalSubmission` ganha o parâmetro `externalEffectOccurrenceKey`
+  (assinatura nova: `beginExternalSubmission(jobId, leaseFence,
+  expectedVersion, attemptNumber, externalEffectOccurrenceKey,
+  providerRequestKey?)`) e as dispositions `ALREADY_CONFIRMED`/
+  `RECONCILE_REQUIRED` —
+  `src/modules/video-machine/skills/02-gestor-de-fila-jobs/SPEC.md`.
+  Lint: `G_R1_FENCED_EXTERNAL_SUBMISSION_OPERATION_MISSING` e
+  `G_R1_UNGUARDED_SUBMITTING_TRANSITION` atualizados pra nova
+  assinatura/terminologia.
+- **N9 — barrier EXPANDABLE exigia execução completa, mas
+  short-circuit de `START_NEXT_ITERATION` proibia executar o resto
+  (Skill 01)**: o barrier (kernel repair N3) exigia que `sources`
+  contivesse uma execução real por work unit do manifest; mas a
+  correção via `START_NEXT_ITERATION` já dizia explicitamente que work
+  units `NOT_STARTED` "não são executadas" quando a iteração é
+  superseded — as duas regras se contradiziam. Fix: `StageTransitionSource[]`
+  vira `StageTransitionMember[]`, discriminated union `EXECUTED`
+  (execução real) / `SKIPPED_SHORT_CIRCUIT` (nunca executada, coberta
+  por um `StageExpansionShortCircuitDecision` seal atômico). O seal
+  congela, no instante em que uma work unit resolve
+  `START_NEXT_ITERATION`, exatamente o conjunto de work units ainda
+  `NOT_STARTED` — barradas de serem reivindicadas depois. Work units já
+  em andamento no instante do seal não entram nele; precisam terminar e
+  produzir `EXECUTED` real (nunca marcadas skipped retroativamente). O
+  barrier agora exige cobertura exata do manifest ("accounted for"),
+  não execução exata —
+  `src/modules/video-machine/skills/01-orquestrador-de-producao/SPEC.md`.
+  3 lint rules novas: `G_N9_STAGE_TRANSITION_MEMBER_MISSING`,
+  `G_N9_STAGE_TRANSITION_MEMBER_SHAPE_INVALID`,
+  `G_N9_SHORT_CIRCUIT_DECISION_MISSING`/`_SHAPE_INVALID`; regra
+  existente `G_N123_EXPANDABLE_TRANSITION_BRANCH_MISSING` migrada de
+  checar `sources` pra checar `members`.
+
+Estado do lint depois dos 4 fixes: `node scripts/contract-lint.mjs` →
+`errorCount=0, warningCount=23, PASS` (25/25 SPEC.md).
 
 ## Regra de ouro (herdada)
 

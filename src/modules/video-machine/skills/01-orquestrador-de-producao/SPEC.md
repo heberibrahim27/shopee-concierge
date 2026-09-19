@@ -316,10 +316,27 @@ type OrchestrationDecision =
 //                                     + subject exato da StageSubjectBinding/
 //                                     upstreamArtifactRefs da StageExecution
 //                                     sendo gated) → REQUEST_APPROVAL
-// RunStatus só vira WAITING_APPROVAL DEPOIS da materialização durável do
-// ApprovalRequest pela Skill03 (aceito/recuperado idempotentemente) —
-// nunca só porque a Skill01 decidiu pedir aprovação. Quando a resolução
-// chega: SATISFIES → prossegue pra REQUEST_JOB; VIOLATES/INSUFFICIENT →
+// PATCH (N10, kernel repair pós re-review GPT-6 Astra, 2026-09-19):
+// a frase anterior ("RunStatus só vira WAITING_APPROVAL DEPOIS da
+// materialização durável do ApprovalRequest pela Skill03") contradizia
+// o boundary Skill01↔Skill03 já congelado (ver skills/03-gestor-de-aprovacao/SPEC.md,
+// "Interface Skill 01 ↔ Skill 03"): esse boundary sempre disse que a
+// transação atômica da Skill01 já escreve ProductionRun.status=WAITING_APPROVAL
+// + AuditEvent + ApprovalRequestIntent JUNTOS, ANTES da Skill03 sequer
+// consumir o intent — nunca esperando confirmação de materialização.
+// A frase de R3 estava errada, não o boundary antigo. Modelo correto:
+// REQUEST_APPROVAL → commit atômico de: ApprovalRequestIntent (outbox) +
+// AuditEvent + RunStatus=WAITING_APPROVAL, todos juntos. Se essa
+// transação falhar, nenhum dos três persiste. A Skill03 depois
+// consome o intent e materializa/replaya a ApprovalRequest pela
+// idempotência já existente (ensureApprovalRequest, ver Skill03).
+// WAITING_APPROVAL significa "existe uma intenção durável de aprovação
+// pendente de resolução" — NUNCA exige que já exista uma
+// ApprovalRequest materializada pela Skill03. Isso é deliberadamente
+// mais seguro: se a Skill03 ficar indisponível por alguns minutos, a
+// Run continua corretamente parada — não existe janela em que o
+// intent já existe mas o orquestrador acha que ainda pode prosseguir.
+// Quando a resolução chega: SATISFIES → prossegue pra REQUEST_JOB; VIOLATES/INSUFFICIENT →
 // usa a semântica já contratada pela Skill03 (Ponto S4), nunca bypass
 // silencioso. `approvalRequirement` é pre-dispatch gate da StageExecution
 // correspondente: sem aprovação válida, o Job do stage gated NUNCA é
@@ -1489,6 +1506,111 @@ type StageTransitionSource = {
   skillExecutionResolutionHash: string;
 };
 
+// PATCH (N9, kernel repair pós re-review GPT-6 Astra, 2026-09-19):
+// o barrier EXPANDABLE original (kernel repair N3) exigia que TODAS as
+// work units do manifest tivessem uma execução real resolvida — mas o
+// short-circuit de START_NEXT_ITERATION (ver "Correção/START_NEXT_ITERATION
+// pode short-circuitar" no barrier, abaixo) explicitamente NUNCA executa
+// as work units ainda NOT_STARTED quando uma iteração é superseded. Essas
+// duas regras se contradiziam: "sources precisa ser exatamente esse
+// conjunto [de execuções reais]" (N3) versus "work units ainda não
+// iniciadas não são executadas" (short-circuit). StageTransitionMember
+// resolve isso: cada work unit do manifest é "accounted for" por
+// EXECUTED (execução real, com StageTransitionSource) OU
+// SKIPPED_SHORT_CIRCUIT (nunca executada, coberta por um
+// StageExpansionShortCircuitDecision seal — ver abaixo). O barrier passa
+// a exigir cobertura exata do manifest, não execução exata do manifest.
+// PATCH (N9, fechamento com o ChatGPT, 2026-09-19): a primeira versão
+// deste type não carregava a identidade do Wi em nenhuma branch —
+// dois members SKIPPED_SHORT_CIRCUIT do mesmo seal eram estruturalmente
+// indistinguíveis (nada provava que um era W3 e o outro W4), o que
+// contradizia a própria garantia que o PATCH promete: "exact manifest
+// coverage". Fix: `stageWorkUnitIdentityHash` obrigatório nas DUAS
+// branches — cada member agora prova, por si só, qual Wi exato do
+// manifest ele cobre.
+type StageTransitionMember =
+  | {
+      stageWorkUnitIdentityHash: string;
+      memberStatus: 'EXECUTED';
+      source: StageTransitionSource;
+      shortCircuitDecisionId?: never;
+      shortCircuitDecisionHash?: never;
+    }
+  | {
+      stageWorkUnitIdentityHash: string;
+      memberStatus: 'SKIPPED_SHORT_CIRCUIT';
+      source?: never;
+      // referencia o StageExpansionShortCircuitDecision cujo
+      // sealedWorkUnitIdentityHashes inclui esta work unit — nunca um
+      // skip "solto" sem seal atômico correspondente
+      shortCircuitDecisionId: string;
+      shortCircuitDecisionHash: string;
+    };
+// hash: STAGE_TRANSITION_MEMBER_V1 (elemento, hasheado dentro da
+// resolution que o contém — não é um artifact persistido
+// independentemente, ver StageTransitionResolution.EXPANDABLE.members)
+//
+// Validação (PATCH N9, fechamento 2026-09-19), além da cobertura exata
+// já descrita no barrier abaixo:
+// - EXECUTED: stageWorkUnitIdentityHash precisa pertencer ao
+//   StageExpansionManifest referenciado pela resolution; source/
+//   StageExecution correspondente precisa resolver para EXATAMENTE
+//   esse Wi (nunca um Wi diferente do declarado no member).
+// - SKIPPED_SHORT_CIRCUIT: stageWorkUnitIdentityHash precisa pertencer
+//   ao manifest E constar em
+//   sealedWorkUnitIdentityHashes do StageExpansionShortCircuitDecision
+//   referenciado por shortCircuitDecisionId — nunca um skip cujo Wi não
+//   foi realmente selado.
+// - `members` da resolution EXPANDABLE: exatamente 1 member por Wi do
+//   manifest — nenhum stageWorkUnitIdentityHash ausente, nenhum extra
+//   (fora do manifest), nenhum duplicado (dois members pro mesmo Wi).
+//   Qualquer uma dessas três violações é FATAL
+//   (STAGE_WORK_UNIT_NOT_IN_MANIFEST reaproveitado pra ausente/extra;
+//   novo STAGE_TRANSITION_MEMBER_DUPLICATE_WORK_UNIT pra duplicado).
+
+// PATCH (N9): seal atômico que congela, no exato momento em que uma work
+// unit resolve legitimamente para START_NEXT_ITERATION, o subconjunto de
+// work units do manifest que ainda estavam NOT_STARTED (nenhum
+// StageSubjectBinding/StageExecution/SkillExecutionResolution
+// materializado para elas). Depois do seal, nenhuma dessas work units
+// pode ser reivindicada/iniciada — permanentemente. Work units que já
+// estavam em andamento (StageExecution já claimed, ainda não resolvida)
+// no momento do seal NÃO entram no seal — precisam terminar
+// normalmente e produzir um StageTransitionMember EXECUTED real (nunca
+// retroativamente marcadas SKIPPED_SHORT_CIRCUIT).
+type StageExpansionShortCircuitDecision = {
+  stageExpansionShortCircuitDecisionId: string;
+  tenantId: string;
+  productionRunId: string;
+  stageExpansionManifestRef: StageExpansionManifestRef;
+
+  // a StageTransitionSource cuja resolução (transitionKey →
+  // iterationAction=START_NEXT_ITERATION) disparou este seal — a
+  // "sealing source"; sua resolvedTarget é a que o
+  // StageTransitionResolution stage-level herda quando o barrier fecha
+  triggeringSource: StageTransitionSource;
+
+  // exatamente as work units do manifest que estavam NOT_STARTED no
+  // instante do seal — ordem canônica (mesma ordenação lexicográfica
+  // por stageWorkUnitIdentityHash de StageExpansionManifest.workUnits).
+  // Nunca inclui work units já claimed/em andamento nem já resolvidas.
+  sealedWorkUnitIdentityHashes: string[];
+
+  sealedAt: string;
+  stageExpansionShortCircuitDecisionHash: string;
+};
+// hash: STAGE_EXPANSION_SHORT_CIRCUIT_DECISION_V1
+// Idempotência: UNIQUE(tenantId, stageExpansionManifestRef.stageExpansionManifestId)
+// — um manifest só pode ser selado uma vez; uma segunda work unit que
+// também resolva para START_NEXT_ITERATION depois do seal já existente
+// não cria um segundo seal, apenas contribui seu próprio
+// StageTransitionMember EXECUTED (ela não estava NOT_STARTED no
+// momento do primeiro seal, então nunca poderia ter sido sealed por
+// ele) — se essa segunda resolução aponta para um resolvedTarget
+// diferente do triggeringSource original → STAGE_EXPANSION_TRANSITION_CONFLICT
+// (dois "vencedores" de short-circuit divergentes é contradição real,
+// não timing).
+
 // PATCH (kernel repair N3): StageTransitionResolution vira discriminated
 // union real por workUnitContract — antes era um type único com
 // sourceStageExecutionId/Hash + skillExecutionResolutionId/Hash
@@ -1516,6 +1638,8 @@ type StageTransitionResolution =
       source: StageTransitionSource;
       stageExpansionManifestRef?: never;
       sources?: never;
+      members?: never;
+      shortCircuitDecisionRef?: never;
     }
   | {
       stageTransitionResolutionId: string;
@@ -1535,11 +1659,19 @@ type StageTransitionResolution =
 
       workUnitContract: 'EXPANDABLE';
       stageExpansionManifestRef: StageExpansionManifestRef;
-      sources: StageTransitionSource[]; // exatamente um StageTransitionSource
-        // por work unit do manifest referenciado, em ordem canônica
-        // (mesma ordenação lexicográfica por stageWorkUnitIdentityHash já
-        // usada em StageExpansionManifest.workUnits)
+      // PATCH (N9): sources: StageTransitionSource[] virou
+      // members: StageTransitionMember[] — exatamente um
+      // StageTransitionMember (EXECUTED ou SKIPPED_SHORT_CIRCUIT) por
+      // work unit do manifest referenciado, em ordem canônica (mesma
+      // ordenação lexicográfica por stageWorkUnitIdentityHash já usada
+      // em StageExpansionManifest.workUnits). "Exatamente um por work
+      // unit" agora significa cobertura, não execução — ver "Barrier de
+      // stage" abaixo.
+      members: StageTransitionMember[];
+      shortCircuitDecisionRef?: string; // stageExpansionShortCircuitDecisionId,
+        // presente sse >=1 member é SKIPPED_SHORT_CIRCUIT
       source?: never;
+      sources?: never;
     };
 // hash: STAGE_TRANSITION_RESOLUTION_V1
 ```
@@ -1564,7 +1696,10 @@ para `SINGLE`, de `tenantId + productionRunId + sourceStageIterationId +
 workUnitContract + source.stageExecutionId + source.skillExecutionResolutionHash`;
 para `EXPANDABLE`, de `tenantId + productionRunId +
 sourceStageIterationId + workUnitContract +
-stageExpansionManifestRef.stageExpansionManifestHash + sources` na
+stageExpansionManifestRef.stageExpansionManifestHash + members` (PATCH
+N9: era `sources`, agora `members` — cada `StageTransitionMember`
+contribui seu `source.skillExecutionResolutionHash` quando `EXECUTED`
+ou seu `shortCircuitDecisionHash` quando `SKIPPED_SHORT_CIRCUIT`) na
 ordem canônica do manifest — sem UUID aleatório a cada replay, e sem
 depender de qual sibling terminou por último. Se o adapter retorna um
 `transitionKey` que o `StageKernelContract` congelado não possui →
@@ -2076,43 +2211,78 @@ stage/Run conforme as regras já existentes — não existe "3 targets
 deram certo, então stage sucesso" por default. Nenhuma unidade pode
 ficar omitida silenciosamente: se um target legitimamente não exige
 trabalho, o adapter ainda produz um outcome/resultado que resolve
-aquela unit (no-op é sucesso explícito, não ausência). Divergência de
-`transitionKey` entre siblings bem-sucedidos (ex.: Instagram →
-`NEXT_STAGE`, TikTok → `SKIP_TO_PUBLISH` na mesma expansão) é
-**contract violation** (`STAGE_EXPANSION_TRANSITION_CONFLICT`) — nunca
-"o último executado decide".
+aquela unit (no-op é sucesso explícito, não ausência) — **exceto**
+quando a unidade foi coberta por um `StageExpansionShortCircuitDecision`
+seal (ver abaixo), caso em que ela nunca chega a ser reivindicada.
+Divergência de `transitionKey` entre siblings `EXECUTED`
+bem-sucedidos (ex.: Instagram → `NEXT_STAGE`, TikTok →
+`SKIP_TO_PUBLISH` na mesma expansão) é **contract violation**
+(`STAGE_EXPANSION_TRANSITION_CONFLICT`) — nunca "o último executado
+decide". Essa checagem de divergência é só entre members `EXECUTED`;
+um `StageTransitionMember` `SKIPPED_SHORT_CIRCUIT` nunca "vota" um
+`transitionKey`, então não pode conflitar com nada — ele é, por
+definição, ausência de execução coberta por um seal explícito.
 
-Quando todos os work units resolvem com sucesso e `transitionKey`
-uniforme, a Skill 01 materializa **uma única**
+Quando todos os work units do manifest estão **accounted for** — cada
+`Wi` como `EXECUTED` (com sucesso) ou `SKIPPED_SHORT_CIRCUIT` (coberto
+pelo seal) — e todos os `transitionKey` dos members `EXECUTED`
+concordam entre si (ou, se houve seal, pelo menos concordam com o
+`triggeringSource` que disparou o seal — ver a validação completa
+abaixo), a Skill 01 materializa **uma única**
 `StageTransitionResolution` no nível do stage (não N transições) —
 não criamos um novo artifact agregador (`StageAggregateResult`) pra
 isso:
 
 `StageTransitionResolution` real (kernel repair N3, seção "Ponto D",
-início deste documento) já é a discriminated union por
-`workUnitContract`: a branch `EXPANDABLE` carrega `stageExpansionManifestRef`
-+ `sources: StageTransitionSource[]` (conjunto de sources, não uma
-única execução); a branch `SINGLE` carrega `source` único — nunca os
-dois simultaneamente (`?: never` cruzado impede isso já no type).
+início deste documento; revisado no PATCH N9) já é a discriminated
+union por `workUnitContract`: a branch `EXPANDABLE` carrega
+`stageExpansionManifestRef` + `members: StageTransitionMember[]`
+(conjunto de members — cada um `EXECUTED` ou `SKIPPED_SHORT_CIRCUIT`
+— não uma única execução, e não mais "conjunto de execuções" puro); a
+branch `SINGLE` carrega `source` único — nunca os dois simultaneamente
+(`?: never` cruzado impede isso já no type).
 
 **Validação do barrier EXPANDABLE** antes de materializar a
 `StageTransitionResolution` stage-level: seja `M` o
 `StageExpansionManifest` com work units `{W1, W2, ..., Wn}`. Para cada
-`Wi` precisa existir exatamente um `StageSubjectBinding` da mesma
-`stageIterationId` cujo `stageExpansionManifestRef` aponta pra `M`, a
-`StageExecution` correspondente, e a `SkillExecutionResolution` final
-correspondente. `sources` da resolution precisa ser **exatamente** esse
-conjunto: todos pertencem ao mesmo `runId`/`stageKey`/`stageIterationId`
-(violação reaproveita `STAGE_EXECUTION_ITERATION_MISMATCH`); todos os
-bindings EXPANDABLE apontam pro mesmo manifest `M` e nenhum sibling do
-manifest está ausente ou é extra (violação reaproveita
-`STAGE_WORK_UNIT_NOT_IN_MANIFEST`); `transitionKey` divergente entre
-siblings bem-sucedidos é `STAGE_EXPANSION_TRANSITION_CONFLICT` (já
-existente, acima). `transitionResolutionHash`/`transitionResolutionKey`
-nunca dependem de ordem de conclusão dos siblings — `E2` terminando
-antes de `E1` não muda o hash da transição (`sources` é ordenado
-canonicamente antes de hashear, mesma disciplina de
-`StageExpansionManifest.workUnits`).
+`Wi`, exatamente uma das duas é verdadeira:
+1. **`EXECUTED`**: existe um `StageSubjectBinding` da mesma
+   `stageIterationId` cujo `stageExpansionManifestRef` aponta pra `M`,
+   a `StageExecution` correspondente, e a `SkillExecutionResolution`
+   final correspondente — vira `StageTransitionMember{memberStatus:
+   'EXECUTED', source}`.
+2. **`SKIPPED_SHORT_CIRCUIT`**: `Wi` está em
+   `StageExpansionShortCircuitDecision.sealedWorkUnitIdentityHashes`
+   de um seal existente pra `M` — vira
+   `StageTransitionMember{memberStatus: 'SKIPPED_SHORT_CIRCUIT',
+   shortCircuitDecisionId, shortCircuitDecisionHash}`. Nunca
+   materializamos esse member sem um seal real correspondente (nunca
+   "assumimos" skip por ausência — ausência sem seal mantém o barrier
+   aberto, exatamente como antes do PATCH N9).
+
+`members` da resolution precisa cobrir **exatamente** `{W1, ..., Wn}`,
+um member por `Wi`, nem a mais nem a menos: todo `EXECUTED` pertence ao
+mesmo `runId`/`stageKey`/`stageIterationId` (violação reaproveita
+`STAGE_EXECUTION_ITERATION_MISMATCH`); todos os bindings `EXECUTED`
+apontam pro mesmo manifest `M`, e nenhum `Wi` do manifest fica sem
+member (nem `EXECUTED` nem `SKIPPED_SHORT_CIRCUIT`) — violação
+reaproveita `STAGE_WORK_UNIT_NOT_IN_MANIFEST`. Se existe **qualquer**
+seal pra `M`, `shortCircuitDecisionRef` da resolution aponta pra ele e
+o `transitionKey`/`resolvedTarget` stage-level herdam do
+`triggeringSource` do seal — mesmo que algum member `EXECUTED` (uma
+work unit que já estava em andamento quando o seal fechou, e terminou
+depois) tenha resolvido pra um `transitionKey` diferente: esse member
+`EXECUTED` "superseded" ainda é um registro histórico real e válido
+(nunca apagado ou marcado skipped retroativamente), mas não participa
+da checagem de uniformidade de `transitionKey` — o seal já decidiu.
+Duas work units `EXECUTED` que ambas resolvem `START_NEXT_ITERATION`
+com `resolvedTarget` **diferente** continuam sendo
+`STAGE_EXPANSION_TRANSITION_CONFLICT` real (não é timing, é
+contradição de conteúdo — ver nota de idempotência do seal, acima).
+`transitionResolutionHash`/`transitionResolutionKey` nunca dependem de
+ordem de conclusão dos siblings — `E2` terminando antes de `E1` não
+muda o hash da transição (`members` é ordenado canonicamente antes de
+hashear, mesma disciplina de `StageExpansionManifest.workUnits`).
 
 **`SINGLE` nunca ganha manifest artificial**: para `workUnitContract=SINGLE`,
 o fluxo é sempre `StageIteration → uma work unit válida (BASE) segundo
@@ -2121,22 +2291,73 @@ o `StageWorkUnitContract` → um binding → uma `StageExecution` → uma
 `workUnitContract:'SINGLE'`. Não materializamos
 `StageExpansionManifest` de cardinalidade 1 só para reusar
 implementação — isso apagaria a diferença contratual que o
-`StageWorkUnitContract.mode` acabou de formalizar.
+`StageWorkUnitContract.mode` acabou de formalizar. `SINGLE` nunca tem
+seal — o mecanismo de short-circuit é exclusivo de `EXPANDABLE`.
 
-A resolução prova: "este transition foi calculado depois da conclusão
-deste conjunto exato de work units." Correção/`START_NEXT_ITERATION`
-pode short-circuitar: quando uma work unit aciona legitimamente
-`START_NEXT_ITERATION`, a `StageIteration` atual encerra
-semanticamente e as work units ainda não iniciadas daquele manifest
-**não são executadas** — nunca marcadas como sucesso; ficam
-historicamente como "planned but not executed because iteration was
-superseded" (reaproveitar status de superseded/abandoned já existente
-no corpus, se houver — nunca inventar `SUCCEEDED`). A nova iteration
-reenumera usando seus próprios immutable inputs e materializa outro
-`StageExpansionManifest` — mesmo que as work units resultantes sejam
-idênticas às da iteration anterior, é um novo manifest (ligado à nova
-`stageIterationId`), nunca reaberto o antigo. Proibido: `StageExecution`
-de `Iteration N` sendo carregada pra `Iteration N+1`.
+A resolução prova: "este transition foi calculado depois que este
+conjunto exato de work units ficou accounted for" — não mais "depois
+da conclusão", já que `SKIPPED_SHORT_CIRCUIT` nunca conclui.
+**Mecanismo de short-circuit (PATCH N9)**: quando uma work unit `Wk`
+aciona legitimamente `START_NEXT_ITERATION` (ex.: `Skill12
+NON_COMPLIANT → START_NEXT_ITERATION`, ver "Ponto de correção" acima),
+a Skill 01, na MESMA transação lógica que materializa a
+`StageTransitionSource` de `Wk`:
+1. lê o conjunto de `Wi` do manifest `M` que ainda estão `NOT_STARTED`
+   (nenhum `StageSubjectBinding`/`StageExecution` claimed) nesse
+   instante;
+2. materializa `StageExpansionShortCircuitDecision` selando
+   exatamente esse conjunto (`triggeringSource` = a source de `Wk`);
+3. a partir daqui, qualquer tentativa de reivindicar/iniciar uma work
+   unit selada → rejeitada (`FATAL`, reaproveitar
+   `STAGE_WORK_UNIT_NOT_IN_MANIFEST` como família de erro, já que a
+   unidade deixou de ser elegível pro manifest ativo — nunca criar
+   `StageSubjectBinding` pra ela depois do seal).
+
+**Serialização claim × seal (PATCH N9, fechamento com o ChatGPT,
+2026-09-19)**: descrever o seal como "lê NOT_STARTED, depois materializa"
+não basta sozinho — entre o passo 1 e o passo 2 acima, um worker
+concorrente poderia reivindicar (claim) o mesmo `Wi` que está prestes a
+ser selado, e as duas operações (claim de `Wi`, seal cobrindo `Wi`)
+nunca podem ambas vencer pro mesmo `Wi`. O contrato exige que claim e
+seal serializem sobre a mesma autoridade do manifest — sem prescrever
+mecanismo de runtime (lock/CAS/transação serializável são detalhes de
+implementação), duas invariantes normativas, fail-closed:
+- Um `Wi` só pode ser selado (entrar em
+  `sealedWorkUnitIdentityHashes`) se, no exato commit do seal, ainda
+  estiver `NOT_STARTED` — nenhum `StageSubjectBinding`/`StageExecution`
+  materializado pra ele nesse instante.
+- Um claim de `Wi` (materializar `StageSubjectBinding`/`StageExecution`
+  pra ele) só pode ser aceito se, no mesmo boundary de serialização, `Wi`
+  não estiver coberto por nenhum `StageExpansionShortCircuitDecision`
+  já existente pro manifest `M`.
+
+Consequência: as duas operações competem pela mesma autoridade
+serializada sobre `(M, Wi)` — uma das duas necessariamente perde (o
+claim vê o seal já commitado → rejeitado como no item 3 acima; ou o
+seal, ao ler o conjunto `NOT_STARTED` no seu próprio commit, já não
+encontra mais `Wi` nesse estado porque o claim venceu → `Wi` fica fora
+de `sealedWorkUnitIdentityHashes` e segue seu caminho normal de
+execução). Nunca as duas vencem simultaneamente pro mesmo `Wi` — isso
+quebraria a cobertura exata (`Wi` apareceria como `EXECUTED` E como
+`SKIPPED_SHORT_CIRCUIT` ao mesmo tempo, violando "exatamente 1 member
+por Wi").
+
+Work units que já estavam **em andamento** (claimed, ainda não
+resolvidas) no instante do seal **não entram no seal** — precisam
+terminar normalmente e produzir um `StageTransitionMember` `EXECUTED`
+real; nunca são retroativamente marcadas `SKIPPED_SHORT_CIRCUIT`. O
+barrier só fecha quando essas execuções em andamento também
+terminarem (mesmo que o resultado delas não altere mais o
+`transitionKey` stage-level, que já foi decidido pelo
+`triggeringSource`) — isso preserva a garantia de que todo `EXECUTED`
+corresponde a uma execução real que de fato aconteceu, nunca a uma
+execução abortada no meio. A nova iteration (criada pelo
+`START_NEXT_ITERATION` de `Wk`, seguindo a atomicidade já descrita
+acima) reenumera usando seus próprios immutable inputs e materializa
+outro `StageExpansionManifest` — mesmo que as work units resultantes
+sejam idênticas às da iteration anterior, é um novo manifest (ligado à
+nova `stageIterationId`), nunca reaberto o antigo. Proibido:
+`StageExecution` de `Iteration N` sendo carregada pra `Iteration N+1`.
 
 #### `enumerateStageWorkUnits` — protocolo do adapter
 
@@ -2237,14 +2458,18 @@ todos válidos.
 
 #### Hashes
 
-**2 novos:** `STAGE_WORK_UNIT_IDENTITY_V1`, `STAGE_EXPANSION_MANIFEST_V1`.
+**4 novos:** `STAGE_WORK_UNIT_IDENTITY_V1`, `STAGE_EXPANSION_MANIFEST_V1`,
+`STAGE_TRANSITION_MEMBER_V1` e `STAGE_EXPANSION_SHORT_CIRCUIT_DECISION_V1`
+(estes dois últimos, PATCH N9, kernel repair pós re-review GPT-6 Astra,
+2026-09-19).
 **Patch in-place** (nomes não mudam, sem V2, pré-runtime):
 `STAGE_KERNEL_CONTRACT_V1` (+`workUnitContract: StageWorkUnitContract`,
 aplicado ao type real — kernel repair N3), `STAGE_EXECUTION_V1`
 (+`stageWorkUnitIdentityHash`), `STAGE_TRANSITION_RESOLUTION_V1`
 (projeção reestruturada como discriminated union por
-`workUnitContract`, com `source`/`sources: StageTransitionSource[]` no
-lugar dos campos singulares antigos — kernel repair N3), e o hash real
+`workUnitContract`, com `source`/`members: StageTransitionMember[]` no
+lugar dos campos singulares antigos — kernel repair N3, `sources` →
+`members` no PATCH N9), e o hash real
 de `StageSubjectBinding` (+`stageWorkUnitIdentityHash`/
 `stageExpansionManifestRef?`/`stageIterationId`/`stageIterationHash`
 — este último par via kernel repair N2). Sem hash próprio:
@@ -2278,12 +2503,66 @@ mesma iteration é permitido. (24) mesma work unit em nova
 `StageExecution` novo. (26) manifest existente não é reenumerado em
 replay. (27) work unit fora do manifest rejeita. (28) `BLOCKED` mantém
 barrier aberto. (29) qualquer `FAILED` impede sucesso agregado. (30)
-todos successful + mesmo `transitionKey` liberam o stage. (31)
-successful siblings com `transitionKey` divergente rejeitam. (32)
-`START_NEXT_ITERATION` short-circuita siblings não iniciados. (33)
+todos `EXECUTED` + mesmo `transitionKey` liberam o stage. (31)
+`EXECUTED` siblings com `transitionKey` divergente rejeitam. (32)
+`START_NEXT_ITERATION` aciona o seal e produz `StageTransitionMember`
+`SKIPPED_SHORT_CIRCUIT` pras work units ainda `NOT_STARTED` (ver
+"N9 — StageTransitionMember/seal" abaixo pro detalhamento). (33)
 ordem de execução V1 é determinística. (34) Skill 10 não usa mais
 `beat:n` como kernel identity. (35) kernel não contém `variantKey`.
 (36) lint protege o kernel contra regressão pra `variantKey`.
+
+- **N9 — `StageTransitionMember`/seal do short-circuit (kernel repair
+  pós re-review GPT-6 Astra, 2026-09-19)**:
+  1. Manifest com `{W1, W2, W3}`, todas `EXECUTED` com `transitionKey`
+     uniforme → `members` tem exatamente 3 entradas `EXECUTED`, barrier
+     fecha, `shortCircuitDecisionRef` ausente.
+  2. `W1` resolve `NON_COMPLIANT → START_NEXT_ITERATION`; `W2`/`W3`
+     ainda `NOT_STARTED` no instante → seal materializado cobrindo
+     `{W2, W3}`; `members` final = `[EXECUTED(W1),
+     SKIPPED_SHORT_CIRCUIT(W2), SKIPPED_SHORT_CIRCUIT(W3)]`; barrier
+     fecha sem `W2`/`W3` terem sido executadas.
+  3. Mesmo cenário do (2), mas `W2` já estava `StageExecution` claimed
+     (em andamento) no instante do seal → `W2` NÃO entra no seal;
+     barrier permanece aberto até `W2` produzir `EXECUTED` real; `W3`
+     (ainda `NOT_STARTED`) é selada normalmente.
+  4. Tentativa de reivindicar/criar `StageSubjectBinding` pra uma work
+     unit já selada → rejeitada (`FATAL`), nenhum `StageExecution`
+     criado depois do seal pra ela.
+  5. Depois do seal, `W2` (que estava em andamento no cenário 3)
+     termina e resolve um `transitionKey` DIFERENTE do
+     `triggeringSource` (`W1`) → `W2` vira `EXECUTED` normalmente
+     (registro histórico real preservado), mas não bloqueia o barrier
+     nem gera `STAGE_EXPANSION_TRANSITION_CONFLICT` — o
+     `transitionKey`/`resolvedTarget` stage-level já foram decididos
+     pelo `triggeringSource`.
+  6. Duas work units diferentes do mesmo manifest ambas resolvem
+     `START_NEXT_ITERATION` com `resolvedTarget` divergente (antes de
+     qualquer seal existir, ambas correndo em paralelo) →
+     `STAGE_EXPANSION_TRANSITION_CONFLICT` — contradição real, nunca
+     resolvida por seal.
+  7. `StageExpansionShortCircuitDecision` é idempotente:
+     `UNIQUE(tenantId, stageExpansionManifestRef.stageExpansionManifestId)`
+     — replay do mesmo evento de `Wk` não cria um segundo seal nem
+     re-seleciona um conjunto diferente de work units.
+  8. Ausência de seal pra uma `Wi` nunca vira `SKIPPED_SHORT_CIRCUIT`
+     "assumido" — sem seal real correspondente, `Wi` sem execução
+     mantém o barrier aberto exatamente como antes do PATCH N9 (nenhum
+     atalho silencioso).
+  9. (fechamento com o ChatGPT, 2026-09-19) Dois members
+     `SKIPPED_SHORT_CIRCUIT` do mesmo seal, cobrindo `W3` e `W4`:
+     `stageWorkUnitIdentityHash` de cada um precisa ser o hash real de
+     `W3`/`W4` respectivamente (nunca os dois indistinguíveis nem
+     idênticos) — cada member prova por si só qual Wi exato cobre.
+  10. (fechamento com o ChatGPT, 2026-09-19) Race claim×seal: `T1` lê
+      `W3` como `NOT_STARTED`; concorrentemente `T2` reivindica `W3`
+      (materializa `StageSubjectBinding`) antes de `T1` commitar o
+      seal → o commit do seal de `T1`, ao revalidar `W3` no próprio
+      commit, não encontra mais `NOT_STARTED` → `W3` fica FORA de
+      `sealedWorkUnitIdentityHashes`, segue como claim normal de `T2`
+      (produzirá `EXECUTED`). Inverso: seal commita primeiro cobrindo
+      `W3` → tentativa de claim de `W3` depois → rejeitada (item 4
+      acima). Nunca os dois vencem simultaneamente pro mesmo `Wi`.
 
 #### Critério de fechamento do Ponto S5
 
