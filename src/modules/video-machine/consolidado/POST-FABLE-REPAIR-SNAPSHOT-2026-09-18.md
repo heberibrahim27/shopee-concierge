@@ -259,16 +259,19 @@ settlement exige Y, portanto o estado Z não tem transição legal."
 ## Commit de referência
 
 ```text
-reviewSnapshotCommit: <a preencher — nenhum commit dedicado foi
-  criado ainda para este snapshot; ver nota abaixo>
+reviewSnapshotCommit: 37cda13
+branch: main
 ```
 
-**Nota**: até este ponto, o trabalho desta rodada de reparo não foi
-commitado — os arquivos estão no working tree local. Antes de enviar
-este corpus para revisão externa, recomenda-se um commit dedicado
-capturando exatamente esta versão, e preencher o SHA aqui, para que
-fique registrado exatamente qual estado do corpus foi revisado. Até o
-relatório da re-review voltar, nenhuma mudança arquitetural deveria
-ser feita nesse snapshot — correções externas urgentes de produção
-(ex.: bot do WhatsApp) podem continuar em outro commit/branch sem
-contaminar silenciosamente este corpus em revisão.
+Commit dedicado criado capturando exatamente este estado do corpus
+(`feat(video-machine): fecha os 25 achados da revisão Fable`,
+40 arquivos, todo o módulo `src/modules/video-machine/` +
+`scripts/contract-lint.mjs` + a seção de security findings movida
+para `CONTINUIDADE.md`). É esta a versão exata que deve ser entregue
+ao Codex/GPT-6 Astra para a re-review — se o corpus mudar depois
+deste commit, este documento precisa ser atualizado com o novo SHA
+antes de reenviar. Até o relatório da re-review voltar, nenhuma
+mudança arquitetural deveria ser feita nesse snapshot — correções
+externas urgentes de produção (ex.: bot do WhatsApp) podem continuar
+em outro commit/branch sem contaminar silenciosamente este corpus em
+revisão.
