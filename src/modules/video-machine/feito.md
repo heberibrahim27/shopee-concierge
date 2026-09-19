@@ -2657,6 +2657,30 @@ poderia quebrar funcionalidade real do site/Concierge).
 (04-21 exceto 01/02), `EXPANDABLE`/fan-out multi-work-unit, registrar
 o cron em produção, qualquer provider externo real.
 
+## Fase 2 — Skill 04 (Descoberta de Produtos) (2026-09-19)
+
+Primeira Skill de conteúdo real, construída sobre o kernel da Fase 1.
+Migration `supabase/migrations/20260919170000_create_video_machine_skill04.sql`
+(4 tabelas: `product_selection_policy`, `_binding`,
+`product_discovery_result`, `product_usage_evidence`). Código em
+`src/modules/video-machine/skills/04-descoberta-de-produtos/productDiscovery.ts`
+— `discoverProducts()` fiel ao SPEC.md: hard filters determinísticos,
+`DiscoveryScore` (`DISCOVERY_COMMERCIAL_V1` + freshness), diversificação
+pós-ranking, `ReusePolicy` sobre o ledger `ProductUsageEvidence`
+(Ponto S9), idempotência S14 (existe → reutiliza, nunca recalcula).
+Sinais sem fonte real ainda (`novelty`/`categoryPriority`/
+`historicalPerformance`) tratados como estruturalmente `UNAVAILABLE` —
+peso positivo neles é `FATAL_ERROR`/`INVALID_SELECTION_POLICY`, exatamente
+como o SPEC exige.
+
+**Verificação**: `scripts/test-video-machine-skill04.ts`, 5/5 passaram
+contra o **pool real de produção** (81 `deal_candidates` de verdade,
+não fixture) — caminho feliz (resultStatus=OK, 3 primary selecionados),
+idempotência de replay, policy inválida (peso em sinal UNAVAILABLE),
+tenant mismatch, interseção de categoria inválida. Zero linha residual
+após limpeza (só as linhas marcadas de teste foram escritas/removidas
+— o pool real nunca foi alterado, só lido).
+
 - **N10 — contradição entre R3 e o boundary Skill01↔Skill03 (Skill 01)**:
   a frase adicionada no R3 ("`WAITING_APPROVAL` só depois da
   materialização durável do `ApprovalRequest` pela Skill03")
