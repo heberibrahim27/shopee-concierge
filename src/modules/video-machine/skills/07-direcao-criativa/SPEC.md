@@ -520,7 +520,13 @@ type CreativeDirectionPolicyBinding = {
 type CreativeDecisionBasis =
   | { type: "PRODUCT_FACT"; subjectFactsHash: string; fieldPath: string }
   | { type: "OFFER_FACT"; offerAnalysisResultId: string; sourceOfferSnapshotId: string; fieldPath: string }
-  | { type: "TREND_EVIDENCE"; evidenceId: string; fieldPath?: string }
+  | { type: "TREND_EVIDENCE"; evidenceId: string; evidenceHash: string; fieldPath?: string } // PATCH
+    // (achado R6 da re-review GPT-6 Astra, 2026-09-19) — faltava
+    // evidenceHash; era naked id numa decisão canônica JÁ MATERIALIZADA
+    // (diferente de CreativeProviderProposal.referencedTrendEvidenceIds,
+    // que é proposta bruta de provider e legitimamente não tem hash —
+    // essa exceção do Ponto M1/Decisão 3 não se aplica aqui). Mesmo
+    // padrão de exact ref já usado em applicableTrendEvidence acima.
   | { type: "CREATIVE_POLICY"; policyId: string; policyVersion: string; fieldPath: string }
   | { type: "MODEL_INFERENCE"; inferenceRef: string };
 // Cada tipo carrega o PONTEIRO de proveniência real (fieldPath,
@@ -579,7 +585,13 @@ type CreativeDirectionSuccess = {
   subjectFactsSnapshot: CreativeSubjectFactsSnapshot;
 
   offerAnalysisResultId: string;
-  trendResearchResultId: string;
+  trendResearchResultId?: string; // PATCH (achado N4 da re-review GPT-6
+    // Astra, 2026-09-19): estava obrigatório aqui mesmo depois do Ponto
+    // M5 ter tornado o INPUT opcional — resultado real: nenhuma direção
+    // conseguiria ser materializada sem Skill06 (que está
+    // DEFERRED_V2_CONTRACT), contradizendo o próprio M5. Ausente quando
+    // o input não trouxe `trendResearchResultId` — mesma semântica de
+    // `CreativeMode.EVERGREEN`/`NO_SOURCES_AVAILABLE` já definida acima.
 
   creativeMode: CreativeMode;
   direction: CreativeDirectionBrief;
@@ -598,9 +610,12 @@ type CreativeDirectionSuccess = {
 
   creativeDirectionHash: string; // "CREATIVE_DIRECTION_V1:sha256:<hex>"
     // — sobre JSON canônico de: subjectRef, subjectFactsSnapshot.factsHash,
-    // offerAnalysisResultId, trendResearchResultId, creativeMode,
-    // direction, decisions, trendEvidenceRefsUsed (ordenados
-    // deterministicamente), creativeDirectionPolicyId/Version/SnapshotHash.
+    // offerAnalysisResultId, trendResearchResultId (PATCH N4: campo
+    // opcional — CANONICAL_SERIALIZATION_V1/S10 já define a regra pra
+    // ausência/null; omitido do JSON canônico quando ausente, nunca
+    // string vazia/ID fictício), creativeMode, direction, decisions,
+    // trendEvidenceRefsUsed (ordenados deterministicamente),
+    // creativeDirectionPolicyId/Version/SnapshotHash.
     // NUNCA inclui resultId/jobId/attemptNumber/createdAt (identidade
     // operacional, não conteúdo criativo). A Skill 08 consome sempre
     // (creativeDirectionResultId + creativeDirectionHash) exatos — nunca
@@ -624,6 +639,17 @@ type CreativeDirectionSuccess = {
     //   trendEvidenceRefsUsed -> ordenado lexicograficamente por evidenceId
     // JSON canônico + SHA-256 calculado só DEPOIS dessa normalização.
 
+  inferenceProvenance: CreativeInferenceProvenance; // PATCH (achado R4
+    // da re-review GPT-6 Astra, 2026-09-19) — o tipo
+    // CreativeInferenceProvenance (ver "Proveniência da inferência no
+    // resultado" abaixo) já existia, mas nunca foi ligado ao resultado
+    // final; a prosa da Skill prometia isso ("carrega contextHash e
+    // providerRequestHash") sem o campo existir. Não participa de
+    // creativeDirectionHash (é proveniência operacional de COMO a
+    // decisão foi tomada, não conteúdo criativo em si — mesmo
+    // princípio que já exclui resultId/jobId/attemptNumber/createdAt
+    // acima).
+
   createdAt: string;
 };
 
@@ -640,7 +666,8 @@ type CreativeDirectionUnavailable = {
   subjectRef: CreativeSubjectRef;
 
   offerAnalysisResultId: string;
-  trendResearchResultId: string;
+  trendResearchResultId?: string; // PATCH (achado N4 da re-review GPT-6
+    // Astra, 2026-09-19) — mesmo motivo do CreativeDirectionSuccess acima.
 
   reason: NoApplicableCreativeDirectionReason;
 

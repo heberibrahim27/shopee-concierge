@@ -4,9 +4,24 @@
 > o que ainda está pendente. Atualize sempre que resolver ou descobrir algo novo.
 > Complementa o [FEITO.md](FEITO.md), que registra o que já está pronto.
 
-**Última atualização:** 2026-09-18
+**Última atualização:** 2026-09-19
 
 ## Pendências ativas
+
+### 🎬 Máquina de Vídeos — reparo pós re-review GPT-6 Astra CONCLUÍDO (2026-09-19)
+Segunda revisão externa do corpus de 25 SPEC.md (`src/modules/video-machine/`)
+tinha devolvido "not implementable" com 7 achados (N1-N7) + 6 pendências
+reabertas (R1-R6). Todos fechados nesta madrugada, um a um, sempre
+debatidos com o ChatGPT antes de aplicar — incluindo um achado extra
+descoberto no meio do trabalho (N8, `subjectVersion` sem produtor
+canônico no contrato de aprovação). Estado final: `R1-R6 → CLOSED`,
+`N1-N8 → CLOSED`, `contract-lint.mjs`: `errorCount=0, PASS` no corpus
+completo. Detalhe técnico completo em
+`src/modules/video-machine/feito.md`. **Isso NÃO é "aprovado
+definitivamente"** — só uma nova revisão externa (Fable/Astra de novo)
+confirma ausência de nova contradição; próximo passo (novo
+commit/snapshot + reenvio) depende de decisão do Heber. Nenhum push
+feito — só commits locais, aguardando autorização do Heber.
 
 ### 🔐 Security findings rastreados (Skill 25 — Segurança/Auditoria)
 Registro formal dos achados operacionais de segurança que alimentaram o

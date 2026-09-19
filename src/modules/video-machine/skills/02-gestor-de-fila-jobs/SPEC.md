@@ -177,31 +177,25 @@ type BlockReason = "EXTERNAL_STATE_UNKNOWN" | "QUOTA_PAUSED" | "POLICY_BLOCKED";
 
 type LeasePurpose = "EXECUTE_NEW_ATTEMPT" | "POLL_EXISTING_ATTEMPT" | "HANDLE_CANCELLATION";
 
-type Job = {
+// PATCH (R2, kernel repair pós re-review GPT-6 Astra, 2026-09-19): campos
+// comuns às duas branches de Job. Ver JobCommon/Job abaixo — o Ponto C já
+// tinha prometido "adiciona executionScope/executionScopeRef, campos
+// RUN_SCOPED deixam de ser autoridade universal" só em prosa, nunca
+// aplicado ao type real (mesmo padrão de bug do N3). Depois do N3,
+// optamos por união discriminada real em vez de campos opcionais +
+// invariante textual "obrigatório SE E SOMENTE SE" — isso deixaria
+// espaço pra estados impossíveis que o compilador não pega.
+type JobCommon = {
   id: string;
-  // PATCH (Reparo transversal pós-revisão Fable, Ponto D — ver
-  // SPEC.md da Skill 01): pra Jobs RUN_SCOPED, logicalJobKey precisa
-  // incluir a identidade da StageExecution e da PreparedSkillInvocation
-  // — nunca só productionRunId+stageKey, senão a mesma stage
-  // re-executada numa StageIteration diferente colidiria com a
-  // execução anterior. Derivação conceitual:
-  // RUN:<tenantId>:<productionRunId>:<stageExecutionId>:<preparedInvocationHash>
-  // (ou canonical equivalent). Pra Jobs STANDALONE, deriva de
-  // STANDALONE:<tenantId>:<standaloneWorkRequestId> (Ponto C).
-  logicalJobKey: string; // UNIQUE(tenantId, logicalJobKey)
+  logicalJobKey: string; // UNIQUE(tenantId, logicalJobKey). RUN_SCOPED:
+    // RUN:<tenantId>:<productionRunId>:<stageExecutionId>:<preparedInvocationHash>
+    // (ou canonical equivalent — autoridade fixada no kernel repair N1,
+    // não mexer). STANDALONE:
+    // STANDALONE:<tenantId>:<standaloneWorkRequestId> (autoridade já
+    // definida no Ponto C, "Exatamente um Job lógico por request" —
+    // aplicada aqui pela primeira vez ao type real).
   payloadHash: string;
   tenantId: string;
-  runId: string;
-  stageKey: StageKey; // PATCH (Ponto M1, reparo transversal pós-revisão
-    // Fable, 2026-09-18, CONTRACT_CONVENTIONS_V1) — antes "stage:
-    // string" (referenciando PipelineStage). stageKey é o único nome
-    // de identidade de stage no corpus; StageKey é contrato
-    // compartilhado (ver Skill 01, contracts/CONTRACT-CONVENTIONS.md)
-  subjectType: string;
-  subjectId: string;
-  stageWorkUnitIdentityHash: string; // Ponto S5 (01-orquestrador-de-producao/SPEC.md)
-    // — antes variantKey (string livre, sem gramática), agora
-    // STAGE_WORK_UNIT_IDENTITY_V1
   status: JobStatus;
   blockReason?: BlockReason;
   attemptCount: number;
@@ -224,7 +218,71 @@ type Job = {
   updatedAt: string;
 };
 
-type ExternalEffectState = "NOT_STARTED" | "SUBMITTING" | "CONFIRMED" | "UNKNOWN";
+type Job =
+  | (JobCommon & {
+      executionScope: 'RUN_SCOPED';
+      executionScopeRef: JobExecutionScopeRef; // narrowed: sempre a
+        // branch RUN_SCOPED de JobExecutionScopeRef — invariante
+        // Job.executionScope === Job.executionScopeRef.executionScope
+      runId: string;
+      stageKey: StageKey; // PATCH (Ponto M1) — antes "stage: string"
+        // (referenciando PipelineStage). stageKey é o único nome de
+        // identidade de stage no corpus; StageKey é contrato
+        // compartilhado (ver Skill 01, contracts/CONTRACT-CONVENTIONS.md)
+      subjectType: string; // grep corpus-wide (2026-09-19): subjectType/
+        // subjectId só aparecem ligados a StageSubjectBinding em todo o
+        // resto do corpus (Skill01/07/20) — nunca como identidade
+        // standalone de InboundInteraction/MetricRefreshRequest/
+        // PerformanceAnalysisRequest. Evidência real classifica como
+        // RUN_SCOPED-only, não campo comum hipotético.
+      subjectId: string;
+      stageWorkUnitIdentityHash: string; // Ponto S5 (01-orquestrador-de-producao/SPEC.md)
+        // — antes variantKey (string livre, sem gramática), agora
+        // STAGE_WORK_UNIT_IDENTITY_V1
+    })
+  | (JobCommon & {
+      executionScope: 'STANDALONE';
+      executionScopeRef: JobExecutionScopeRef; // narrowed: sempre a
+        // branch STANDALONE — aponta pra
+        // StandaloneWorkRequest → StandaloneWorkMaterialization, NUNCA
+        // ProductionRun/StageExecution fabricado
+      runId?: never;
+      stageKey?: never;
+      subjectType?: never;
+      subjectId?: never;
+      stageWorkUnitIdentityHash?: never;
+    });
+// Invariantes (R2): Job.executionScope === Job.executionScopeRef.executionScope
+// (checado no boundary de escrita, já que TS não amarra dois types
+// separados estaticamente). RUN_SCOPED exige TODAS as coordenadas
+// run/stage; STANDALONE as PROÍBE via `?: never` — não apenas opcionais.
+// Nenhum código fabrica ProductionRun/StageExecution/work unit falsos
+// pra satisfazer um Job standalone. `executionScopeRef` é a autoridade;
+// mudança de lease/Attempt NUNCA muda `executionScopeRef`. Um Job nunca
+// muda de RUN_SCOPED para STANDALONE ou vice-versa depois de
+// materializado — scope é parte da identidade semântica do Job.
+// `JobExecutionBinding`/`JobHandlerExecutionContext`/`JobExecutionResult`
+// preservam exatamente o mesmo `executionScopeRef` materializado no Job
+// (nunca um segundo sistema de scope competindo com o do Job).
+
+type ExternalEffectState = "NOT_STARTED" | "SUBMITTING" | "CONFIRMED" | "NOT_APPLIED" | "UNKNOWN";
+// PATCH (R1, 2026-09-19): + NOT_APPLIED — reconciliação de um SUBMITTING
+// pode concluir com prova confiável de que o efeito NÃO ocorreu (distinto
+// de CONFIRMED e de UNKNOWN). UNKNOWN nunca autoriza retry automático,
+// mesmo depois de reconciliação tentada.
+//
+// NOT_APPLIED é TERMINAL pra external-effect occurrence daquela Attempt —
+// beginExternalSubmission só aceita NOT_STARTED como estado de partida
+// (ver assinatura acima), então NOT_APPLIED nunca volta a ser submetível
+// na MESMA Attempt. NOT_APPLIED autoriza a Skill 02 a decidir um retry
+// técnico conforme RetryPolicy; se houver retry, ele materializa uma
+// NOVA Attempt (novo attemptNumber), cujo externalEffectState nasce em
+// NOT_STARTED — só aí beginExternalSubmission pode ser avaliado de novo.
+// Proibido: NOT_APPLIED → NOT_STARTED (apagaria histórico da Attempt
+// antiga) e NOT_APPLIED → SUBMITTING na mesma Attempt (enfraqueceria
+// "uma Attempt = uma ocorrência de submissão externa"). Tentar
+// beginExternalSubmission numa Attempt já em NOT_APPLIED →
+// REJECTED_INVALID_STATE, zero provider calls.
 
 type JobAttempt = {
   jobId: string;
@@ -301,6 +359,24 @@ type JobResultEvent = {
 //   renova leaseExpiresAt com WHERE leaseFence = atual; NÃO altera estado
 //   lógico do Job e NÃO incrementa version (evita version churn a cada
 //   heartbeat) — toda mutação lógica usa leaseFence + expectedVersion.
+// beginExternalSubmission(jobId, leaseFence, expectedVersion, attemptNumber, providerRequestKey?) ->
+//   { disposition: "ACCEPTED"; committedVersion: number }
+//   | { disposition: "REJECTED_STALE_FENCE" }
+//   | { disposition: "REJECTED_VERSION_CONFLICT" }
+//   | { disposition: "REJECTED_INVALID_STATE" }
+//   PATCH (R1, kernel repair pós re-review GPT-6 Astra, 2026-09-19) —
+//   ÚNICA autoridade capaz de transicionar JobAttempt.externalEffectState
+//   NOT_STARTED → SUBMITTING. Valida atomicamente, na mesma transação:
+//   Job existe, Attempt corrente é exatamente attemptNumber, lease ativo,
+//   leaseFence é o vigente, expectedVersion bate com o Job persistido, a
+//   transição de estado é válida, e providerRequestKey (quando
+//   aplicável) fica congelado pra aquela external-effect occurrence —
+//   nunca regenerado entre tentativas de reconciliação do mesmo efeito
+//   ambíguo. Nenhum handler escreve externalEffectState diretamente;
+//   todo handler SEMPRE solicita a transição por aqui (preserva o
+//   boundary de ownership do Attempt, que continua da Skill 02).
+//   REJECTED_* nunca muda externalEffectState e nunca autoriza nenhuma
+//   chamada ao provider (zero provider calls).
 // reportExecution(jobId, leaseFence, expectedVersion, JobExecutionReport) -> aceito | REJECTED_STALE_FENCE
 // consumeRunCancellationIntent(intent: RunCancellationIntent) -> void
 ```
@@ -338,26 +414,51 @@ CANCEL_REQUESTED | SUCCEEDED | FAILED | CANCELLED)`.
 
 ```
 antes da chamada externa:
-  persistir JobAttempt.externalEffectState = SUBMITTING
-    (+ providerRequestKey, quando aplicável)
-  → COMMIT (transação fechada, durável)
-  → só depois chamar o provider (nenhuma transação de banco aberta
-    atravessando a chamada de rede)
+  handler MUST obtain ACCEPTED de beginExternalSubmission(jobId,
+    leaseFence, expectedVersion, attemptNumber, providerRequestKey?)
+    before the first external side effect.
+  → beginExternalSubmission persiste JobAttempt.externalEffectState =
+    SUBMITTING (+ providerRequestKey, quando aplicável) e faz COMMIT
+    (transação fechada, durável) ATOMICAMENTE com a validação de
+    fence/Attempt/version — nunca dois passos separados.
+  No external provider submission is allowed before the durable
+  SUBMITTING checkpoint commits successfully.
+  → REJECTED_STALE_FENCE, REJECTED_VERSION_CONFLICT ou
+    REJECTED_INVALID_STATE MUST result in zero provider calls
+    (externalEffectState não muda).
+  → só com ACCEPTED o handler chama o provider (nenhuma transação de
+    banco aberta atravessando a chamada de rede)
 
 provider respondeu + operationId persistido:
   CONFIRMED
 
 SUBMITTING + perda de lease/crash + nenhuma confirmação persistida:
+  Lease loss after ACCEPTED does not authorize a second automatic
+  submission by another worker. A later worker observing SUBMITTING
+  MUST enter reconciliation, not fresh submission:
   → handler tenta reconciliação quando for segura (provider com
-    idempotência nativa → reconcilia/repete com a mesma
-    providerRequestKey)
+    idempotência nativa → reconcilia pela MESMA providerRequestKey,
+    congelada desde o ACCEPTED original — nunca regenerada)
+  → se o provider confirma que a operação ocorreu: CONFIRMED
+  → se há prova confiável de que NÃO ocorreu: NOT_APPLIED — só então
+    uma nova submissão pode começar, sob um leaseFence/beginExternalSubmission
+    novo
   → se o estado continuar indeterminável:
       JobAttempt.externalEffectState = UNKNOWN
       Job.status = BLOCKED
       Job.blockReason = EXTERNAL_STATE_UNKNOWN
       + JobBlockedEvent
-    (as três mudanças acima na mesma transação lógica)
+    (as três mudanças acima na mesma transação lógica; UNKNOWN nunca
+    autoriza repetição automática)
 ```
+
+**Invariante central (R1)**: nenhum external side effect pode começar
+sem um checkpoint `SUBMITTING` durável aceito pela Skill 02 sob a
+Attempt atual, `leaseFence` atual e `expectedVersion` atual. Uma vez
+aceito, `SUBMITTING` bloqueia qualquer nova submissão automática até
+que o efeito anterior seja reconciliado como `CONFIRMED` ou
+confiavelmente `NOT_APPLIED`; ambiguidade termina em `UNKNOWN`, nunca
+em repeat automático.
 
 `SUBMITTING` significa "a partir daqui o side effect pode ter acontecido".
 Commitá-lo **antes** de chamar o provider é deliberadamente conservador: se
@@ -371,6 +472,33 @@ de persistir o `externalOperationId`. `providerRequestKey` sozinho não
 basta quando o provider não oferece idempotência — só o marcador
 `externalEffectState = SUBMITTING`, persistido **antes** do side effect,
 permite detectar esse estado incerto depois.
+
+**Sobre o "worker zumbi" (limite físico, não falha de desenho)**: se o
+worker A obtém `ACCEPTED` (fence 7) e depois perde o lease antes de
+chamar o provider — worker B adquire fence 8 nesse meio-tempo —, nada
+no `leaseFence` consegue impedir fisicamente A de ainda assim chamar o
+provider; nenhum fencing interno cancela uma chamada de rede que o
+processo já decidiu fazer. `leaseFence` não oferece exactly-once
+externo, e fingir que oferece seria um erro pior do que reconhecer o
+limite. A proteção real vem de duas regras já descritas acima: B nunca
+repete a submissão automaticamente ao observar `SUBMITTING` (sempre
+reconciliation); e `providerRequestKey`, quando existe, fica congelado
+pra aquela external-effect occurrence — nunca `Attempt 1 → key A, crash,
+Attempt 2 → key B` pro mesmo efeito ainda ambíguo.
+
+**Ownership do Attempt**: a Skill 02 mantém ownership exclusivo do
+`JobAttempt` — nenhum handler faz o equivalente a
+`attempt.externalEffectState = "SUBMITTING"; save()` diretamente. Todo
+handler solicita a transição via `beginExternalSubmission(...)`, que é
+quem de fato persiste. Isso preserva o boundary: `jobId + attemptNumber
++ leaseFence + expectedVersion` como precondition set — `leaseFence`
+responde "você ainda é o owner autorizado?"; `expectedVersion` responde
+"o estado que você está mutando ainda é exatamente o que você leu?";
+`attemptNumber` protege uma dimensão diferente de ambos (lease
+ownership ≠ attempt identity — o checkpoint pertence à Attempt que está
+sendo executada). Não introduzimos nenhuma geração de fencing nova
+(`submissionFence`/`externalEffectFence`/etc.) — `leaseFence` já
+basta; duplicar geraria confusão sem resolver o problema externo real.
 
 `deadlineAt` expirar **não autoriza retry automático**. Mesmo com
 `externalOperationId` vencido, o handler especializado deve
@@ -735,6 +863,46 @@ cobertura sim:
 - `SUBMITTING` persistido e commitado antes da chamada externa; crash antes
   da chamada real produz o comportamento conservador previsto (sem retry
   cego em provider sem idempotência).
+- **R1 — `beginExternalSubmission` fenced (kernel repair pós re-review
+  GPT-6 Astra, 2026-09-19)**:
+  1. `leaseFence` stale tenta `beginExternalSubmission` →
+     `REJECTED_STALE_FENCE`, `externalEffectState` não muda, zero
+     provider calls.
+  2. `expectedVersion` stale → `REJECTED_VERSION_CONFLICT`, zero
+     provider calls.
+  3. Attempt antiga tenta checkpoint depois que uma nova Attempt já
+     existe → rejeitada, zero provider calls.
+  4. `ACCEPTED` → `SUBMITTING` persistido → crash antes da chamada →
+     novo worker NÃO chama o provider automaticamente → entra em
+     reconciliation.
+  5. `ACCEPTED` → provider executa → crash antes de `reportExecution` →
+     recovery reconcilia pela MESMA `providerRequestKey` → nunca gera
+     key nova.
+  6. `SUBMITTING` + resultado externo indeterminável mesmo após
+     reconciliação → `UNKNOWN` → nenhuma repetição automática.
+  7. Provider com idempotência nativa → todo retry/reconciliation
+     daquele efeito usa a mesma `providerRequestKey` congelada.
+  8. `heartbeat` com `leaseFence` válido NÃO concede autoridade para
+     alterar `externalEffectState` — só `beginExternalSubmission` faz
+     isso.
+  9. Caso do "worker zumbi": Worker A com fence 10 obtém `ACCEPTED`;
+     Worker B adquire fence 11 antes de A chamar o provider; A tenta
+     `beginExternalSubmission` de novo com fence 10 (ex.: retry
+     interno) → rejeitado antes de qualquer chamada externa (o buraco
+     original do R1 — a chamada already-in-flight de A não é
+     fisicamente cancelável, mas nenhuma SEGUNDA tentativa de A ou
+     qualquer tentativa de B passa pelo guard sem fence atual).
+  10. `NOT_APPLIED` é terminal por Attempt (achado do ChatGPT ao
+      revisar o fechamento do R1 — sem isso `NOT_APPLIED` virava beco
+      sem saída, já que `beginExternalSubmission` só aceita
+      `NOT_STARTED` como estado de partida): Attempt `A1` vai
+      `SUBMITTING → NOT_APPLIED`; nova tentativa de
+      `beginExternalSubmission` ainda em `A1` → `REJECTED_INVALID_STATE`,
+      zero provider calls; Skill 02 cria `A2` conforme `RetryPolicy`;
+      `A2.externalEffectState = NOT_STARTED`; só então
+      `beginExternalSubmission` pode ser avaliado normalmente para
+      `A2`. `NOT_APPLIED → NOT_STARTED` (mesma Attempt) e `NOT_APPLIED
+      → SUBMITTING` (mesma Attempt) nunca acontecem.
 - `WAITING_EXTERNAL` com `deadlineAt` vencido → não cria novo `Attempt`;
   readquire com `POLL_EXISTING_ATTEMPT` e força reconciliação.
 - Heartbeat com `leaseFence` válido renova só o lease — não incrementa
@@ -1182,7 +1350,7 @@ bem-sucedido é materializado antes do report e referenciado em
 `JobExecutionResult.resultRef`. A Skill nunca altera diretamente
 `JobStatus`, `Attempt` ou lease."* Esse patch não cria tipos novos nos
 arquivos das Skills. Artifacts de side-effect próprios (ex.:
-`ProviderSubmission`, `PublicationIntent`, `DeliveryAttempt`) continuam
+`ProviderSubmission`, `PublicationPlan`, `DeliveryAttempt`) continuam
 existindo — podem aparecer em `continuation.checkpointRef` ou
 `additionalResultRefs`; o protocolo Skill 02 não os substitui.
 
@@ -1330,15 +1498,18 @@ type JobExecutionScopeRef =
 // Sem hash próprio.
 ```
 
-**Patch ao `Job` existente**: adiciona `executionScope:
-JobExecutionScope` e `executionScopeRef: JobExecutionScopeRef`, com
-invariante `Job.executionScope === Job.executionScopeRef.executionScope`.
-Se o `Job` antigo tinha campos tipo `productionRunId`/`stageExecutionId`/
-`runId`/`stageId` obrigatórios pra **todo** Job, eles deixam de ser
-autoridade universal — a autoridade passa a ser `Job.executionScopeRef`
-(não precisa apagar imediatamente campos legados referenciados em
-outras seções, mas marcar como `legacy / RUN_SCOPED-only /
-non-authoritative`).
+**Patch ao `Job` existente — APLICADO (kernel repair R2, 2026-09-19)**:
+`Job` real (início deste documento) recebeu `executionScope`/
+`executionScopeRef`, com invariante `Job.executionScope ===
+Job.executionScopeRef.executionScope`. `runId`/`stageKey`/`subjectType`/
+`subjectId`/`stageWorkUnitIdentityHash` deixaram de ser autoridade
+universal — passaram a existir só na branch `RUN_SCOPED` da união
+discriminada (`?: never` na branch `STANDALONE`, não apenas opcionais
+soltos + invariante textual — lição do N3: campos opcionais com
+invariante em prosa deixam espaço pra estados impossíveis que o
+compilador não pega). Achado real na re-review GPT-6 Astra (R2): esta
+prosa prometia o patch desde o Ponto C original, mas nunca tinha
+chegado ao `Job` real — mesmo padrão de bug do N3.
 
 **Proibido resolver standalone fabricando `ProductionRun`/`Stage`
 falsos** — isso só esconderia o B1. O caminho correto é

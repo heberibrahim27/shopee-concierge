@@ -303,6 +303,7 @@ function extractTopLevelDeclarations(code, sourceLabel) {
         fullStart: node.getFullStart(),
         enclosingTypeName,
         optional: Boolean(node.questionToken),
+        typeText: node.type ? node.type.getText(sourceFile) : undefined,
       });
     }
     ts.forEachChild(node, (child) => visit(child, enclosingTypeName));
@@ -336,13 +337,32 @@ function lintSkillSpec(skillDirName) {
   if (!existsSync(specPath)) {
     return { skillDirName, specPath, findings: [{ rule: "G016_SKILL_SPEC_MISSING", detail: "SPEC.md ausente" }], declCount: 0 };
   }
-  const markdown = readFileSync(specPath, "utf-8");
+  // PATCH (achado N7 da re-review GPT-6 Astra, 2026-09-19): normaliza
+  // CRLF->LF no ponto de leitura. Sem isso, extractFencedBlocks/
+  // extractFatalErrorCodes (regex `\n` literal logo após a linguagem
+  // do fence) não reconhecem NENHUM fence em texto CRLF — a extração
+  // silenciosamente retorna vazio, nenhuma regra dispara, e o script
+  // reporta PASS mesmo com corpus real (confirmado: uma duplicata
+  // deliberada de type passou despercebida em CRLF, mas disparou
+  // G001_DUPLICATE_SYMBOL_WITHIN_SPEC corretamente após normalizar pra
+  // LF). Normalizar aqui, uma única vez, é mais seguro que tornar cada
+  // regex tolerante a `\r?\n` individualmente.
+  const markdown = readFileSync(specPath, "utf-8").replace(/\r\n/g, "\n");
 
   const tsBlocks = extractFencedBlocks(markdown, ["ts", "typescript"]);
   const seenSymbols = new Map(); // name -> count
   let totalDecls = 0;
   const allPropertyNamesByType = new Map(); // enclosingTypeName -> Set(propertyName)
   const allPropertyDetailsByType = new Map(); // enclosingTypeName -> Map(propertyName -> {optional})
+  // R2 (kernel repair pós re-review GPT-6 Astra, 2026-09-19): union
+  // discriminada real (Job) tem o MESMO nome de propriedade aparecendo
+  // em branches diferentes com typeText diferente ("string" numa branch,
+  // "never" noutra) — allPropertyDetailsByType guarda só a última
+  // ocorrência (sobrescreve), então não basta pra provar que as DUAS
+  // formas existem. Coleta dedicada de todos os typeTexts vistos por
+  // nome de propriedade, só pro type Job (mesmo bug que pegamos em N3
+  // com StageTransitionResolution.sources).
+  const jobPropertyTypeTextsByName = new Map(); // propertyName -> Set(typeText)
 
   const LEGACY_PROPERTY_NAMES = new Set(["errorClass", "retryableErrorClasses"]);
   // Ponto S13: allowlist explícita dos únicos tipos legados que podem
@@ -369,7 +389,13 @@ function lintSkillSpec(skillDirName) {
       if (!allPropertyDetailsByType.has(prop.enclosingTypeName)) {
         allPropertyDetailsByType.set(prop.enclosingTypeName, new Map());
       }
-      allPropertyDetailsByType.get(prop.enclosingTypeName).set(prop.name, { optional: prop.optional });
+      allPropertyDetailsByType.get(prop.enclosingTypeName).set(prop.name, { optional: prop.optional, typeText: prop.typeText });
+      if (prop.enclosingTypeName === "Job") {
+        if (!jobPropertyTypeTextsByName.has(prop.name)) {
+          jobPropertyTypeTextsByName.set(prop.name, new Set());
+        }
+        jobPropertyTypeTextsByName.get(prop.name).add(prop.typeText);
+      }
     }
     for (const prop of propertyNames) {
       if (!LEGACY_PROPERTY_NAMES.has(prop.name)) continue;
@@ -604,7 +630,39 @@ function lintSkillSpec(skillDirName) {
         detail: "CreativeDirectionSuccess não tem creativeCtaIntentHash (Ponto S3)",
       });
     }
+
+    // R5 — Skill20 é DEFERRED_V2_CONTRACT; nenhum type V1 real da Skill07
+    // pode adquirir referência a VariationDirective (nem opcional — evita
+    // pré-wiring morto/campo fantasma) antes da ativação V2. Checagem via
+    // AST real nos owners V1 conhecidos, não banimento textual da palavra
+    // (comentário explicativo futuro é permitido).
+    for (const typeName of ["CreativeDirectionInput", "CreativeDirectionSuccess", "CreativeDirectionUnavailable"]) {
+      const props = allPropertyNamesByType.get(typeName);
+      if (!props) continue;
+      for (const propName of props) {
+        if (/variationDirective/i.test(propName)) {
+          findings.push({
+            rule: "G_R5_SKILL07_V1_VARIATION_DIRECTIVE_DEPENDENCY_BANNED",
+            detail: `${typeName}.${propName} referencia VariationDirective — Skill20 é DEFERRED_V2_CONTRACT, nenhum type V1 real da Skill07 pode depender disso, nem opcionalmente (achado R5)`,
+          });
+        }
+      }
+    }
   }
+  // R5 — protege a regra já existente (Ponto S5/M5): nenhum pipeline
+  // adapter V1 pode emitir CREATIVE_VARIANT derivado da Skill20. A frase
+  // normativa vive em blockquote (linhas prefixadas "> "), então
+  // normaliza antes de comparar.
+  if (skillDirName.startsWith("20-")) {
+    const flattened = markdown.replace(/\r?\n>\s*/g, " ");
+    if (!flattened.includes("No V1 pipeline adapter may emit CREATIVE_VARIANT work units derived from Skill20")) {
+      findings.push({
+        rule: "G_R5_V1_CREATIVE_VARIANT_WORK_UNIT_BANNED",
+        detail: "Não encontrei a frase normativa 'No V1 pipeline adapter may emit CREATIVE_VARIANT work units derived from Skill20' — essa proibição precisa continuar explícita (achado R5, reforça Ponto S5/M5)",
+      });
+    }
+  }
+
   const S3_CONSUMER_TYPES = {
     "16-": ["CreativeCtaMatch", "SocialPublicationBindingRef"],
     "17-": ["PublicationInput", "PublicationPlan", "LogicalPublicationIdentity"],
@@ -755,6 +813,64 @@ function lintSkillSpec(skillDirName) {
         detail: "StageExecution não tem stageWorkUnitIdentityHash (Ponto S5)",
       });
     }
+
+    // Kernel repair N1+N2+N3 (2026-09-18, re-review GPT-6 Astra) — via AST
+    // real. Achado comum aos três: campo/branch descrito só em comentário
+    // "PATCH (patch in-place)", nunca aplicado ao type de verdade — mesma
+    // classe de bug que G_S5_* já vigiava, agora pro desenho de identidade
+    // do kernel (Stage → StageIteration → StageWorkUnitIdentity →
+    // StageSubjectBinding → StageExecution → Job).
+    const kernelContractProps = allPropertyNamesByType.get("StageKernelContract");
+    if (kernelContractProps && !kernelContractProps.has("workUnitContract")) {
+      findings.push({
+        rule: "G_N123_STAGE_KERNEL_WORK_UNIT_CONTRACT_MISSING",
+        detail: "StageKernelContract não tem workUnitContract — sem isso SINGLE/EXPANDABLE nunca vira contrato executável, só comentário (achado N3)",
+      });
+    }
+
+    const bindingProps = allPropertyNamesByType.get("StageSubjectBinding");
+    if (bindingProps && !bindingProps.has("stageIterationId")) {
+      findings.push({
+        rule: "G_N123_BINDING_ITERATION_IDENTITY_MISSING",
+        detail: "StageSubjectBinding não tem stageIterationId — o binding colidiria entre StageIteration diferentes pra mesma work unit coordinate (achado N2)",
+      });
+    }
+
+    const transitionProps = allPropertyNamesByType.get("StageTransitionResolution");
+    if (transitionProps) {
+      if (!transitionProps.has("workUnitContract") || !transitionProps.has("source")) {
+        findings.push({
+          rule: "G_N123_EXPANDABLE_TRANSITION_BRANCH_MISSING",
+          detail: "StageTransitionResolution não tem workUnitContract/source — o fan-out EXPANDABLE precisa existir no type real como discriminated union, nunca só em comentário \"PATCH\" (achado N3)",
+        });
+      }
+      // Checagem dirigida via tipo real do AST (não texto/regex): "sources"
+      // sozinho não basta — a branch SINGLE também declara "sources?: never"
+      // como marcador de exclusão mútua, então só checar presença do nome
+      // de propriedade não detecta a branch EXPANDABLE real sendo removida
+      // (nem markdown.includes(...) basta — a prosa deste próprio SPEC.md
+      // cita o mesmo texto ao descrever o campo). Precisa do typeText real
+      // da AST apontando pro array, não pra "never".
+      const sourcesType = allPropertyDetailsByType.get("StageTransitionResolution")?.get("sources")?.typeText;
+      if (!sourcesType || !sourcesType.includes("StageTransitionSource[]")) {
+        findings.push({
+          rule: "G_N123_EXPANDABLE_TRANSITION_BRANCH_MISSING",
+          detail: `StageTransitionResolution.sources não é 'StageTransitionSource[]' (encontrado: ${sourcesType || "ausente"}) — a branch EXPANDABLE precisa carregar o conjunto real de sources, não só o marcador 'sources?: never' da branch SINGLE (achado N3)`,
+        });
+      }
+    }
+
+    const intentProps = allPropertyNamesByType.get("LogicalJobIntent");
+    if (intentProps) {
+      for (const required of ["stageExecutionId", "preparedInvocationHash"]) {
+        if (!intentProps.has(required)) {
+          findings.push({
+            rule: "G_N123_LEGACY_LOGICAL_JOB_KEY_TEMPLATE_CONFLICT",
+            detail: `LogicalJobIntent não tem '${required}' — sem esse campo logicalJobKey só pode derivar da coordenada da work unit (template pré-N1, Ponto S5), que colide entre StageIteration diferentes (achado N1)`,
+          });
+        }
+      }
+    }
   }
 
   // Ponto S6 (VIDEO_COMPOSITION_V1 — sem stage de VIDEO_ASSEMBLY no
@@ -804,6 +920,106 @@ function lintSkillSpec(skillDirName) {
         rule: "G_S7_SKILL02_WORKER_OWNERSHIP_MISSING",
         detail: "Skill02 referencia EXECUTION_RUNTIME_V1 mas não afirma DURABLE_WORKER/VIDEO_MACHINE_WORKER_V1 como dono da execução (Ponto S7)",
       });
+    }
+  }
+
+  // R1 — checkpoint SUBMITTING fenced (kernel repair pós re-review GPT-6
+  // Astra, 2026-09-19). Achado real: a máquina de estado do efeito
+  // externo persistia SUBMITTING sem exigir leaseFence/expectedVersion,
+  // ao contrário de reportExecution — um worker zumbi (fence velho)
+  // podia em tese commitar o checkpoint e disparar o side effect.
+  if (skillDirName.startsWith("02-")) {
+    const hasFencedOperation = markdown.includes(
+      "beginExternalSubmission(jobId, leaseFence, expectedVersion, attemptNumber, providerRequestKey?)"
+    );
+    if (!hasFencedOperation) {
+      findings.push({
+        rule: "G_R1_FENCED_EXTERNAL_SUBMISSION_OPERATION_MISSING",
+        detail: "Não encontrei a assinatura canônica beginExternalSubmission(jobId, leaseFence, expectedVersion, attemptNumber, providerRequestKey?) — checkpoint SUBMITTING precisa de uma operação fenced única, nos mesmos moldes de reportExecution (achado R1)",
+      });
+    }
+    // Checagem dirigida (texto, não AST — a operação é comentário de
+    // assinatura de função, não um type real): toda ocorrência do
+    // padrão antigo "persistir JobAttempt.externalEffectState =
+    // SUBMITTING" precisa ter beginExternalSubmission mencionado nas
+    // proximidades (mesmo bloco normativo) — senão é o write solto,
+    // desprotegido, que o R1 proibiu.
+    const unguardedPattern = /persistir\s+JobAttempt\.externalEffectState\s*=\s*SUBMITTING/g;
+    let m;
+    while ((m = unguardedPattern.exec(markdown))) {
+      const windowText = markdown.slice(Math.max(0, m.index - 300), m.index + 300);
+      if (!windowText.includes("beginExternalSubmission")) {
+        findings.push({
+          rule: "G_R1_UNGUARDED_SUBMITTING_TRANSITION",
+          detail: `'persistir JobAttempt.externalEffectState = SUBMITTING' encontrado sem beginExternalSubmission nas proximidades (índice ~${m.index}) — write solto de SUBMITTING sem fencing é exatamente o buraco do R1`,
+        });
+      }
+    }
+
+    // R2 — Job precisa ser união discriminada real por executionScope
+    // (achado real: Ponto C prometia "adiciona executionScope/
+    // executionScopeRef ao Job" só em prosa, nunca aplicado ao type real
+    // — mesmo padrão de bug do N3).
+    const jobProps = allPropertyNamesByType.get("Job");
+    if (jobProps && (!jobProps.has("executionScope") || !jobProps.has("executionScopeRef"))) {
+      findings.push({
+        rule: "G_R2_JOB_EXECUTION_SCOPE_MISSING",
+        detail: "Job não tem executionScope/executionScopeRef — sem isso não existe autoridade real pra distinguir RUN_SCOPED de STANDALONE (achado R2)",
+      });
+    }
+    // Escopar a busca textual à declaração real do Job, não ao arquivo
+    // inteiro — 'RUN_SCOPED'/'STANDALONE' também aparecem em
+    // JobExecutionScopeRef (outro type), então markdown.includes(...)
+    // sem escopo daria falso PASS mesmo com a branch do Job removida.
+    const jobDeclIdx = markdown.indexOf("type Job =");
+    const jobDeclText = jobDeclIdx >= 0 ? markdown.slice(jobDeclIdx, jobDeclIdx + 3500) : "";
+    if (jobProps && !jobDeclText.includes("executionScope: 'RUN_SCOPED'")) {
+      findings.push({
+        rule: "G_R2_JOB_SCOPE_UNION_MISSING",
+        detail: "Não encontrei a branch literal executionScope: 'RUN_SCOPED' na declaração do Job — precisa ser discriminated union real, não campos opcionais soltos (achado R2)",
+      });
+    }
+    if (jobProps && !jobDeclText.includes("executionScope: 'STANDALONE'")) {
+      findings.push({
+        rule: "G_R2_JOB_SCOPE_UNION_MISSING",
+        detail: "Não encontrei a branch literal executionScope: 'STANDALONE' na declaração do Job — precisa ser discriminated union real, não campos opcionais soltos (achado R2)",
+      });
+    }
+    // Checagem dirigida via AST real (typeText por ocorrência, não só
+    // nome de propriedade — ver nota da coleta acima): pra cada campo
+    // RUN_SCOPED-only, a branch STANDALONE precisa proibi-lo via
+    // `?: never` de verdade, não apenas deixá-lo ausente/opcional.
+    for (const fieldName of ["runId", "stageKey", "subjectType", "subjectId", "stageWorkUnitIdentityHash"]) {
+      const typeTexts = jobPropertyTypeTextsByName.get(fieldName);
+      if (!typeTexts) continue; // Job nem existe neste SPEC — outro check cobre isso
+      if (!typeTexts.has("never")) {
+        findings.push({
+          rule: "G_R2_STANDALONE_RUN_COORDINATES_NOT_FORBIDDEN",
+          detail: `Job.${fieldName} não tem uma ocorrência com typeText 'never' — a branch STANDALONE precisa PROIBIR este campo (?: never), não deixá-lo opcional ou ausente (achado R2)`,
+        });
+      }
+    }
+  }
+
+  // R2 — inputs de background/scheduler/webhook não devem carregar runId
+  // obrigatório como plumbing legado de RUN_SCOPED. Checagem dirigida
+  // (não regex genérico corpus-wide) nos 4 owners exatos que a
+  // re-review apontou.
+  const R2_BACKGROUND_RUNID_TARGETS = {
+    "16-": ["ResponseIntent", "OutboundSendCheckpoint"],
+    "18-": ["MetricCollectionInputBase"],
+    "19-": ["PerformanceAnalysisInputBase"],
+  };
+  for (const [prefix, typeNames] of Object.entries(R2_BACKGROUND_RUNID_TARGETS)) {
+    if (!skillDirName.startsWith(prefix)) continue;
+    for (const typeName of typeNames) {
+      const props = allPropertyNamesByType.get(typeName);
+      if (props && props.has("runId")) {
+        findings.push({
+          rule: "G_R2_BACKGROUND_RUN_ID_REQUIRED_BANNED",
+          detail: `${typeName}.runId ainda existe — este owner é background/scheduler/webhook (STANDALONE, Ponto C), execution scope é infraestrutura do Job, não campo duplicado no domain input (achado R2)`,
+        });
+      }
     }
   }
   if (skillDirName.startsWith("11-") && markdown.includes("EXECUTION_RUNTIME_V1")) {
@@ -930,6 +1146,83 @@ function lintSkillSpec(skillDirName) {
     }
   }
 
+  // R3 — kernel precisa saber QUAL gate concreto, não só "há aprovação?"
+  // (achado real: StageDefinition.requiresApproval?: boolean não carrega
+  // informação suficiente pra construir um ApprovalRequestIntent válido;
+  // OrchestrationDecision não tinha nem como emitir REQUEST_APPROVAL).
+  if (skillDirName.startsWith("01-")) {
+    // Ignora ocorrências dentro de comentário `//` (nossos próprios PATCH
+    // notes citam o nome/shape antigo como explicação histórica) — só
+    // interessa se a linha declara o campo de verdade.
+    const hasLiveRequiresApproval = markdown.split("\n").some((line) => {
+      const trimmed = line.trim();
+      if (trimmed.startsWith("//") || trimmed.startsWith("*")) return false;
+      return /requiresApproval\??:\s*boolean/.test(line.split("//")[0]);
+    });
+    if (hasLiveRequiresApproval) {
+      findings.push({
+        rule: "G_R3_LEGACY_REQUIRES_APPROVAL_BANNED",
+        detail: "requiresApproval?: boolean ainda existe como campo real — banido, não deprecated (achado R3); boolean + gate em paralelo são duas fontes de verdade",
+      });
+    }
+    const stageDefProps = allPropertyNamesByType.get("StageDefinition");
+    if (stageDefProps && !stageDefProps.has("approvalRequirement")) {
+      findings.push({
+        rule: "G_R3_STAGE_APPROVAL_REQUIREMENT_MISSING",
+        detail: "StageDefinition não tem approvalRequirement — sem isso o kernel não sabe qual ApprovalGateKey concreto aplica a este stage (achado R3)",
+      });
+    }
+    // Checagem dirigida na declaração real de OrchestrationDecision — não
+    // procurar 'REQUEST_APPROVAL' no arquivo inteiro (mesma lição do R2:
+    // o texto podia aparecer solto em prosa/comentário sem o type real
+    // ter a branch).
+    const odDeclIdx = markdown.indexOf("type OrchestrationDecision =");
+    const odDeclText = odDeclIdx >= 0 ? markdown.slice(odDeclIdx, odDeclIdx + 700) : "";
+    if (!odDeclText.includes('type: "REQUEST_APPROVAL"')) {
+      findings.push({
+        rule: "G_R3_REQUEST_APPROVAL_DECISION_MISSING",
+        detail: "OrchestrationDecision não tem a branch real { type: \"REQUEST_APPROVAL\"; intent: ApprovalRequestIntent } — kernel não consegue emitir pedido de aprovação (achado R3)",
+      });
+    }
+  }
+
+  // R3 — ApprovalRequestIntent.approvalGateKey precisa usar o enum real,
+  // não string solta (mesmo arquivo já possui ApprovalGateKey closed V1).
+  if (skillDirName.startsWith("03-")) {
+    const intentDeclIdx = markdown.indexOf("type ApprovalRequestIntent =");
+    const intentDeclText = intentDeclIdx >= 0 ? markdown.slice(intentDeclIdx, intentDeclIdx + 1200) : "";
+    if (intentDeclIdx >= 0 && !intentDeclText.includes("approvalGateKey: ApprovalGateKey")) {
+      findings.push({
+        rule: "G_R3_APPROVAL_GATE_KEY_MUST_USE_ENUM",
+        detail: "ApprovalRequestIntent.approvalGateKey não está tipado como ApprovalGateKey (achado R3)",
+      });
+    }
+  }
+
+  // N8 — subjectVersion nunca teve produtor canônico em nenhum gate;
+  // removido do contrato de aprovação em favor de ExactApprovalSubject
+  // (subjectType + subjectId + artifactHash). Checagem dirigida: inspeciona
+  // as declarações normativas reais (via AST, propertyNames), não
+  // comentários históricos que citam o nome do campo antigo como explicação.
+  if (skillDirName.startsWith("03-")) {
+    for (const typeName of ["ApprovalRequestIntent", "ApprovalRequest", "ApprovalDecision", "ApprovalResolvedEvent"]) {
+      const props = allPropertyNamesByType.get(typeName);
+      if (!props) continue;
+      if (props.has("subjectVersion")) {
+        findings.push({
+          rule: "G_N8_APPROVAL_SUBJECT_VERSION_BANNED",
+          detail: `${typeName}.subjectVersion ainda existe como campo real — removido no achado N8, nunca teve produtor canônico em nenhum gate (VIDEO_COMPLIANCE nem FIRST_REAL_PUBLISH)`,
+        });
+      }
+      if (!props.has("subjectType") || !props.has("subjectId") || !props.has("artifactHash")) {
+        findings.push({
+          rule: "G_N8_APPROVAL_EXACT_SUBJECT_HASH_REQUIRED",
+          detail: `${typeName} não tem subjectType+subjectId+artifactHash completos — remover subjectVersion não pode degradar a identidade pra menos que ExactApprovalSubject (achado N8)`,
+        });
+      }
+    }
+  }
+
   // Ponto M8 (identidade determinística de scheduleSlotKey — nunca
   // derivada de arredondamento de now(), sempre da ocorrência nominal
   // do schedule):
@@ -1028,6 +1321,43 @@ function lintSkillSpec(skillDirName) {
         detail: "IntegrationBindingResolutionRequest.trustedTenantContextHash virou opcional — nunca pode ser enfraquecido, nem pelo bootstrap do Ponto S1 (que é um mecanismo separado, não um substituto)",
       });
     }
+  }
+
+  // N5 — PublicationIntent nunca foi declarado em nenhuma Skill; achado
+  // real era Skill01/03/17 tratando esse nome como se fosse um artifact
+  // canônico. PublicationPlan (Skill17) é o owner real. Checagem
+  // corpus-wide (roda em todo SPEC.md, não só num skillDirName): nenhum
+  // type real pode se chamar PublicationIntent — DeletePublicationIntent
+  // (conceito futuro, diferente, de delete-request) não conta.
+  if (seenSymbols.has("PublicationIntent")) {
+    findings.push({
+      rule: "G_N5_UNDECLARED_PUBLICATION_INTENT_BANNED",
+      detail: "type PublicationIntent declarado — esse artifact nunca deveria existir; PublicationPlan (Skill17) é o owner real do subject FIRST_REAL_PUBLISH (achado N5)",
+    });
+  }
+  if (skillDirName.startsWith("03-")) {
+    const gateTableIdx = markdown.indexOf("Gates V1 e subject exato por gate");
+    const gateTableText = gateTableIdx >= 0 ? markdown.slice(gateTableIdx, gateTableIdx + 1500) : "";
+    if (gateTableIdx >= 0 && !gateTableText.includes("`FIRST_REAL_PUBLISH` | `PublicationPlan`")) {
+      findings.push({
+        rule: "G_N5_FIRST_REAL_PUBLISH_SUBJECT_MUST_BE_PUBLICATION_PLAN",
+        detail: "Tabela normativa gate→subjectType não diz que FIRST_REAL_PUBLISH exige PublicationPlan (achado N5)",
+      });
+    }
+  }
+
+  // PATCH (achado N7 da re-review GPT-6 Astra, 2026-09-19): guarda de
+  // defesa em profundidade. Toda extração vazia num arquivo que
+  // deveria ter conteúdo real é, por definição, uma falha da
+  // ferramenta, não um SPEC genuinamente sem tipos — os 25 SPEC.md
+  // reais sempre têm pelo menos um `type`/`interface`. Isso pega
+  // qualquer futura classe de bug de extração silenciosa (encoding,
+  // BOM, fence malformado), não só o CRLF já corrigido acima.
+  if (totalDecls === 0) {
+    findings.push({
+      rule: "G000_ZERO_DECLARATIONS_EXTRACTED",
+      detail: "0 declarações TS extraídas deste SPEC.md — isso é sinal de falha na extração (encoding/fence/parser), nunca um SPEC real vazio. Não confiar em PASS quando isso ocorre.",
+    });
   }
 
   return { skillDirName, specPath, findings, warnings, declCount: totalDecls, fatalCount: fatalCodes.length };

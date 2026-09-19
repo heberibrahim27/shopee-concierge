@@ -124,15 +124,55 @@ type PipelineDefinition = {
   stages: StageDefinition[];
 };
 
+// PATCH (R3, kernel repair pós re-review GPT-6 Astra, 2026-09-19):
+// ApprovalGateKey é owned pela Skill 03 (skills/03-gestor-de-aprovacao/SPEC.md)
+// — Skill01 REFERENCIA o type, nunca redefine. V1 é closed enum, sem gate
+// arbitrário configurado por admin.
+type ApprovalGateKey =
+  | 'VIDEO_COMPLIANCE'
+  | 'FIRST_REAL_PUBLISH';
+
+// PATCH (R3): substitui requiresApproval?: boolean. Não mantemos boolean +
+// gate em paralelo — duas fontes de verdade pro mesmo fato é exatamente o
+// achado real (kernel não sabia QUAL gate, só "há aprovação?"). V1 só
+// precisa de no máximo um gate por ocorrência de stage — sem array.
+// approvalGateKey aqui NUNCA vem acompanhado de subjectType/subjectId: a
+// tabela normativa gate→subjectType (VIDEO_COMPLIANCE→VideoArtifact,
+// FIRST_REAL_PUBLISH→PublicationPlan — PATCH N5, antes dizia
+// PublicationIntent, artifact nunca declarado em nenhuma Skill;
+// PublicationPlan é o owner real, ver skills/17-publicador-multicanal/SPEC.md)
+// é autoridade EXCLUSIVA da Skill03 — duplicá-la aqui é exatamente o
+// risco que motivou este achado (alguém configurar VIDEO_COMPLIANCE num
+// stage cujo artifact disponível é um PublicationPlan). O subject real
+// vem da StageSubjectBinding/upstreamArtifactRefs da StageExecution
+// sendo gated, nunca de configuração estática do pipeline.
+type StageApprovalRequirement = {
+  approvalGateKey: ApprovalGateKey;
+  approvalPolicyKey?: string; // mesma semântica já definida na Skill03 —
+    // Skill01 só carrega a key escolhida/congelada, nunca copia
+    // mode/hardRequirements/autoApproveAllowed/autoApprovalProhibitedGateKeys
+    // pra dentro deste type (policy continua owned pela Skill03)
+};
+
 type StageDefinition = {
   stageKey: StageKey; // PATCH (Ponto M1) — antes "stage"
   dependsOn: StageKey[];
   subjectScope: "RUN" | "PRODUCT" | "VIDEO" | "PUBLICATION"; // etc.
   completionPolicy: "ALL" | "ANY" | "ALLOW_PARTIAL";
   failurePolicy: "FAIL_RUN" | "BLOCK" | "CONTINUE_PARTIAL";
-  requiresApproval?: boolean;
+  approvalRequirement?: StageApprovalRequirement; // PATCH (R3) — antes
+    // requiresApproval?: boolean, removido/banido (nunca deprecated —
+    // manter os dois seria duas fontes de verdade). Ausente = stage não
+    // possui gate; presente = stage possui exatamente um gate V1.
   retryPolicy: RetryPolicy; // consumida pela Skill 02 ao criar o Job
 };
+// Como StageDefinition entra na PipelineDefinition/ProductionPipelineSnapshot
+// congelados no nascimento do Run (ver "Compatibilidade com contratos já
+// aprovados" abaixo), approvalRequirement fica congelado junto — depois do
+// início da Run, VIDEO_COMPLIANCE não pode silenciosamente virar
+// FIRST_REAL_PUBLISH porque alguém mudou configuração administrativa.
+// Projeção existente do hash do pipeline já cobre este campo — nenhum
+// hash schema novo só por causa do R3.
 
 // Resolução de subject (refinamento compatível, adicionado durante o
 // debate da Skill 07 — não reabre a aprovação 1/25): quando um stage com
@@ -167,10 +207,22 @@ type StageSubjectBinding = {
   runId: string;
   stageKey: string;
 
+  stageIterationId: string; // PATCH (kernel repair N2, 2026-09-18) —
+    // binding pertence à StageIteration exata, não apenas ao Run/stage;
+    // sem isso, uma correção (nova iteration) colidiria com o binding
+    // da iteration anterior para a mesma work unit coordinate
+  stageIterationHash: string; // PATCH (kernel repair N2) — id+hash,
+    // mesmo padrão já usado em StageExecution/StageExpansionManifest
+
   stageWorkUnitIdentityHash: string; // Ponto S5 — STAGE_WORK_UNIT_IDENTITY_V1;
     // BASE também tem hash, unicidade sempre usa a mesma coluna
   stageExpansionManifestRef?: StageExpansionManifestRef; // Ponto S5 —
-    // ausente quando mode=SINGLE/BASE; obrigatório quando mode=EXPANDABLE
+    // ausente quando mode=SINGLE/BASE; obrigatório quando mode=EXPANDABLE.
+    // PATCH (kernel repair N2): quando presente, o manifest referenciado
+    // precisa pertencer à MESMA stageIterationId deste binding —
+    // violação reaproveita STAGE_EXECUTION_ITERATION_MISMATCH (Ponto D;
+    // mesma categoria de violação — artifact do kernel apontando pra
+    // iteration errada —, nunca um código novo só pra este owner).
 
   subjectType: "PRODUCT" | "VIDEO" | "PUBLICATION";
   subjectId: string;
@@ -183,12 +235,16 @@ type StageSubjectBinding = {
 
   createdAt: string;
 };
-// UNIQUE lógico (Ponto S5): (runId, stageKey, stageWorkUnitIdentityHash)
-// -> um StageSubjectBinding canônico — antes (runId, stageKey) sozinho,
-// o que quebrava quando o mesmo subject precisa de bindings distintos
-// por work unit (ex.: mesmo FinalizedVideo publicado em Instagram e
-// TikTok). tenantId continua implícito via runId (ProductionRun),
-// mesmo padrão já usado neste tipo.
+// UNIQUE lógico (kernel repair N2, 2026-09-18): (runId, stageKey,
+// stageIterationId, stageWorkUnitIdentityHash) -> um StageSubjectBinding
+// canônico. Histórico: Ponto S5 tinha introduzido (runId, stageKey,
+// stageWorkUnitIdentityHash) — sem stageIterationId, o que colidia entre
+// revisões (a mesma work unit reexecutada numa StageIteration diferente
+// tentaria reusar o binding imutável da iteration anterior). Antes do S5
+// era (runId, stageKey) sozinho, o que quebrava quando o mesmo subject
+// precisa de bindings distintos por work unit (ex.: mesmo FinalizedVideo
+// publicado em Instagram e TikTok). tenantId continua implícito via runId
+// (ProductionRun), mesmo padrão já usado neste tipo.
 // Materializado uma vez; replay do mesmo Run/stage reutiliza o
 // StageSubjectBinding existente, não resolve de novo (mesmo princípio de
 // idempotência de persistência das Skills 04/05/06).
@@ -202,9 +258,11 @@ type StageSubjectBinding = {
 // falha de uma tentativa (ex.: timeout de IA) não autoriza pular para o
 // próximo rank — isso confundiria falha técnica com decisão de negócio.
 // IMPORTANTE: quando o fallback for especificado, ele NUNCA muta um
-// StageSubjectBinding V1 existente (imutável, UNIQUE por runId+stageKey)
-// — precisa introduzir uma nova instância de stage/resolution sequence
-// versionada. Até lá, V1 permanece imutável por definição.
+// StageSubjectBinding V1 existente (imutável, UNIQUE por runId+stageKey+
+// stageIterationId+stageWorkUnitIdentityHash) — precisa introduzir uma
+// nova instância de stage/resolution sequence versionada (nova
+// StageIteration, nunca mutação in-place). Até lá, V1 permanece
+// imutável por definição.
 
 type RetryPolicy = {
   maxAttempts: number;
@@ -240,25 +298,118 @@ type RunControlCommand = {
 
 type OrchestrationDecision =
   | { type: "REQUEST_JOB"; intent: LogicalJobIntent }
+  | { type: "REQUEST_APPROVAL"; intent: ApprovalRequestIntent } // PATCH
+    // (R3) — ApprovalRequestIntent continua owned pela Skill 03
+    // (skills/03-gestor-de-aprovacao/SPEC.md); Skill01 referencia,
+    // nunca cria cópia local do type
   | { type: "WAIT" }
   | { type: "PAUSE"; reason: string }
   | { type: "COMPLETE" }
   | { type: "FAIL"; reason: string };
+// Fluxo normativo do gate (R3):
+//   StageExecution pronta
+//     → approvalRequirement ausente? → sim: REQUEST_JOB
+//     → não: já existe decisão válida que satisfaz EXATAMENTE
+//       gate + subject/hash atual? → sim: REQUEST_JOB
+//                                   → não: materializa ApprovalRequestIntent
+//                                     (approvalGateKey da StageApprovalRequirement
+//                                     + subject exato da StageSubjectBinding/
+//                                     upstreamArtifactRefs da StageExecution
+//                                     sendo gated) → REQUEST_APPROVAL
+// RunStatus só vira WAITING_APPROVAL DEPOIS da materialização durável do
+// ApprovalRequest pela Skill03 (aceito/recuperado idempotentemente) —
+// nunca só porque a Skill01 decidiu pedir aprovação. Quando a resolução
+// chega: SATISFIES → prossegue pra REQUEST_JOB; VIOLATES/INSUFFICIENT →
+// usa a semântica já contratada pela Skill03 (Ponto S4), nunca bypass
+// silencioso. `approvalRequirement` é pre-dispatch gate da StageExecution
+// correspondente: sem aprovação válida, o Job do stage gated NUNCA é
+// despachado (REQUEST_JOB não acontece).
+//
+// Approval subject resolution (PATCH R3, 2026-09-19 — exigido pelo
+// ChatGPT antes de fechar R3: "subject vem da StageSubjectBinding/
+// upstreamArtifactRefs" sozinho não é regra determinística, é só
+// indicar duas fontes possíveis; sem isso a Skill01 poderia "escolher
+// um artifact qualquer" quando existisse mais de um candidato):
+//   1. resolve approvalGateKey de StageApprovalRequirement
+//   2. deriva candidatos SOMENTE das refs canônicas da StageExecution
+//      (StageSubjectBinding + upstreamArtifactRefs existentes — nunca
+//      busca lateral/latest)
+//   3. aplica a tabela gate→subjectType (owned pela Skill03) aos
+//      candidatos
+//   4. precisa existir EXATAMENTE 1 exact subject compatível
+//   5. 0 candidatos compatíveis → NÃO materializa ApprovalRequestIntent;
+//      FATAL (fail-closed)
+//   6. >1 candidatos compatíveis → NÃO escolhe arbitrariamente; FATAL
+//      (fail-closed) — nunca "pegue o primeiro"/"pegue o mais recente"
+//   7. o exact ref único selecionado fornece subjectType/subjectId/
+//      artifactHash do ApprovalRequestIntent (PATCH N8, 2026-09-19 —
+//      antes citava subjectVersion; ver skills/03-gestor-de-aprovacao/SPEC.md)
+// `STAGE_APPROVAL_SUBJECT_RESOLUTION_AMBIGUOUS` cobre os passos 5 e 6
+// (ver "Novos FATAL_ERROR do R3" abaixo). Isso elimina o cenário
+// "upstream contém VideoArtifact A e B, Skill01 escolhe um qualquer" e
+// qualquer conflito entre o subject do binding e os upstreamArtifactRefs.
+//
+// Aprovação antiga não sobrevive a revisão: uma decisão anterior só
+// satisfaz o gate se vinculada ao MESMO subject exato/hash atualmente
+// bound — `VideoArtifact A/hash1 → APPROVED` não autoriza
+// `VideoArtifact A/hash2` depois de uma correção (nova StageIteration).
+// Combina com a semântica de evidence bundle já existente na Skill03
+// (S4) — não introduzimos `stageIterationId` no `ApprovalRequest`, a
+// identidade exata do subject/hash já distingue o objeto.
+//
+// FIRST_REAL_PUBLISH → subject = PublicationPlan exato (PATCH N5,
+// 2026-09-19 — antes dizia "subject = PublicationIntent exato,
+// PublicationIntent ainda não tem definição canônica"; achado fechado:
+// PublicationPlan, já declarado em skills/17-publicador-multicanal/SPEC.md,
+// é o owner real — comparado contra os outros 3 candidatos da Skill17
+// e confirmado como o único imutável/pré-side-effect/completo o
+// suficiente. Ver "Gates V1 e subject exato por gate",
+// skills/03-gestor-de-aprovacao/SPEC.md). O subject resolution acima
+// (passos 1-7) já deriva PublicationPlan a partir de
+// upstreamArtifactRefs/StageSubjectBinding igual a qualquer outro gate
+// — nenhum tratamento especial necessário.
+
+// Novo FATAL_ERROR do R3 (1 novo — cobre os passos 5/6 do Approval
+// subject resolution acima; não reaproveita
+// APPROVAL_GATE_SUBJECT_TYPE_MISMATCH porque esse é validação do lado
+// consumidor/Skill03 sobre um ApprovalRequestIntent já recebido — este
+// aqui é fail-closed do lado produtor/Skill01, ANTES do intent existir):
+// STAGE_APPROVAL_SUBJECT_RESOLUTION_AMBIGUOUS
+//   → 0 ou >1 exact subject candidato compatível com o approvalGateKey
+//     configurado; Skill01 nunca escolhe arbitrariamente nem prossegue
+//     sem aprovação
 
 type LogicalJobIntent = {
   intentId: string; // identidade própria da mensagem/outbox
-  logicalJobKey: string; // `${runId}:${stageKey}:${subjectType}:${subjectId}:${stageWorkUnitIdentityHash}`
-    // — identifica o trabalho lógico. PATCH (Ponto S5, 2026-09-18):
-    // variantKey (string livre, sem gramática) substituído por
-    // stageWorkUnitIdentityHash (STAGE_WORK_UNIT_IDENTITY_V1) — pré-runtime,
-    // substituição direta, sem campo legado a preservar.
+  logicalJobKey: string; // PATCH (kernel repair N1, 2026-09-18 —
+    // ver "Correção do desenho de identidade" abaixo): antes
+    // `${runId}:${stageKey}:${subjectType}:${subjectId}:${stageWorkUnitIdentityHash}`
+    // (Ponto S5) — colidia entre StageIteration diferentes, porque a
+    // coordenada da work unit sozinha não é revision identity.
+    // Derivação canônica agora (mesma autoridade já exigida pelo Ponto D
+    // pro Job da Skill 02):
+    // `RUN:${tenantId}:${runId}:${stageExecutionId}:${preparedInvocationHash}`
   payloadHash: string; // mesma logicalJobKey + payloadHash diferente = PAYLOAD_CONFLICT, nunca reuso silencioso
   tenantId: string;
   runId: string;
   stageKey: StageKey; // PATCH (Ponto M1) — antes "stage: PipelineStage"
+  stageExecutionId: string; // PATCH (kernel repair N1) — revision identity;
+    // sem isso a mesma stageKey/work unit reexecutada numa StageIteration
+    // diferente colidiria com a execução anterior
+  stageExecutionHash: string; // PATCH (kernel repair N1) — id+hash, mesmo
+    // padrão já usado em StageExecution/StageIteration
+  preparedInvocationId: string; // PATCH (kernel repair N1) — cumpre a
+    // promessa do Ponto A ("LogicalJobIntent vai receber
+    // PreparedSkillInvocation, fechado no Ponto B") que nunca tinha sido
+    // aplicada ao type real
+  preparedInvocationHash: string; // PATCH (kernel repair N1)
   subjectType: string;
   subjectId: string;
-  stageWorkUnitIdentityHash: string; // Ponto S5 — substitui variantKey
+  stageWorkUnitIdentityHash: string; // Ponto S5 — coordenada semântica da
+    // work unit (qual beat/variant/target). Continua existindo e
+    // continua importante para StageSubjectBinding/StageExecution, mas
+    // NÃO é revision identity — não participa mais do logicalJobKey
+    // (ver PATCH N1 acima). Uma não substitui a outra.
   payload: unknown;
   createdAt: string;
   // PATCH (Ponto S13, reparo transversal pós-revisão Fable, 2026-09-18):
@@ -389,8 +540,10 @@ condição "nenhum `Job`/`ApprovalRequest` não-terminal" seja suficiente para
 
 ## Idempotência
 
-`logicalJobKey = runId:stage:subjectType:subjectId:stageWorkUnitIdentityHash`
-(Ponto S5 — antes `variantKey`, string livre sem gramática).
+`logicalJobKey = RUN:${tenantId}:${runId}:${stageExecutionId}:${preparedInvocationHash}`
+(kernel repair N1, 2026-09-18 — antes `runId:stage:subjectType:subjectId:stageWorkUnitIdentityHash`
+do Ponto S5, que colidia entre StageIteration diferentes; antes disso, Ponto S5
+já tinha substituído `variantKey`, string livre sem gramática).
 `advanceRun()` é idempotente: duas chamadas sobre o mesmo `version` da Run não
 duplicam `LogicalJobIntent`. Conflito de `version` desatualizada → relê e
 recalcula, não é erro fatal.
@@ -715,6 +868,15 @@ type StageKernelContract = {
   targetSkillId: string;
   executionAdapter: SkillExecutionAdapterRef;
   successTransitions: StageSuccessTransition[];
+  workUnitContract: StageWorkUnitContract; // PATCH (kernel repair N3,
+    // 2026-09-18) — tipo declarado na seção "StageKernelContract declara
+    // capacidade" (Ponto S5) abaixo. Achado N3 do Fable: esse campo só
+    // existia em comentário "PATCH (patch in-place)", nunca aplicado ao
+    // type real — mesmo padrão de bug que o lint já detectava (S5).
+    // OBRIGATÓRIO, sem default implícito: cada kernel contract precisa
+    // declarar explicitamente SINGLE ou EXPANDABLE — ausência de campo
+    // não pode ser interpretada de formas diferentes por
+    // orchestrator/adapter.
   stageKernelContractHash: string;
 };
 // hash: STAGE_KERNEL_CONTRACT_V1
@@ -1316,26 +1478,69 @@ type StageTransitionResolvedTarget =
   | { kind: 'STAGE'; nextStageKey: string; iterationAction: StageTransitionIterationAction }
   | { kind: 'RUN_TERMINAL'; terminalStatus: 'SUCCEEDED' };
 
-type StageTransitionResolution = {
-  stageTransitionResolutionId: string;
-  transitionResolutionKey: string;
-  tenantId: string;
-  productionRunId: string;
-  productionRunHash: string;
-  sourceStageExecutionId: string;
-  sourceStageExecutionHash: string;
-  sourceStageIterationId: string;
-  sourceStageIterationHash: string;
-  stageKernelContractId: string;
-  stageKernelContractHash: string;
+// PATCH (kernel repair N3, 2026-09-18): par execution→resolution, usado
+// tanto pela branch SINGLE (um elemento) quanto EXPANDABLE (um por
+// sibling do manifest) — evita arrays paralelos onde o hash/resolution
+// do sibling A poderia ser associado ao execution do sibling B.
+type StageTransitionSource = {
+  stageExecutionId: string;
+  stageExecutionHash: string;
   skillExecutionResolutionId: string;
   skillExecutionResolutionHash: string;
-  transitionKey: string;
-  resolvedTarget: StageTransitionResolvedTarget;
-  successorIterationSeedRefs: KernelArtifactRef[];
-  transitionResolutionHash: string;
-  resolvedAt: string;
 };
+
+// PATCH (kernel repair N3): StageTransitionResolution vira discriminated
+// union real por workUnitContract — antes era um type único com
+// sourceStageExecutionId/Hash + skillExecutionResolutionId/Hash
+// singulares, que não tinha como representar o barrier EXPANDABLE
+// (achado N3 do Fable: o fan-out só existia em comentário "PATCH
+// (patch in-place)", nunca chegou a este type real).
+type StageTransitionResolution =
+  | {
+      stageTransitionResolutionId: string;
+      transitionResolutionKey: string;
+      tenantId: string;
+      productionRunId: string;
+      productionRunHash: string;
+      sourceStageIterationId: string;
+      sourceStageIterationHash: string;
+      stageKernelContractId: string;
+      stageKernelContractHash: string;
+      transitionKey: string;
+      resolvedTarget: StageTransitionResolvedTarget;
+      successorIterationSeedRefs: KernelArtifactRef[];
+      transitionResolutionHash: string;
+      resolvedAt: string;
+
+      workUnitContract: 'SINGLE';
+      source: StageTransitionSource;
+      stageExpansionManifestRef?: never;
+      sources?: never;
+    }
+  | {
+      stageTransitionResolutionId: string;
+      transitionResolutionKey: string;
+      tenantId: string;
+      productionRunId: string;
+      productionRunHash: string;
+      sourceStageIterationId: string;
+      sourceStageIterationHash: string;
+      stageKernelContractId: string;
+      stageKernelContractHash: string;
+      transitionKey: string;
+      resolvedTarget: StageTransitionResolvedTarget;
+      successorIterationSeedRefs: KernelArtifactRef[];
+      transitionResolutionHash: string;
+      resolvedAt: string;
+
+      workUnitContract: 'EXPANDABLE';
+      stageExpansionManifestRef: StageExpansionManifestRef;
+      sources: StageTransitionSource[]; // exatamente um StageTransitionSource
+        // por work unit do manifest referenciado, em ordem canônica
+        // (mesma ordenação lexicográfica por stageWorkUnitIdentityHash já
+        // usada em StageExpansionManifest.workUnits)
+      source?: never;
+    };
 // hash: STAGE_TRANSITION_RESOLUTION_V1
 ```
 
@@ -1344,21 +1549,26 @@ lookup no pipeline → cria stage` deixaria uma janela de crash/replay
 ambígua; com ele, `domain resolution → transition resolution imutável
 → materialização idempotente do próximo estado`. `resolvedTarget` é
 uma **cópia congelada** da transition correspondente do
-`StageKernelContract` exato da source `StageExecution` — deploy
-posterior não muda routing de Run antigo. Idempotência:
-`UNIQUE(tenantId, sourceStageExecutionId)` pra stages `SINGLE` (uma
-`StageExecution` resolvida produz no máximo uma transição); pra
-stages `EXPANDABLE` (Ponto S5), `UNIQUE(tenantId,
-stageExpansionManifestId)` — o conjunto completo de siblings
-resolvidos produz no máximo uma transição stage-level, materializada
-só depois do barrier fechar (ver Ponto S5). Mesmo source(s) + mesmo
-hash → mesma resolution; conteúdo divergente → `FATAL`.
-`transitionResolutionKey`
-deriva deterministicamente de `tenantId + productionRunId +
-sourceStageExecutionId + skillExecutionResolutionHash` — sem UUID
-aleatório a cada replay. Se o adapter retorna um `transitionKey` que o
-`StageKernelContract` congelado não possui → `FATAL` (nunca "default
-transition").
+`StageKernelContract` exato da(s) source(s) — deploy posterior não muda
+routing de Run antigo. Idempotência (PATCH kernel repair N3):
+`UNIQUE(tenantId, source.stageExecutionId)` pra `workUnitContract=SINGLE`
+(uma `StageExecution` resolvida produz no máximo uma transição); pra
+`workUnitContract=EXPANDABLE`, `UNIQUE(tenantId,
+stageExpansionManifestRef.stageExpansionManifestId)` — o conjunto
+completo de siblings resolvidos produz no máximo uma transição
+stage-level, materializada só depois do barrier fechar (ver "Barrier de
+stage" abaixo). Mesmo source(s) + mesmo hash → mesma resolution;
+conteúdo divergente → `FATAL`. `transitionResolutionKey` deriva
+deterministicamente e nunca depende de ordem/timestamp/lease/`now()`:
+para `SINGLE`, de `tenantId + productionRunId + sourceStageIterationId +
+workUnitContract + source.stageExecutionId + source.skillExecutionResolutionHash`;
+para `EXPANDABLE`, de `tenantId + productionRunId +
+sourceStageIterationId + workUnitContract +
+stageExpansionManifestRef.stageExpansionManifestHash + sources` na
+ordem canônica do manifest — sem UUID aleatório a cada replay, e sem
+depender de qual sibling terminou por último. Se o adapter retorna um
+`transitionKey` que o `StageKernelContract` congelado não possui →
+`FATAL` (nunca "default transition").
 
 **Seed refs propagam em cadeia**: se `START_NEXT_ITERATION`,
 `StageTransitionResolution.successorIterationSeedRefs ===
@@ -1683,9 +1893,12 @@ type StageWorkUnitContract = {
   mode: StageWorkUnitMode;
   allowedAxes: StageWorkUnitAxis[];
 };
-// PATCH em StageKernelContract (patch in-place, hash continua
-// STAGE_KERNEL_CONTRACT_V1): + workUnitContract: StageWorkUnitContract;
 ```
+
+`StageKernelContract` real (declarado no início deste documento) já
+recebeu `workUnitContract: StageWorkUnitContract` (hash continua
+`STAGE_KERNEL_CONTRACT_V1` — campo dentro da projeção existente, sem
+hash novo).
 
 `mode='SINGLE'` → exatamente uma work unit `BASE`, nenhum
 `StageExpansionManifest`, nenhum eixo dimensional (regra forte: SINGLE
@@ -1766,14 +1979,13 @@ um StageSubjectBinding canônico` não pode continuar — quebrava
 justamente quando `FinalizedVideo X` precisa de bindings distintos
 pra `target Instagram` e `target TikTok` sobre o **mesmo** subject.
 
-```typescript
-// PATCH em StageSubjectBinding (patch in-place):
-// + stageWorkUnitIdentityHash: string;
-// + stageExpansionManifestRef?: StageExpansionManifestRef; // ausente
-//   quando mode=SINGLE/BASE; obrigatório quando mode=EXPANDABLE
-```
+`StageSubjectBinding` real (declarado no início deste documento) já
+recebeu `stageWorkUnitIdentityHash` e `stageExpansionManifestRef?`
+(ausente quando mode=SINGLE/BASE; obrigatório quando mode=EXPANDABLE) —
+e, desde o kernel repair N2, também `stageIterationId`/`stageIterationHash`
+(ver PATCH nesse type).
 
-Nova identidade lógica: `UNIQUE(runId, stageKey,
+Nova identidade lógica: `UNIQUE(runId, stageKey, stageIterationId,
 stageWorkUnitIdentityHash)` — substitui o `UNIQUE(runId, stageKey)`
 antigo (`tenantId` continua implícito via `runId`, mesmo padrão já
 usado neste tipo). O binding **não** duplica os eixos inteiros
@@ -1793,11 +2005,9 @@ result") **não muda**.
 
 #### `StageExecution` e `LogicalJobIntent`
 
-```typescript
-// PATCH em StageExecution (patch in-place, hash continua STAGE_EXECUTION_V1):
-// + stageWorkUnitIdentityHash: string; // BASE também tem hash, calculado
-//   por STAGE_WORK_UNIT_IDENTITY_V1 — a unicidade sempre usa a mesma coluna
-```
+`StageExecution` real (declarado no início deste documento) já recebeu
+`stageWorkUnitIdentityHash` (BASE também tem hash, calculado por
+`STAGE_WORK_UNIT_IDENTITY_V1` — a unicidade sempre usa a mesma coluna).
 
 Cada `StageExecution` agora executa **uma work unit exata**, nunca "o
 stage inteiro implicitamente". A invariante crítica muda de
@@ -1818,10 +2028,15 @@ mesma iteração → `STAGE_ITERATION_STAGE_REENTRY_WITHOUT_REVISION`
 categoria, só a chave de unicidade ficou mais fina).
 
 `LogicalJobIntent` perde `variantKey: string` e o template antigo
-`logicalJobKey = runId:stage:subjectType:subjectId:variantKey`. Novo
-template: `logicalJobKey =
-runId:stageKey:subjectType:subjectId:stageWorkUnitIdentityHash`
-(`stage` renomeado pra `stageKey` no Ponto M1, depois deste ponto S5).
+`logicalJobKey = runId:stage:subjectType:subjectId:variantKey`.
+Template deste ponto S5 (`runId:stageKey:subjectType:subjectId:stageWorkUnitIdentityHash`,
+`stage` renomeado pra `stageKey` no Ponto M1) foi por sua vez
+**substituído no kernel repair N1** (2026-09-18): `stageWorkUnitIdentityHash`
+é coordenada semântica da work unit, não revision identity — usá-lo
+sozinho como logicalJobKey colide entre `StageIteration` diferentes (a
+mesma work unit revisada numa correção geraria o mesmo `logicalJobKey`
+da iteração anterior). Template canônico atual, ver
+`LogicalJobIntent.logicalJobKey` acima: `RUN:${tenantId}:${runId}:${stageExecutionId}:${preparedInvocationHash}`.
 Pré-runtime — substituição direta, sem campo legado a preservar.
 
 `variantKey` some do kernel em: `StageSubjectBinding`, `StageExecution`,
@@ -1873,15 +2088,40 @@ uniforme, a Skill 01 materializa **uma única**
 não criamos um novo artifact agregador (`StageAggregateResult`) pra
 isso:
 
-```typescript
-// PATCH em StageTransitionResolution (patch in-place, hash continua
-// STAGE_TRANSITION_RESOLUTION_V1): pra stages EXPANDABLE, a resolução
-// stage-level referencia o conjunto de sources, não uma única execução:
-// + sourceStageExecutionIds?: string[];   // presente quando EXPANDABLE
-// + stageExpansionManifestRef?: StageExpansionManifestRef; // idem
-// sourceStageExecutionId/Hash (já existentes) continuam usados como
-// hoje para stages SINGLE — nunca os dois simultaneamente.
-```
+`StageTransitionResolution` real (kernel repair N3, seção "Ponto D",
+início deste documento) já é a discriminated union por
+`workUnitContract`: a branch `EXPANDABLE` carrega `stageExpansionManifestRef`
++ `sources: StageTransitionSource[]` (conjunto de sources, não uma
+única execução); a branch `SINGLE` carrega `source` único — nunca os
+dois simultaneamente (`?: never` cruzado impede isso já no type).
+
+**Validação do barrier EXPANDABLE** antes de materializar a
+`StageTransitionResolution` stage-level: seja `M` o
+`StageExpansionManifest` com work units `{W1, W2, ..., Wn}`. Para cada
+`Wi` precisa existir exatamente um `StageSubjectBinding` da mesma
+`stageIterationId` cujo `stageExpansionManifestRef` aponta pra `M`, a
+`StageExecution` correspondente, e a `SkillExecutionResolution` final
+correspondente. `sources` da resolution precisa ser **exatamente** esse
+conjunto: todos pertencem ao mesmo `runId`/`stageKey`/`stageIterationId`
+(violação reaproveita `STAGE_EXECUTION_ITERATION_MISMATCH`); todos os
+bindings EXPANDABLE apontam pro mesmo manifest `M` e nenhum sibling do
+manifest está ausente ou é extra (violação reaproveita
+`STAGE_WORK_UNIT_NOT_IN_MANIFEST`); `transitionKey` divergente entre
+siblings bem-sucedidos é `STAGE_EXPANSION_TRANSITION_CONFLICT` (já
+existente, acima). `transitionResolutionHash`/`transitionResolutionKey`
+nunca dependem de ordem de conclusão dos siblings — `E2` terminando
+antes de `E1` não muda o hash da transição (`sources` é ordenado
+canonicamente antes de hashear, mesma disciplina de
+`StageExpansionManifest.workUnits`).
+
+**`SINGLE` nunca ganha manifest artificial**: para `workUnitContract=SINGLE`,
+o fluxo é sempre `StageIteration → uma work unit válida (BASE) segundo
+o `StageWorkUnitContract` → um binding → uma `StageExecution` → uma
+`SkillExecutionResolution` → uma `StageTransitionResolution` com
+`workUnitContract:'SINGLE'`. Não materializamos
+`StageExpansionManifest` de cardinalidade 1 só para reusar
+implementação — isso apagaria a diferença contratual que o
+`StageWorkUnitContract.mode` acabou de formalizar.
 
 A resolução prova: "este transition foi calculado depois da conclusão
 deste conjunto exato de work units." Correção/`START_NEXT_ITERATION`
@@ -1999,17 +2239,18 @@ todos válidos.
 
 **2 novos:** `STAGE_WORK_UNIT_IDENTITY_V1`, `STAGE_EXPANSION_MANIFEST_V1`.
 **Patch in-place** (nomes não mudam, sem V2, pré-runtime):
-`STAGE_KERNEL_CONTRACT_V1` (+`workUnitContract`), `STAGE_EXECUTION_V1`
+`STAGE_KERNEL_CONTRACT_V1` (+`workUnitContract: StageWorkUnitContract`,
+aplicado ao type real — kernel repair N3), `STAGE_EXECUTION_V1`
 (+`stageWorkUnitIdentityHash`), `STAGE_TRANSITION_RESOLUTION_V1`
-(+`sourceStageExecutionIds?`/`stageExpansionManifestRef?`), e o hash
-real de `StageSubjectBinding` se ele possuir um
-(+`stageWorkUnitIdentityHash`/`stageExpansionManifestRef?`).
-Possivelmente `SKILL_EXECUTION_ADAPTER_DESCRIPTOR_V1` se
-`workUnitContract` acabar morando lá em vez do
-`StageKernelContract` — decisão de implementação, não estrutural. Sem
-hash próprio: `StageWorkUnitAxis`, `StageWorkUnitContract`,
-`StageSubvalueIdentity`, `StageBeatIdentity`,
-`StageExpansionManifestRef`.
+(projeção reestruturada como discriminated union por
+`workUnitContract`, com `source`/`sources: StageTransitionSource[]` no
+lugar dos campos singulares antigos — kernel repair N3), e o hash real
+de `StageSubjectBinding` (+`stageWorkUnitIdentityHash`/
+`stageExpansionManifestRef?`/`stageIterationId`/`stageIterationHash`
+— este último par via kernel repair N2). Sem hash próprio:
+`StageWorkUnitAxis`, `StageWorkUnitContract`, `StageSubvalueIdentity`,
+`StageBeatIdentity`, `StageExpansionManifestRef`,
+`StageTransitionSource`.
 
 #### Plano de testes — Ponto S5 (36 testes)
 

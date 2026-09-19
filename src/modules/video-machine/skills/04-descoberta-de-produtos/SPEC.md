@@ -634,12 +634,14 @@ materializada (nunca ao começar transcode/reservar processor/criar
 plan).
 
 **`PRIMARY_PUBLISHED` significa** que a Skill 17 provou: publicação
-externa existe + correlação com o `PublicationIntent`/execução exato
-confirmada + classificação `PRIMARY` (nunca
+externa existe + correlação com o `PublicationPlan`/execução exato
+confirmada (PATCH N5, 2026-09-19 — antes citava `PublicationIntent`,
+artifact nunca declarado; ver skills/03-gestor-de-aprovacao/SPEC.md)
++ classificação `PRIMARY` (nunca
 `SECONDARY`/`REPOST`/`DERIVATIVE`/`TEST` em V1 — evita que múltiplos
 canais inflem o histórico; refinamento de multi-target fica pro
 Ponto S5, sem mudar o conceito central). **Nunca** gerado por:
-`DRY_RUN`, `PublicationPlan`/`PublicationIntent` criado, aprovação
+`DRY_RUN`, `PublicationPlan` criado, aprovação
 manual concedida, `SUBMITTING`, request HTTP enviada, provider
 `ACCEPTED`, `externalPublicationId` não confirmado, timeout,
 `externalEffectState=UNKNOWN` — preserva a garantia já elogiada pelo

@@ -14,10 +14,19 @@
 
 ## Garantia central
 
-Uma decisão de aprovação está sempre amarrada à **versão exata do
-artefato** (`subjectVersion` + `artifactHash`), nunca só ao `subjectId`.
-Uma aprovação nunca autoriza um artefato diferente daquele que foi
-revisado. No máximo uma `ApprovalRequest` `PENDING` por
+// PATCH (N8, kernel repair pós re-review GPT-6 Astra, 2026-09-19):
+// "versão exata do artefato" antes dizia `subjectVersion` + `artifactHash`.
+// subjectVersion nunca teve produtor canônico em nenhum gate (nem
+// VIDEO_COMPLIANCE, o mais antigo) — nenhum artifact do corpus
+// (VideoArtifact, PublicationPlan) tem campo de revisão de conteúdo, e o
+// padrão corpus-wide de referência (KernelArtifactRef, Skill01) já resolve
+// identidade exata só com artifactHash (schemaVersion ali é versão do
+// contrato/schema, nunca do conteúdo). Removido — ver ExactApprovalSubject
+// abaixo.
+Toda aprovação é vinculada ao artifact exato por `subjectType` +
+`subjectId` + `artifactHash`, nunca apenas por `subjectId`. Uma aprovação
+nunca autoriza um artefato diferente daquele que foi revisado. No máximo
+uma `ApprovalRequest` `PENDING` por
 `tenantId`+`runId`+`approvalGateKey`. Nenhuma decisão tardia (stale) altera
 a `ApprovalRequest` nem a `ProductionRun` retroativamente.
 
@@ -193,14 +202,23 @@ type ApprovalRequestIntent = {
                          // Skill 01/02)
   tenantId: string;
   runId: string;
-  stage: PipelineStage; // contrato compartilhado, ver SPEC.md da Skill 01
+  stageKey: StageKey; // PATCH (achado N6 da re-review GPT-6 Astra,
+    // 2026-09-19) — antes "stage: PipelineStage"; PipelineStage foi
+    // renomeado/removido no Ponto M1 (virou StageKey, ver SPEC.md da
+    // Skill 01), mas este consumer nunca foi migrado. Contrato
+    // compartilhado, ver SPEC.md da Skill 01.
 
-  approvalGateKey: string; // identifica o ponto lógico de aprovação dentro da Run
+  approvalGateKey: ApprovalGateKey; // PATCH (R3, kernel repair pós
+    // re-review GPT-6 Astra, 2026-09-19) — antes `string` solto; o
+    // arquivo já possui um closed enum V1 (ver "Gates V1 e subject
+    // exato por gate" abaixo), não fazia sentido o intent continuar
+    // não tipado. Identifica o ponto lógico de aprovação dentro da Run.
 
   subjectType: string;
   subjectId: string;
-  subjectVersion: string;
-  artifactHash: string; // identifica exatamente o artefato sendo aprovado
+  artifactHash: string; // identifica exatamente o artefato sendo aprovado —
+    // PATCH (N8, 2026-09-19): subjectVersion removido; ver
+    // ExactApprovalSubject (nota no início do arquivo)
 
   approvalPolicyKey?: string; // Skill 01 só diz "preciso de aprovação conforme policy X";
                                // a Skill 03 é quem resolve e congela a versão usada
@@ -288,13 +306,15 @@ type ApprovalRequest = {
                             // esta mesma ApprovalRequest (idempotência real)
   tenantId: string;
   runId: string;
-  stage: PipelineStage;
+  stageKey: StageKey; // PATCH (achado N6 da re-review GPT-6 Astra,
+    // 2026-09-19) — antes "stage: PipelineStage" (ver nota em
+    // ApprovalRequestIntent acima)
   approvalGateKey: ApprovalGateKey; // Ponto S4 — antes string solta
 
   subjectType: string;
   subjectId: string;
-  subjectVersion: string;
-  artifactHash: string;
+  artifactHash: string; // PATCH (N8): subjectVersion removido — ver
+    // ExactApprovalSubject
 
   status: ApprovalStatus;
   mode: ApprovalMode; // modo EFETIVO — já considera override de autoApprovalProhibitedGateKeys
@@ -317,10 +337,15 @@ type ApprovalRequest = {
                         // concede autorização; toda decisão ainda exige
                         // evidência de autorização própria (ver Segurança)
 
-  decisionBlockedReason?: "SUBJECT_VERSION_CONFLICT"; // request PENDING
-                            // continua PENDING mas nenhuma ApplyDecision é
-                            // aceita enquanto bloqueada — ver "Idempotência"
-  decisionBlockedAt?: string;
+  // PATCH (N8): decisionBlockedReason/decisionBlockedAt REMOVIDOS — a
+  // única causa (SUBJECT_VERSION_CONFLICT) deixou de existir. O caso que
+  // esse campo tentava proteger ("mesmo sourceIntentId, artifactHash
+  // diferente") já é rejeitado antes de qualquer ApprovalRequest existir,
+  // via INTENT_ID_CONFLICT no consumo do intent (payloadHash muda quando
+  // artifactHash muda) — nunca precisou bloquear uma request PENDING já
+  // materializada. Manter um campo com um único valor literal possível
+  // seria a mesma pseudo-configuração fantasiada já banida no corpus
+  // (Ponto M1, "onInsufficientEvidence").
 
   version: number; // optimistic concurrency
 
@@ -344,8 +369,8 @@ type ApprovalDecision = {
 
   subjectType: string;
   subjectId: string;
-  subjectVersion: string;
-  artifactHash: string; // decisão amarrada ao HASH exato, não só à versão
+  artifactHash: string; // decisão amarrada ao HASH exato — PATCH (N8):
+    // subjectVersion removido, ver ExactApprovalSubject
 
   decision: "APPROVED" | "REJECTED" | "CHANGES_REQUESTED";
 
@@ -403,8 +428,8 @@ type ApprovalResolvedEvent = {
 
   subjectType: string;
   subjectId: string;
-  subjectVersion: string;
-  artifactHash: string;
+  artifactHash: string; // PATCH (N8): subjectVersion removido, ver
+    // ExactApprovalSubject
 
   resolutionType: "DECISION" | "LIFECYCLE";
   outcome:
@@ -450,7 +475,9 @@ type ApprovalResolvedEvent = {
 // evaluateAuto(request: ApprovalRequest, evidence) -> AutoEvaluationOutcome
 // applyDecision(requestId, expectedVersion, decision: ApprovalDecision)
 //   -> aceito | DECISION_ID_CONFLICT | STALE_DECISION | ALREADY_RESOLVED
-//      | REQUEST_EXPIRED | DECISION_BLOCKED (decisionBlockedReason presente)
+//      | REQUEST_EXPIRED
+//   valida approvalGateKey + subjectType + subjectId + artifactHash
+//   exatos contra a ApprovalRequest (PATCH N8 — antes citava subjectVersion)
 // consumeRunCancellationIntent(intent, consumerKey: "APPROVAL_MANAGER") -> void
 // sweepExpiredApprovals() -> void
 ```
@@ -480,11 +507,21 @@ aprovação, nasce uma **nova** `ApprovalRequest` com novo
 
 ## Idempotência
 
-A regra "mesmo `subjectVersion`+`artifactHash` → idempotente" **não é
-global** — ela conflitaria com reemissão deliberada após `EXPIRED` (a
-Skill 01 pode reemitir aprovação para exatamente o mesmo artefato,
-gerando nova `ApprovalRequest` com novo `approvalRequestId`). A
-idempotência real de `ensureApprovalRequest` é por **`sourceIntentId`**:
+// PATCH (N8, 2026-09-19): removida a regra "mesmo subjectVersion+artifactHash
+// → idempotente" e todo o mecanismo SUBJECT_VERSION_CONFLICT/
+// decisionBlockedReason — a premissa (subjectVersion como label do
+// produtor) nunca existiu de fato (ver achado N8, nenhum produtor jamais
+// definiu esse campo). A proteção que esse mecanismo tentava dar —
+// "mesma identidade de intent não pode mudar de conteúdo por baixo" — já
+// é coberta pelo INTENT_ID_CONFLICT abaixo, sem precisar bloquear uma
+// ApprovalRequest já materializada.
+
+ExactApprovalSubject = `subjectType` + `subjectId` + `artifactHash`.
+Mesmo `subjectType`+`subjectId`+`artifactHash` → mesmo subject semântico
+para aprovação; mesmo `subjectType`+`subjectId` com `artifactHash`
+diferente → conteúdo diferente, aprovação anterior não satisfaz.
+
+A idempotência real de `ensureApprovalRequest` é por **`sourceIntentId`**:
 
 ```
 mesmo intentId + mesmo payloadHash (redelivery do outbox)
@@ -492,47 +529,24 @@ mesmo intentId + mesmo payloadHash (redelivery do outbox)
 
 mesmo intentId + payloadHash DIFERENTE
   → INTENT_ID_CONFLICT (mesma classe de erro do payloadHash em
-    LogicalJobIntent — nunca reuso silencioso)
+    LogicalJobIntent — nunca reuso silencioso). Cobre também o caso
+    "mesmo sourceIntentId, artifactHash diferente" — payloadHash inclui
+    artifactHash na sua projeção, então um artifactHash diferente pro
+    mesmo intentId já muda o payloadHash. Nenhum código novo necessário
+    (achado N8).
 
-intentId novo + mesma identidade de artefato + existe PENDING
+intentId novo + mesmo ExactApprovalSubject + existe PENDING
   → não cria segunda PENDING; coalesce/idempotência lógica
 
-intentId novo + mesma identidade de artefato + request anterior terminal
+intentId novo + mesmo ExactApprovalSubject + request anterior terminal
   → pode criar nova ApprovalRequest quando a Skill 01 deliberadamente
     reemite o gate (ex.: após EXPIRED)
 
-nova subjectVersion/artifactHash enquanto existe PENDING
-  → fluxo de SUPERSEDED
+intentId novo + ExactApprovalSubject com artifactHash diferente
+  enquanto existe PENDING
+  → fluxo de SUPERSEDED (é uma nova intenção legítima sobre uma nova
+    versão semântica do artifact — exige nova aprovação)
 ```
-
-Mesmo `subjectVersion`, `artifactHash` **diferente**, enquanto existe uma
-`ApprovalRequest` `PENDING` para aquela identidade → `SUBJECT_VERSION_CONFLICT`.
-Não é redelivery — é inconsistência de identidade do produtor (`v2` não
-pode representar dois conteúdos diferentes sem deixar a auditoria
-ambígua). O conflito **não deixa a request `PENDING` antiga aprovável
-como se nada tivesse acontecido**:
-
-```
-detecta SUBJECT_VERSION_CONFLICT:
-  → NÃO cria nova ApprovalRequest
-  → request PENDING existente PERMANECE PENDING, mas:
-      decisionBlockedReason = SUBJECT_VERSION_CONFLICT
-      decisionBlockedAt = now()
-      incrementa version
-  → qualquer applyDecision() posterior é rejeitada enquanto bloqueada
-  → AuditEvent + alerta operacional
-  → o ApprovalRequestIntent conflitante é tratado como processado
-    (conflito de domínio registrado, não fica em retry infinito)
-```
-
-É um **conflito de domínio determinístico** — retry do mesmo payload nunca
-resolve identidade inconsistente. Por isso o `OutboxConsumerDelivery`
-daquele intent conflitante termina como `DELIVERED` após registrar o
-conflito, não fica em retry/dead-letter técnico. A correção só chega como
-um **novo** intent com `subjectVersion` válida.
-
-A correção esperada vem do produtor emitindo uma nova `subjectVersion`
-válida — aí o fluxo normal de `SUPERSEDED` substitui a request bloqueada.
 
 Idempotência de `ApprovalDecision`, via `decisionId`:
 
@@ -603,7 +617,8 @@ applyDecision(requestId, expectedVersion, decision)
    se já terminal → STALE_DECISION / ALREADY_RESOLVED
 
 5. valida identidade exata: approvalRequestId, tenantId, runId,
-   subjectType, subjectId, subjectVersion, artifactHash
+   subjectType, subjectId, artifactHash (PATCH N8 — antes citava
+   subjectVersion)
 
 6. valida: decision.approvalRequestVersion == expectedVersion
            == ApprovalRequest.version
@@ -621,10 +636,7 @@ applyDecision(requestId, expectedVersion, decision)
      NÃO persiste a ApprovalDecision proposta
      retorna REQUEST_EXPIRED
 
-9. se decisionBlockedReason presente:
-     → DECISION_BLOCKED, nenhuma ApprovalDecision criada
-
-10. aplica a decisão:
+9. aplica a decisão:
      persiste ApprovalDecision imutável
      PENDING → APPROVED | REJECTED | CHANGES_REQUESTED
      incrementa ApprovalRequest.version
@@ -719,7 +731,8 @@ transformar o primeiro publish em automático.
 
 ```
 chega ApprovalRequestIntent para mesma tenantId+runId+approvalGateKey,
-mas com subjectVersion/artifactHash novos
+mas com artifactHash novo (mesmo subjectType+subjectId — PATCH N8, antes
+citava subjectVersion)
 
 transação lógica:
   1. revalida estado da Run (guarda de materialização tardia)
@@ -762,10 +775,14 @@ Skill 3 (Gestor de Aprovação)
       CANCELLED + um ApprovalResolvedEvent próprio (cada evento identifica
       uma request específica)
 
-Skill 1 consumindo ApprovalResolvedEvent:
+Skill 1 consumindo ApprovalResolvedEvent (PATCH N8 — antes revalidava
+subjectVersion; ver ExactApprovalSubject):
   → revalida ApprovalRequest atual (approvalRequestVersion)
-  → revalida approvalGateKey + subjectVersion + artifactHash contra o
-    artefato atual da Run
+  → revalida approvalGateKey + subjectType + subjectId + artifactHash
+    exatos contra o artefato atual da Run
+      (event.subjectType === current.subjectType
+       && event.subjectId === current.subjectId
+       && event.artifactHash === current.artifactHash)
   → revalida estado atual da ProductionRun
   → se qualquer um divergir: ACK como stale, não altera a Run
   → Run em CANCEL_REQUESTED|CANCELLED|SUCCEEDED|FAILED nunca é
@@ -790,8 +807,9 @@ APPROVED
 CHANGES_REQUESTED
   → não autoriza avançar para o próximo stage
   → advanceRun() aplica o caminho de correção definido pelo pipeline
-  → a correção deve produzir nova subjectVersion/artifactHash
-  → quando essa nova versão chegar de novo ao gate, gera novo
+  → a correção deve produzir novo artifactHash (PATCH N8 — antes dizia
+    subjectVersion/artifactHash)
+  → quando esse novo artifactHash chegar de novo ao gate, gera novo
     ApprovalRequestIntent
 
 REJECTED
@@ -917,10 +935,6 @@ Se uma decisão, `SUPERSEDED` ou `CANCELLED` já venceu a corrida nesse
 intervalo, o update afeta zero linhas — o reconciler trata como
 stale/no-op, nunca sobrescreve a transição vencedora.
 
-`decisionBlockedReason` **não impede expiração** — uma request `PENDING`
-bloqueada por `SUBJECT_VERSION_CONFLICT` continua sujeita ao seu
-`expiresAt`; o bloqueio impede `ApprovalDecision`, não impede lifecycle.
-
 `AuditEvent` registra `resolutionTrigger`
 (`APPLY_DECISION_EXPIRY_CHECK` | `EXPIRY_RECONCILER`) — informação
 operacional/auditável que não entra no `ApprovalResolvedEvent`, já que o
@@ -977,33 +991,29 @@ ApprovalResolvedEvent DEAD_LETTER
   → alerta operacional; redrive preserva eventId
 ```
 
-Exceção já registrada: o `ApprovalRequestIntent` que gera
-`SUBJECT_VERSION_CONFLICT` termina `DELIVERED` após registrar o conflito
-(retry do mesmo payload nunca resolve identidade inconsistente).
-
 ## Observabilidade
 
+// PATCH (N8, 2026-09-19): SUBJECT_VERSION_CONFLICT/decisionBlockedReason
+// removidos do log/métricas — mecanismo eliminado, ver Idempotência acima.
+
 Log estruturado por transição de `ApprovalRequest`: `tenantId`, `runId`,
-`approvalRequestId`, `approvalGateKey`, `subjectVersion`, `artifactHash`,
-`fromStatus`, `toStatus`, `actorType?`, `modeResolution?`, `timestamp`.
-Campos de correlação adicionais quando aplicáveis (não obrigatórios em
-todo log): `decisionId?`, `eventId?`, `sourceIntentId?`, `policyId?`,
-`policyVersion?`, `errorCode?`/`conflictCode?`.
+`approvalRequestId`, `approvalGateKey`, `subjectType`, `subjectId`,
+`artifactHash`, `fromStatus`, `toStatus`, `actorType?`, `modeResolution?`,
+`timestamp`. Campos de correlação adicionais quando aplicáveis (não
+obrigatórios em todo log): `decisionId?`, `eventId?`, `sourceIntentId?`,
+`policyId?`, `policyVersion?`, `errorCode?`/`conflictCode?`.
 
 `AuditEvent` persistido para toda transição lógica (decisão e lifecycle),
-incluindo supressão por guarda de materialização tardia e conflitos de
-`SUBJECT_VERSION_CONFLICT`. Tentativas humanas **não autorizadas** também
-geram `AuditEvent` de segurança/auditoria, mesmo sem transição de
-`ApprovalRequest` — não é evento de mudança de estado, mas precisa ficar
-investigável.
+incluindo supressão por guarda de materialização tardia. Tentativas
+humanas **não autorizadas** também geram `AuditEvent` de
+segurança/auditoria, mesmo sem transição de `ApprovalRequest` — não é
+evento de mudança de estado, mas precisa ficar investigável.
 
 Métricas: `ApprovalRequest` por status; idade média/p95 em `PENDING`;
 taxa de `AUTO`/`HYBRID` que escala para `MANUAL` por `AutoEvaluationOutcome`;
 taxa de `EXPIRED`; taxa de `SUPERSEDED` (indica retrabalho/correção
-frequente); taxa de `SUBJECT_VERSION_CONFLICT` (detecta problema de
-versionamento no produtor); número e idade de `ApprovalRequest` com
-`decisionBlockedReason` presente; tempo médio até decisão humana; taxa de
-`DEAD_LETTER` por outbox.
+frequente); tempo médio até decisão humana; taxa de `DEAD_LETTER` por
+outbox.
 
 ## Plano de testes
 
@@ -1017,8 +1027,10 @@ versionamento no produtor); número e idade de `ApprovalRequest` com
 - `intentId` novo + mesma identidade de artefato + request anterior
   terminal (reemissão deliberada pela Skill 01, ex. após `EXPIRED`) → cria
   nova `ApprovalRequest` com novo `approvalRequestId` e policy vigente.
-- Mesmo `subjectVersion`, `artifactHash` diferente →
-  `SUBJECT_VERSION_CONFLICT`, bloqueia até correção.
+- Mesmo `sourceIntentId`, `artifactHash` diferente na segunda entrega →
+  `INTENT_ID_CONFLICT` (PATCH N8 — antes `SUBJECT_VERSION_CONFLICT`
+  bloqueava a request `PENDING`; agora rejeitado na consumação do
+  intent, antes de qualquer `ApprovalRequest` existir).
 - `ApprovalRequestIntent` chega para Run já `CANCEL_REQUESTED`/`CANCELLED`/
   `SUCCEEDED`/`FAILED` → não materializa request, ACK idempotente +
   `AuditEvent` de supressão.
@@ -1048,16 +1060,18 @@ versionamento no produtor); número e idade de `ApprovalRequest` com
   `expectedVersion`, as demais recebem `STALE_DECISION`/
   `ALREADY_RESOLVED`.
 - `ApprovalResolvedEvent` entregue duas vezes para a Skill 01 → idempotente
-  via revalidação de `approvalRequestVersion`+`subjectVersion`+
-  `artifactHash`+estado atual da Run.
+  via revalidação de `approvalRequestVersion`+`subjectType`+`subjectId`+
+  `artifactHash`+estado atual da Run (PATCH N8 — antes citava
+  `subjectVersion`).
 - `ApprovalResolvedEvent` atrasado chegando quando a Run já está
   `CANCEL_REQUESTED`/`CANCELLED`/`SUCCEEDED`/`FAILED` → nunca reverte a
   Run.
-- `ApprovalResolvedEvent` de uma request `SUPERSEDED`/v1 chega depois que
-  v2 já é o artefato atual da Run → Skill 01 revalida
-  `approvalRequestVersion`+`approvalGateKey`+`subjectVersion`/`artifactHash`
-  → ACK stale, nenhuma alteração na `ProductionRun` (cobre o risco de um
-  evento atrasado liberar ou retroceder a Run depois que uma nova versão
+- `ApprovalResolvedEvent` de uma request `SUPERSEDED` (artifactHash H1)
+  chega depois que H2 já é o artefato atual da Run → Skill 01 revalida
+  `approvalRequestVersion`+`approvalGateKey`+`subjectType`/`subjectId`/
+  `artifactHash` (PATCH N8 — antes citava `subjectVersion`) → ACK stale,
+  nenhuma alteração na `ProductionRun` (cobre o risco de um evento
+  atrasado liberar ou retroceder a Run depois que um novo artifactHash
   já assumiu o gate).
 - Tentativa de decisão/consulta com `tenantId` diferente do da
   `ApprovalRequest` → rejeitada.
@@ -1068,8 +1082,6 @@ versionamento no produtor); número e idade de `ApprovalRequest` com
   `ApprovalRequest`, **sem re-resolver** `ApprovalPolicyBinding`.
 - Decisão retry de rede (mesmo `decisionId`+payload) após já ter vencido a
   concorrência → retorna o resultado anterior, não `STALE_DECISION`.
-- Tentativa de decisão contra `ApprovalRequest` com `decisionBlockedReason`
-  presente → `DECISION_BLOCKED`, nenhuma `ApprovalDecision` criada.
 - `sweepExpiredApprovals()` disputando `version` com uma decisão que venceu
   no mesmo instante → update do reconciler afeta zero linhas, tratado como
   no-op.
@@ -1085,6 +1097,27 @@ versionamento no produtor); número e idade de `ApprovalRequest` com
   `ApprovalRequest`.
 - `authorizationEvidenceRef` existe, mas pertence a outro `tenantId` →
   rejeitada.
+
+**N8 — provas de fechamento (`ExactApprovalSubject`, 2026-09-19):**
+- Subject `A`/`H1` aprovado; artefato atual continua `A`/`H1` → decisão
+  satisfaz o gate.
+- Subject `A`/`H1` aprovado; artefato atual passou a ser `A`/`H2` →
+  decisão NÃO satisfaz o gate (mesmo `subjectId`, `artifactHash`
+  diferente = outro subject semântico).
+- `sourceIntentId I1` + subject `A`/`H1` → cria `ApprovalRequest`.
+- Replay de `I1` + `A`/`H1` (mesmo payload) → mesma `ApprovalRequest`,
+  idempotente.
+- Replay de `I1` + `A`/`H2` (mesmo `intentId`, `artifactHash` diferente)
+  → `INTENT_ID_CONFLICT` — o produtor tentou reutilizar a mesma
+  identidade de intent com outro conteúdo.
+- Novo `sourceIntentId I2` + subject `A`/`H2` → nova `ApprovalRequest`
+  válida (nova intenção legítima sobre conteúdo revisado).
+- `VideoArtifact.videoArtifactId`+`contentHash` preenche
+  `subjectId`+`artifactHash` sem adaptação artificial (gate
+  `VIDEO_COMPLIANCE`).
+- `PublicationPlan.publicationPlanId`+`planHash` preenche
+  `subjectId`+`artifactHash` sem adaptação artificial (gate
+  `FIRST_REAL_PUBLISH` — ver N5).
 - `authorizationEvidenceRef` com capability válida para outra
   `ApprovalRequest` → rejeitada (Ponto S1: `TenantAuthorizationDecision`
   com `authorizationScope = { kind: 'EXACT_ARTIFACT', resourceRef }`
@@ -1119,11 +1152,12 @@ versionamento no produtor); número e idade de `ApprovalRequest` com
 **Ponto S4 (ApprovalEvidenceBundle):**
 
 - `VIDEO_COMPLIANCE` aceita subject `VideoArtifact`; rejeita
-  `PublicationIntent`.
-- `FIRST_REAL_PUBLISH` aceita subject `PublicationIntent`; rejeita
-  `VideoArtifact`.
-- Subject com id/versão corretos mas `artifactHash` divergente →
-  `APPROVAL_GATE_SUBJECT_TYPE_MISMATCH`.
+  `PublicationPlan` (PATCH N5 — antes `PublicationIntent`).
+- `FIRST_REAL_PUBLISH` aceita subject `PublicationPlan` (PATCH N5 —
+  antes `PublicationIntent`); rejeita `VideoArtifact`.
+- Subject com `subjectId` correto mas `artifactHash` divergente →
+  `APPROVAL_GATE_SUBJECT_TYPE_MISMATCH` (PATCH N8 — antes citava
+  "id/versão").
 - Evidence item de tenant diferente do da `ApprovalRequest` → rejeita.
 - `VideoAuditResult.verdict=COMPLIANT` → item `SATISFIES_REQUIREMENT`.
 - `VideoAuditResult.verdict=NON_COMPLIANT` → item `VIOLATES_REQUIREMENT`.
@@ -1168,8 +1202,9 @@ implementação, depois da revisão do Fable 5 Max e do GPT-6 Astra.
   `AutoEvaluationOutcome`, `ApprovalResolvedEvent` — com `version`
   (optimistic concurrency) e `decisionId` (idempotência) como proteções
   distintas.
-- Toda decisão amarrada a `subjectVersion`+`artifactHash` exatos, nunca só
-  `subjectId`.
+- Toda decisão amarrada a `subjectType`+`subjectId`+`artifactHash` exatos
+  (`ExactApprovalSubject`), nunca só `subjectId` (PATCH N8 — antes
+  citava `subjectVersion`).
 - Estados de decisão (`APPROVED`/`REJECTED`/`CHANGES_REQUESTED`)
   documentados separadamente de estados de lifecycle
   (`EXPIRED`/`SUPERSEDED`/`CANCELLED`).
@@ -1289,8 +1324,11 @@ type FirstRealPublishClaim = {
 
   scope: FirstRealPublishScope;
 
-  publicationIntentId: string;
-  publicationIntentHash: string;
+  publicationPlanId: string; // PATCH (N5, kernel repair pós re-review
+    // GPT-6 Astra, 2026-09-19) — antes publicationIntentId; PublicationIntent
+    // nunca foi declarado em nenhuma Skill, PublicationPlan (Skill17) é o
+    // artifact real
+  publicationPlanHash: string; // PATCH (N5) — antes publicationIntentHash
 
   manualApprovalRequired: true;
 
@@ -1300,9 +1338,9 @@ type FirstRealPublishClaim = {
 };
 ```
 
-Hash: `FIRST_REAL_PUBLISH_CLAIM_V1:sha256:<hex>`. `publicationIntentId`/
-`publicationIntentHash` são carregados como campos opacos — a Skill 03
-não importa nem interpreta `PublicationIntent` (evita circularidade
+Hash: `FIRST_REAL_PUBLISH_CLAIM_V1:sha256:<hex>`. `publicationPlanId`/
+`publicationPlanHash` são carregados como campos opacos — a Skill 03
+não importa nem interpreta `PublicationPlan` (evita circularidade
 runtime).
 
 **Unicidade**: UNIQUE lógico `(tenantId, integrationBindingId,
@@ -1377,7 +1415,7 @@ governar.
 
 Novos `FATAL_ERROR` (3, vocabulário desta Skill, consumido pela
 Skill 17): `PUBLICATION_AUTHORIZATION_RESOLUTION_MISMATCH` (a resolução
-consumida não bate com o `publicationIntentHash`/scope esperado),
+consumida não bate com o `publicationPlanHash`/scope esperado — PATCH N5),
 `FIRST_REAL_PUBLISH_CLAIM_REPLAY_CONFLICT` (mesma `claimKey`, conteúdo
 divergente) e `FIRST_REAL_PUBLISH_GATE_REPLAY_CONFLICT` (reaquisição de
 claim incompatível com o estado atual).
@@ -1427,16 +1465,16 @@ type ApprovalGateKey =
 // evidence kinds válidos + automation constraints, tudo explícito.
 ```
 
-`ApprovalRequest.approvalGateKey` (já existente, hoje `string` solto)
-passa a ser tipado `ApprovalGateKey`. Tabela normativa de subject —
-sempre `subjectType`/`subjectId`/`subjectVersion`/`artifactHash` exatos
-(campos já existentes em `ApprovalRequest`/`ApprovalDecision`, nunca um
+`ApprovalRequest.approvalGateKey` já tipado `ApprovalGateKey` (Ponto
+S4/R3). Tabela normativa de subject — sempre `subjectType`/`subjectId`/
+`artifactHash` exatos (PATCH N8 — antes citava `subjectVersion`; campos
+já existentes em `ApprovalRequest`/`ApprovalDecision`, nunca um
 `subjectHash` solto sem tipo):
 
 | Gate | `subjectType` esperado |
 | --- | --- |
-| `VIDEO_COMPLIANCE` | `VideoArtifact` (exato — id+versão+hash) |
-| `FIRST_REAL_PUBLISH` | `PublicationIntent` (exato) |
+| `VIDEO_COMPLIANCE` | `VideoArtifact` (exato — id+hash) |
+| `FIRST_REAL_PUBLISH` | `PublicationPlan` (exato — id+hash) |
 
 Combinação diferente → fail closed
 (`APPROVAL_GATE_SUBJECT_TYPE_MISMATCH`).
@@ -1447,18 +1485,34 @@ o subject é o `VideoArtifact` em si. `VideoArtifact V` auditado por
 `VideoAuditResult A` → evidência → `ApprovalRequest` para `V` (nunca
 para `A`).
 
-**Por que `FIRST_REAL_PUBLISH` aprova `PublicationIntent`, não
-`FinalizedRendition`:** a publicação inclui mais do que os bytes do
-vídeo — o `PublicationIntent` precisa se comprometer transitivamente
-com, no mínimo: publication target, rendition final, CTA
-(`CreativeCtaIntentRef`, Ponto S3), affiliate/link binding, identidade
-de integração/target, e qualquer payload/config que afete o que será
-publicado. Se o `PublicationIntent` real hoje não se compromete com
-algum desses elementos, isso é um patch no projection existente da
-Skill 17 — nunca um artifact paralelo. **`FIRST_REAL_PUBLISH` continua
-`MANUAL` sempre** (regra F1 preservada) — mesmo com evidence bundle
-`SATISFIED` e audit `COMPLIANT`, nunca auto-publica a primeira
-publicação real. S4 não enfraquece F1.
+**Por que `FIRST_REAL_PUBLISH` aprova `PublicationPlan`, não
+`FinalizedRendition`** (PATCH N5, kernel repair pós re-review GPT-6
+Astra, 2026-09-19 — antes dizia `PublicationIntent`, um artifact que
+nunca foi declarado em nenhuma Skill; comparação dos 4 candidatos reais
+da Skill17 — `PublicationPlan`, `LogicalPublicationIdentity`,
+`PublicationExecution`, `PublicationReservation` — confirmou que
+`PublicationPlan` é o único imutável, pré-side-effect e completo o
+suficiente pra aprovação; ver `feito.md` da Skill de vídeo pra detalhe
+completo do achado): a publicação inclui mais do que os bytes do vídeo
+— o `PublicationPlan` já se compromete com: `publicationTargetKey`
+(target de negócio), `finalizedVideoRenditionId`/`Hash` (rendition
+final), `creativeCtaIntentRef` (CTA, Ponto S3), `affiliateLinkArtifactId`/
+`Hash` (affiliate/link binding), e `steps`/`semanticPayload` completo
+(qualquer payload/config que afete o publicado). O subject `FIRST_REAL_PUBLISH`
+contém a identidade do target de negócio (`publicationTargetKey`) por
+meio do `PublicationPlan`. `providerKey`/`providerAccountId`
+**deliberadamente não fazem parte** da identidade semântica do subject
+aprovado — são resolvidos e revalidados separadamente na execução,
+conforme os contratos de integração e o `FirstRealPublishClaim`/F1 já
+existentes (mesmo racional do `LogicalPublicationIdentity`: "a
+identidade representa O QUE pretendemos publicar, não COMO vamos
+executar"). Aprovar um `PublicationPlan` **não significa "qualquer
+provider/account pode publicar isso"** — a Skill 17 ainda passa pela
+resolução/revalidação de integração e pelo `FirstRealPublishClaim`
+antes do side effect; são duas garantias distintas, ambas exigidas.
+**`FIRST_REAL_PUBLISH` continua `MANUAL` sempre** (regra F1 preservada)
+— mesmo com evidence bundle `SATISFIED` e audit `COMPLIANT`, nunca
+auto-publica a primeira publicação real. S4 não enfraquece F1.
 
 #### `ApprovalEvidenceOutcome` — nível do item de evidência, não da decisão
 
@@ -1484,8 +1538,9 @@ type ApprovalEvidenceItem = {
   evidenceKind: ApprovalEvidenceKind;
 
   subjectRef: KernelArtifactRef; // exato — precisa bater com o
-    // subjectType/subjectId/subjectVersion/artifactHash da
-    // ApprovalRequest sendo avaliada
+    // subjectType/subjectId/artifactHash da ApprovalRequest sendo
+    // avaliada (PATCH N8 — antes citava subjectVersion). Nada de versão
+    // sintética.
 
   sourceEvidenceRef: KernelArtifactRef; // exato VideoAuditResult, etc.
 
@@ -1679,26 +1734,31 @@ vídeo está compliant — são domínios diferentes.
 
 #### Lineage `FIRST_REAL_PUBLISH`
 
+PATCH (N5, 2026-09-19): esta seção citava `PublicationIntent`, um
+artifact nunca declarado em nenhuma Skill — `PublicationPlan` (Skill17)
+é o owner real (ver "Gates V1 e subject exato por gate" acima).
+
 ```text
-ApprovalRequest subject = PublicationIntent
+ApprovalRequest subject = PublicationPlan
   → FinalizedRendition, AffiliateLink, CreativeCtaIntentRef (S3), PublicationTarget
 ```
 
-desde que o hash do `PublicationIntent` se comprometa com essa
-lineage. `FirstRealPublishGateDecision` (Ponto F1) exige/referencia uma
-`ApprovalDecision` cujo `gateKey=FIRST_REAL_PUBLISH` e
-`subjectRef` = exato mesmo `PublicationIntent` — nunca um segundo
-approval path. `PublicationAuthorizationResolutionRef.purpose =
+desde que o hash do `PublicationPlan` (`planHash`) se comprometa com
+essa lineage. `FirstRealPublishGateDecision` (Ponto F1) exige/referencia
+uma `ApprovalDecision` cujo `gateKey=FIRST_REAL_PUBLISH` e
+`subjectRef` = exato mesmo `PublicationPlan` — nunca um segundo approval
+path. `PublicationAuthorizationResolutionRef.purpose =
 FIRST_REAL_PUBLISH` ganha a invariante: o `approvalResolutionId/Hash`
 subjacente tem `gateKey=FIRST_REAL_PUBLISH` e mesmo subject exato.
-Aprovação é sempre do `PublicationIntent` (nunca só
-`PublicationExecution`) — aprovação precisa ocorrer antes do submit
-boundary; `PublicationExecution` é a execução operacional posterior.
-Se o `PublicationIntent` mudar depois da aprovação (rendition/payload/
-CTA/affiliate link/target/binding mudam e isso muda o hash) → a
-aprovação antiga não serve, nova request/evidence/resolution conforme
-policy. Mudança de metadata fora do hash não invalida o subject — quem
-decide o que é semântico é o próprio projection do `PublicationIntent`.
+Aprovação é sempre do `PublicationPlan` (nunca só `PublicationExecution`)
+— aprovação precisa ocorrer antes do submit boundary; `PublicationExecution`
+é a execução operacional posterior. Se o `PublicationPlan` mudar depois
+da aprovação (rendition/payload/CTA/affiliate link/target/binding mudam
+e isso muda `planHash`) → a aprovação antiga não serve, nova
+request/evidence/resolution conforme policy. Mudança de metadata fora
+do hash não invalida o subject — quem decide o que é semântico é o
+próprio projection do `PublicationPlan` (`publicationSemanticPayloadHash`/
+`planHash`).
 
 #### Replay
 
@@ -1754,7 +1814,7 @@ corrupção.
 1.  Skill 03 é owner do contrato de approval evidence.
 2.  ApprovalGateKey enumera VIDEO_COMPLIANCE e FIRST_REAL_PUBLISH.
 3.  VIDEO_COMPLIANCE vincula exact VideoArtifact.
-4.  FIRST_REAL_PUBLISH vincula exact PublicationIntent.
+4.  FIRST_REAL_PUBLISH vincula exact PublicationPlan (PATCH N5).
 5.  VideoAuditResult é evidence, nunca subject do gate.
 6.  ApprovalEvidenceOutcome existe e nunca reusa APPROVED/REJECTED.
 7.  Mapeamento COMPLIANT/NON_COMPLIANT/INCONCLUSIVE é normativo nas duas specs.

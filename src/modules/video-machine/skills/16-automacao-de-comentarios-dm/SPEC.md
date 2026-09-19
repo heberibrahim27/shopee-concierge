@@ -668,7 +668,14 @@ type ResponseIntent = {
   responseIntentId: string;
 
   tenantId: string;
-  runId: string;
+  // PATCH (R2, kernel repair pós re-review GPT-6 Astra, 2026-09-19):
+  // runId REMOVIDO. ResponseIntent nasce de um webhook de comentário/DM
+  // (InboundInteraction + trusted tenant/provider lineage) — é
+  // naturalmente STANDALONE (Ponto C, Skill02), nunca amarrado a uma
+  // ProductionRun. Execution scope é infraestrutura do Job
+  // (Job.executionScope/executionScopeRef via Skill02), não campo
+  // duplicado em cada domain input; grep confirmou zero consumidor real
+  // de ResponseIntent.runId neste corpus.
 
   inboundInteractionId: string;
   inboundInteractionHash: string;
@@ -925,7 +932,9 @@ type OutboundSendCheckpoint = {
   outboundSendCheckpointId: string;
 
   tenantId: string;
-  runId: string;
+  // PATCH (R2, 2026-09-19): runId REMOVIDO — plumbing legado sem
+  // consumidor real (grep confirmou zero uso funcional). Mesmo caminho
+  // STANDALONE do ResponseIntent que originou este checkpoint.
 
   firstMaterializedByJobId: string;
   firstMaterializedByAttemptNumber: number;

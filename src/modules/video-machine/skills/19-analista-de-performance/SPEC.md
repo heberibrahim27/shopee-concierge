@@ -351,7 +351,11 @@ type AnalysisPublicationTimeAnchor = {
 ```typescript
 type PerformanceAnalysisInputBase = {
   tenantId: string;
-  runId: string;
+  // PATCH (R2, kernel repair pós re-review GPT-6 Astra, 2026-09-19):
+  // runId REMOVIDO. Analisar histórico/performance não depende de uma
+  // ProductionRun ativa — naturalmente STANDALONE (Ponto C, Skill02).
+  // Já nem participava do hash (ver "runId não entra" abaixo). Execution
+  // scope é infraestrutura do Job, não campo duplicado no domain input.
   analysisRequestKey: string;
   analysisKind: PerformanceAnalysisKind;
   analysisHorizon: AnalysisHorizon;
@@ -1133,7 +1137,7 @@ type PerformanceAnalysisRunState = 'PREPARED' | 'RESOLVING_BASIS'
 
 type PerformanceAnalysisRun = {
   performanceAnalysisRunId: string;
-  tenantId: string; runId: string;
+  tenantId: string; // PATCH (R2, 2026-09-19): runId REMOVIDO, mesmo motivo do PerformanceAnalysisInputBase acima
   jobId: string; attemptNumber: number;
   analysisRequestKey: string;
   performanceAnalysisInputHash: string;
@@ -1356,7 +1360,7 @@ global — lineage vem dos artefatos tenant-scoped das Skills 17/18.
 
 ### Observabilidade
 
-Logs por tick: `tenantId`, `runId`, `jobId`, `attemptNumber`,
+Logs por tick: `tenantId`, `jobId`, `attemptNumber`, // PATCH (R2): runId removido do log, campo não existe mais em PerformanceAnalysisRun
 `analysisRequestKey`, `analysisKind`, `policyId`/`policyVersion`/
 `policySnapshotHash`, `basisSelectionPolicyHash`, `analysisBasisHash?`,
 `analysisAsOf?`, `subjectCount`, `derivedMetricCount`,

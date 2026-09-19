@@ -246,7 +246,12 @@ type MetricCollectionTrigger =
 
 type MetricCollectionInputBase = {
   tenantId: string;
-  runId: string;
+  // PATCH (R2, kernel repair pós re-review GPT-6 Astra, 2026-09-19):
+  // runId REMOVIDO. Coleta de métricas é naturalmente STANDALONE
+  // (trigger SCHEDULE/ON_DEMAND_REFRESH/EVENT_DRIVEN/RECONCILIATION,
+  // nenhum exige ProductionRun ativo — Ponto C, Skill02). Já nem
+  // participava do hash (ver nota abaixo, "não inclui runId"). Execution
+  // scope é infraestrutura do Job, não campo duplicado no domain input.
   collectionDomain: MetricCollectionDomain;
   collectionRequestKey: string;
   trigger: MetricCollectionTrigger;

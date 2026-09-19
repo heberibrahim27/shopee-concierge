@@ -1819,6 +1819,472 @@ hashes canônicos, 30 testes em 6 blocos — "não precisamos criar 20
 hashes para uma Skill aspiracional" (ChatGPT). Auto-verificação via
 grep confirmou zero tipos duplicados antes do carimbo final.
 
+## Re-review GPT-6 Astra (2026-09-18/19) — "not implementable" → kernel repair N1+N2+N3
+
+Depois de fechar os 25 achados da revisão Fable (S1-S17+M1-M8) e gerar
+um snapshot de consolidação, o corpus foi submetido a uma segunda
+revisão externa (GPT-6 Astra, via Codex) por ZIP (`git archive`, sem
+`.env`/`node_modules`) — o commit local não estava no GitHub e o push
+não foi autorizado. Veredito: "not implementable no estado recebido",
+com 7 achados novos (N1-N7) + 6 pendências antigas reabertas (R1-R6).
+
+**N7 (bug do próprio lint, verificado e corrigido primeiro)**: em
+Windows com `core.autocrlf=true`, `git archive` exporta CRLF; o
+extractor de fences do `contract-lint.mjs` exigia `\n` literal logo
+após a linguagem do fence e falhava silenciosamente em CRLF —
+`0 declarações extraídas`, PASS falso. Corrigido normalizando
+`\r\n→\n` no único ponto de leitura (`lintSkillSpec`), + guarda nova
+`G000_ZERO_DECLARATIONS_EXTRACTED` (0 declarações nunca é SPEC real
+vazio, é sinal de falha de extração). Reproduzido o cenário exato de
+Astra (25 SPEC.md convertidos pra CRLF em scratchpad) e confirmado que
+os fechamentos S1-M8 anteriores eram válidos — o falso-PASS era só um
+artefato do ZIP, não retroatividade sobre o trabalho anterior.
+
+**N4/N6/R4/R6 (achados estreitos, auto-corrigidos sem debate)**:
+Skill07 `CreativeDirectionSuccess/Unavailable.trendResearchResultId`
+virou opcional (regra absent-vs-null do S10); Skill03
+`ApprovalRequestIntent/ApprovalRequest.stage` renomeado pra `stageKey:
+StageKey` (mesmo padrão M1); Skill07 `CreativeDirectionSuccess` ganhou
+`inferenceProvenance: CreativeInferenceProvenance`; `CreativeDecisionBasis.TREND_EVIDENCE`
+ganhou `evidenceHash` (fechando a exceção de naked ref que sobrou do
+S3).
+
+**N1+N2+N3 — reparo único do "kernel" de identidade** (debatido e
+desenhado em conjunto com o ChatGPT antes de qualquer patch, por
+decisão explícita dele: "N1+N2 já formam uma unidade de desenho; falta
+N3 pra fechar o modelo de fan-out/barrier" — aplicado só depois dos
+três juntos, nunca isolado, pra não repetir o padrão de correção
+parcial que gerou a própria regressão). Estrutura canônica agora real
+no `SPEC.md` da Skill 01:
+
+```
+ProductionRun → Stage → StageIteration → StageWorkUnitIdentity(s)
+  → StageSubjectBinding → StageExecution → PreparedSkillInvocation
+  → Job → Attempt(s)
+```
+
+- **N1**: `LogicalJobIntent` ganhou `stageExecutionId`/`stageExecutionHash`/
+  `preparedInvocationId`/`preparedInvocationHash` (cumprindo uma promessa
+  do Ponto A que nunca tinha sido aplicada ao type real — "LogicalJobIntent
+  vai receber PreparedSkillInvocation"). `logicalJobKey` deixou de derivar
+  só da coordenada da work unit (`stageWorkUnitIdentityHash`, template do
+  S5 — colidia entre `StageIteration` diferentes) e passou a usar a mesma
+  autoridade já exigida pelo Ponto D pro `Job` da Skill 02:
+  `RUN:${tenantId}:${runId}:${stageExecutionId}:${preparedInvocationHash}`.
+- **N2**: `StageSubjectBinding` ganhou `stageIterationId`/`stageIterationHash`;
+  `UNIQUE` passou de `(runId, stageKey, stageWorkUnitIdentityHash)` pra
+  `(runId, stageKey, stageIterationId, stageWorkUnitIdentityHash)` — sem
+  isso, o binding da revisão nova colidia com o da revisão anterior pra
+  mesma work unit coordinate.
+- **N3**: `StageKernelContract` ganhou `workUnitContract: StageWorkUnitContract`
+  de verdade (existia só em comentário "PATCH (patch in-place)" nunca
+  aplicado — mesmo padrão de bug que o lint já tinha pego no S5), sem
+  default implícito. `StageTransitionResolution` virou discriminated
+  union real por `workUnitContract` (`SINGLE` com `source` único,
+  `EXPANDABLE` com `stageExpansionManifestRef` + `sources:
+  StageTransitionSource[]`, mutuamente exclusivos via `?: never`) — o
+  helper `StageTransitionSource` evita arrays paralelos onde o
+  hash/resolution de um sibling pudesse ser associado ao execution de
+  outro. Barrier EXPANDABLE ganhou validação explícita (todos os
+  siblings do mesmo manifest, nenhum ausente/extra, hash independente
+  de ordem de conclusão) reaproveitando `FATAL_ERROR` já existentes
+  (`STAGE_EXECUTION_ITERATION_MISMATCH`, `STAGE_WORK_UNIT_NOT_IN_MANIFEST`,
+  `STAGE_EXPANSION_TRANSITION_CONFLICT`) — nenhum código novo criado por
+  contagem, só onde a condição realmente não tinha representação.
+
+4 novas regras de lint via AST real (`G_N123_STAGE_KERNEL_WORK_UNIT_CONTRACT_MISSING`,
+`G_N123_BINDING_ITERATION_IDENTITY_MISSING`,
+`G_N123_EXPANDABLE_TRANSITION_BRANCH_MISSING`,
+`G_N123_LEGACY_LOGICAL_JOB_KEY_TEMPLATE_CONFLICT`), cada uma verificada
+por fault injection real (campo removido → FAIL confirmado → revertido
+→ PASS confirmado). Uma delas (`EXPANDABLE_TRANSITION_BRANCH_MISSING`)
+precisou de dois ciclos: a primeira versão checava só presença do nome
+de propriedade `sources`, mas a própria branch `SINGLE` declara
+`sources?: never` como marcador de exclusão mútua — removendo a branch
+`EXPANDABLE` de verdade o lint continuava passando (falso negativo).
+Corrigido lendo o `typeText` real do AST (`node.type.getText()`) em vez
+de só o nome da propriedade, e comparando contra `StageTransitionSource[]`
+literal — nem `markdown.includes(...)` bastava, porque a própria prosa
+deste `feito.md`/`SPEC.md` cita o mesmo texto ao descrever o campo.
+
+**Prova de fechamento transversal** (exigida pelo ChatGPT antes de aceitar
+o reparo como fechado): revisão semântica de `StageIteration I1` produz
+`B1→E1→J1→T1` pra work unit `W`; revisão `I2` (mesma `W`) produz
+`B2→E2→J2→T2`; com N1+N2+N3, `B1≠B2` (UNIQUE inclui `stageIterationId`),
+`E1≠E2` (já valia via Ponto D), `J1≠J2` (via `logicalJobKey` N1,
+porque `stageExecutionId` difere), `T1≠T2` (via `sourceStageIterationId`
+na `transitionResolutionKey`). Replay de `I2` reproduz exatamente
+`B2/E2/J2/T2` (idempotência já documentada em cada owner). `errorCount=0,
+PASS` no corpus completo após aplicar.
+
+**R1 — checkpoint `SUBMITTING` da Skill02 sem fencing (fechado
+2026-09-19)**: revalidado linha a linha direto no corpus real (o texto
+literal do achado original da Astra não sobreviveu a uma compressão de
+contexto anterior, então a verificação foi feita do zero em vez de
+citar de memória). Achado real confirmado: `skills/02-gestor-de-fila-jobs/SPEC.md`
+persistia `JobAttempt.externalEffectState = SUBMITTING` **antes** da
+chamada ao provider sem exigir `leaseFence`/`expectedVersion` — ao
+contrário de `reportExecution` (que já rejeita fence velho com
+`REJECTED_STALE_FENCE`), não existia nenhuma assinatura de função
+fenced pro checkpoint pré-rede, e o plano de testes só cobria "crash
+depois de SUBMITTING", nunca "worker com fence stale escreve
+SUBMITTING". Debatido com o ChatGPT antes de aplicar (dois ciclos):
+
+1. Nova operação única e fenced, autoridade exclusiva da transição
+   `externalEffectState` `NOT_STARTED → SUBMITTING`:
+   `beginExternalSubmission(jobId, leaseFence, expectedVersion,
+   attemptNumber, providerRequestKey?) -> ACCEPTED | REJECTED_STALE_FENCE
+   | REJECTED_VERSION_CONFLICT | REJECTED_INVALID_STATE`, mesmo padrão
+   de `reportExecution`. Nenhum handler escreve `externalEffectState`
+   diretamente.
+2. Regra de recuperação (a parte que realmente evita duplicação, não
+   só o guard): perder o lease depois de `ACCEPTED` NÃO autoriza uma
+   segunda submissão automática — o próximo worker que observa
+   `SUBMITTING` entra em **reconciliation**, nunca em fresh submission.
+   `providerRequestKey`, quando existe, fica congelado pra aquela
+   external-effect occurrence (nunca `Attempt 1→key A, crash, Attempt
+   2→key B` pro mesmo efeito ainda ambíguo). `ExternalEffectState`
+   ganhou o valor `NOT_APPLIED` (reconciliação com prova confiável de
+   que o efeito não ocorreu — distinto de `CONFIRMED`/`UNKNOWN`; só
+   nesse caso uma nova submissão pode começar).
+3. Limite físico reconhecido explicitamente, não escondido: se o
+   worker A já recebeu `ACCEPTED` antes de perder o lease, nada
+   impede fisicamente a chamada de rede que ele já decidiu fazer —
+   `leaseFence` não oferece exactly-once externo, e fingir que oferece
+   seria pior do que admitir o limite. A proteção real é a regra 2
+   (B nunca repete cego) + a key congelada.
+
+10 cenários de teste adicionados (stale fence, version conflict, Attempt
+antiga, crash pré-chamada, crash pré-report, indeterminável→UNKNOWN,
+idempotência do provider, heartbeat não concede autoridade, o caso
+completo do "worker zumbi" fence 10 vs. fence 11, e um 10º adicionado
+numa segunda rodada — ver abaixo). 2 lint rules novas
+(`G_R1_FENCED_EXTERNAL_SUBMISSION_OPERATION_MISSING`,
+`G_R1_UNGUARDED_SUBMITTING_TRANSITION` — a segunda varre qualquer
+ocorrência textual do write antigo sem `beginExternalSubmission` nas
+proximidades, já que a assinatura é comentário de função, não type
+real parseável por AST), cada uma testada por fault injection real.
+`errorCount=0, PASS` no corpus completo depois de aplicado.
+
+**Correção de segunda rodada (mesmo dia)**: o ChatGPT revisou meu
+próprio fechamento e encontrou um beco sem saída real que eu introduzi
+— `NOT_APPLIED` (o valor que adicionei ao enum) nunca conseguia voltar
+a ser submetível, porque `beginExternalSubmission` só aceita
+`NOT_STARTED` como estado de partida, e nada documentava como sair de
+`NOT_APPLIED`. Corrigido: `NOT_APPLIED` é terminal pra Attempt atual;
+autoriza a Skill 02 a decidir retry técnico via `RetryPolicy`, que
+materializa uma NOVA Attempt (`externalEffectState` nasce em
+`NOT_STARTED` só aí); proibido `NOT_APPLIED→NOT_STARTED` (apagaria
+histórico) e `NOT_APPLIED→SUBMITTING` na mesma Attempt; tentar
+`beginExternalSubmission` numa Attempt já `NOT_APPLIED` →
+`REJECTED_INVALID_STATE`, zero provider calls. 10º cenário de teste
+adicionado cobrindo exatamente essa sequência. `errorCount=0, PASS`
+reconfirmado. Lição: mesmo dentro da disciplina debate→apply→verify,
+um fix que adiciona um valor de enum novo pode introduzir seu próprio
+buraco de máquina de estados — vale a pena pedir uma segunda leitura
+do ChatGPT especificamente sobre transições de/para qualquer valor
+novo antes de considerar fechado.
+
+**R2 — `Job` sem autoridade real de `executionScope` (fechado
+2026-09-19)**: causa raiz mais funda do que o resumo original sugeria
+("runId obrigatório"). O achado real: `skills/02-gestor-de-fila-jobs/SPEC.md`,
+"Ponto C" (RUN_SCOPED × STANDALONE), prometia em prosa desde sempre
+"Patch ao Job existente: adiciona executionScope/executionScopeRef" —
+mas o type `Job` real NUNCA recebeu esses campos; `runId`/`stageKey`/
+`subjectType`/`subjectId`/`stageWorkUnitIdentityHash` continuavam
+obrigatórios pra TODO Job, tornando impossível representar um Job
+`STANDALONE` de verdade sem violar o próprio type ou fabricar um
+`runId` falso — exatamente o que o "Ponto C" proibia. Mesmo padrão de
+"checklist mentindo sobre patch nunca aplicado" do N3 (o item 1 dos
+"Critérios de fechamento do B1" afirmava "Job possui executionScope
+canônico" — falso). Mesmo padrão de `runId` obrigatório sem
+consumidor real confirmado em mais 3 arquivos: Skill16 `ResponseIntent`/
+`OutboundSendCheckpoint` (nasce de webhook, não de Run), Skill18
+`MetricCollectionInputBase` (trigger SCHEDULE/ON_DEMAND_REFRESH/
+EVENT_DRIVEN/RECONCILIATION, nenhum exige Run ativo), Skill19
+`PerformanceAnalysisInputBase` (mesma coisa).
+
+Desenho debatido com o ChatGPT (que corrigiu minha primeira leitura:
+não usar campos opcionais + invariante textual "SE E SOMENTE SE" —
+lição do N3, isso deixa espaço pra estados impossíveis que o
+compilador não pega):
+
+1. `Job` virou união discriminada real por `executionScope`:
+   `type Job = RunScopedJob | StandaloneJob` (via `JobCommon &
+   {...}`). `RUN_SCOPED` carrega `runId`/`stageKey`/`subjectType`/
+   `subjectId`/`stageWorkUnitIdentityHash` obrigatórios; `STANDALONE`
+   os PROÍBE via `?: never` (não apenas ausentes/opcionais).
+2. `executionScopeRef` é a autoridade real, não `runId`: para
+   `RUN_SCOPED` aponta pra `ProductionRun`/`StageExecution`; para
+   `STANDALONE` aponta pra `StandaloneWorkRequest → StandaloneWorkMaterialization`
+   (lineage já existente do Ponto C — nunca `ProductionRun`/`Stage`
+   fabricado).
+3. `subjectType`/`subjectId` classificados como RUN_SCOPED-only só
+   depois de grep corpus-wide confirmar que só existem ligados a
+   `StageSubjectBinding` (Skill01/07/20) — nunca como identidade
+   standalone genérica, ao contrário da hipótese inicial do ChatGPT.
+4. `logicalJobKey` STANDALONE (`STANDALONE:<tenantId>:<standaloneWorkRequestId>`)
+   já existia em prosa no Ponto C ("Exatamente um Job lógico por
+   request") — aplicado agora pela primeira vez ao `JobCommon.logicalJobKey`
+   real, ao lado da autoridade RUN_SCOPED do N1 (que não foi tocada).
+5. Skill16/18/19 NÃO ganharam um segundo sistema de `executionScope`
+   (evita 4 autoridades competindo) — `runId` simplesmente removido
+   desses domain inputs, já que scope de execução é infraestrutura do
+   `Job`/`JobExecutionBinding`/`JobHandlerExecutionContext`, não campo
+   duplicado em cada input de domínio. Distinção conceitual do
+   ChatGPT: "em qual contexto isto executa" (`JobExecutionScopeRef`)
+   ≠ "os dados têm relação histórica com uma Run" (provenance/domain
+   refs, só se houver consumidor real — nunca inventar preventivamente).
+
+4 lint rules novas (`G_R2_JOB_EXECUTION_SCOPE_MISSING`,
+`G_R2_JOB_SCOPE_UNION_MISSING`, `G_R2_STANDALONE_RUN_COORDINATES_NOT_FORBIDDEN`,
+`G_R2_BACKGROUND_RUN_ID_REQUIRED_BANNED`), cada uma testada por fault
+injection. A verificação do `?: never` por branch precisou de uma
+coleta dedicada de `typeText` por ocorrência (não só nome de
+propriedade) — o mesmo nome de campo aparece com `typeText` diferente
+em cada branch da union (`"string"` numa, `"never"` noutra), e
+`allPropertyDetailsByType` só guarda a última ocorrência (sobrescreve),
+mesmo bug de mascaramento que pegamos no N3 com
+`StageTransitionResolution.sources`. A verificação textual dos
+literais `'RUN_SCOPED'`/`'STANDALONE'` também precisou ser escopada à
+declaração real do `Job` (janela de 3500 chars a partir de `"type Job ="`),
+porque `markdown.includes(...)` sem escopo encontrava o mesmo literal
+em `JobExecutionScopeRef` (outro type) e dava falso PASS mesmo com a
+branch do `Job` removida. `errorCount=0, PASS` no corpus completo.
+
+**R3 — kernel não sabia QUAL gate de aprovação, só "há aprovação?"
+(fechado 2026-09-19)**: achado confirmado exatamente como descrito.
+`skills/01-orquestrador-de-producao/SPEC.md`, `StageDefinition.requiresApproval?:
+boolean` era o único sinal — zero informação sobre qual
+`ApprovalGateKey` aplica, zero `approvalPolicyKey`.
+`ApprovalRequestIntent` era citado só em prosa, nunca declarado como
+type real na Skill01. Pior: `OrchestrationDecision` (o type que decide
+o que a Skill01 faz a seguir) nem tinha uma variante `REQUEST_APPROVAL`
+— estruturalmente impossível emitir um pedido de aprovação. Do outro
+lado, `skills/03-gestor-de-aprovacao/SPEC.md` já tinha um sistema
+maduro: `ApprovalGateKey = 'VIDEO_COMPLIANCE' | 'FIRST_REAL_PUBLISH'`
+(closed enum V1), tabela normativa gate→subjectType
+(`VIDEO_COMPLIANCE`→`VideoArtifact`, `FIRST_REAL_PUBLISH`→`PublicationIntent`),
+`ApprovalPolicy` completa — mas `ApprovalRequestIntent.approvalGateKey`
+continuava `string` solta, não tipada.
+
+Desenho do ChatGPT, em 4 partes aplicadas juntas:
+
+1. `StageDefinition.requiresApproval?: boolean` REMOVIDO (banido, não
+   deprecated — boolean + gate em paralelo seriam duas fontes de
+   verdade). Substituído por `approvalRequirement?: StageApprovalRequirement`
+   (`{ approvalGateKey: ApprovalGateKey; approvalPolicyKey?: string }`).
+   `ApprovalGateKey` referenciado (não redefinido) — segue owned pela
+   Skill03.
+2. **Skill01 NUNCA configura `subjectType`** — ponto central pra evitar
+   o próprio risco do achado (alguém configurar `VIDEO_COMPLIANCE` num
+   stage cujo artifact disponível é um `PublicationIntent`). A tabela
+   gate→subjectType continua autoridade EXCLUSIVA da Skill03; o subject
+   real do `ApprovalRequestIntent` vem da `StageSubjectBinding`/
+   `upstreamArtifactRefs` da `StageExecution` sendo gated, nunca de
+   config estática do pipeline — Skill03 faz fail-closed se
+   `approvalGateKey ↔ subjectType` não corresponder.
+3. `ApprovalRequestIntent.approvalGateKey` (Skill03) deixou de ser
+   `string` solta — passou a `ApprovalGateKey`, já que o próprio
+   arquivo possui o closed enum.
+4. `OrchestrationDecision` ganhou a branch real
+   `{ type: "REQUEST_APPROVAL"; intent: ApprovalRequestIntent }`
+   (`ApprovalRequestIntent` referenciado, nunca copiado). Fluxo
+   normativo documentado: `StageExecution` pronta → sem
+   `approvalRequirement` → `REQUEST_JOB`; com `approvalRequirement` e
+   decisão válida existente pro subject/hash atual → `REQUEST_JOB`;
+   senão → materializa `ApprovalRequestIntent` → `REQUEST_APPROVAL`.
+   `RunStatus` só vira `WAITING_APPROVAL` DEPOIS da materialização
+   durável pela Skill03 — nunca só por "a Skill01 decidiu pedir".
+   `approvalRequirement` é pre-dispatch gate: sem aprovação válida, o
+   Job do stage gated nunca é despachado.
+
+**Invariante contra aprovação obsoleta após revisão**: uma decisão
+anterior só satisfaz o gate se vinculada ao MESMO subject exato/hash
+atualmente bound — `VideoArtifact A/hash1 → APPROVED` não autoriza
+`VideoArtifact A/hash2` depois de uma correção (nova `StageIteration`).
+Reaproveita a semântica de evidence bundle já existente na Skill03
+(S4), sem introduzir `stageIterationId` no `ApprovalRequest`.
+`approvalRequirement` fica congelado junto com o resto do
+`StageDefinition` no pipeline snapshot da Run — nenhum hash schema
+novo.
+
+**Conexão explícita com N5** (não resolvida aqui, por decisão do
+ChatGPT): `FIRST_REAL_PUBLISH` exige subject `PublicationIntent`
+exato, que ainda não tem definição canônica na Skill17. R3 só garante
+que o kernel SABE que uma `StageExecution` exige esse gate para aquele
+subject exato — N5 é quem torna o subject representável de fato.
+
+**Correção de segunda rodada (mesmo dia)**: o ChatGPT recusou fechar R3
+como CLOSED até a resolução do subject virar determinística — minha
+prosa original só dizia "subject vem da StageSubjectBinding/
+upstreamArtifactRefs", indicando duas fontes possíveis sem regra de
+escolha, o que deixaria em aberto "upstream contém VideoArtifact A e B,
+Skill01 escolhe um qualquer". Corrigido com o algoritmo `Approval
+subject resolution` de 7 passos: deriva candidatos só das refs
+canônicas (binding + upstreamArtifactRefs), aplica a tabela
+gate→subjectType da Skill03, e exige EXATAMENTE 1 candidato compatível
+— 0 ou >1 candidatos é fail-closed (`STAGE_APPROVAL_SUBJECT_RESOLUTION_AMBIGUOUS`,
+1 `FATAL_ERROR` novo, do lado produtor/Skill01 — distinto de
+`APPROVAL_GATE_SUBJECT_TYPE_MISMATCH`, que é validação do lado
+consumidor/Skill03 sobre um intent já recebido). `errorCount=0, PASS`
+reconfirmado.
+
+4 lint rules novas (`G_R3_LEGACY_REQUIRES_APPROVAL_BANNED`,
+`G_R3_STAGE_APPROVAL_REQUIREMENT_MISSING`,
+`G_R3_REQUEST_APPROVAL_DECISION_MISSING`,
+`G_R3_APPROVAL_GATE_KEY_MUST_USE_ENUM`), cada uma testada por fault
+injection real. Duas correções feitas durante a própria checagem: (a)
+a regra do boolean banido inicialmente disparava sobre os PRÓPRIOS
+comentários PATCH que citavam o nome do campo antigo como explicação
+histórica — corrigido ignorando linhas que começam com `//`; (b) as
+janelas de busca textual pras declarações de `ApprovalRequestIntent`/
+`OrchestrationDecision` eram curtas demais e cortavam antes de
+alcançar o campo real por causa dos próprios comentários PATCH longos
+— aumentadas de 700 pra 1200 chars. `errorCount=0, PASS` no corpus
+completo.
+
+**N8 — `subjectVersion` sem produtor canônico em nenhum gate (fechado
+2026-09-19)**: achado transversal descoberto NO MEIO do trabalho do N5
+— ao investigar `PublicationPlan` como candidato a `subjectVersion`
+pro gate `FIRST_REAL_PUBLISH`, o ChatGPT recusou aplicar N5 até
+investigarmos `subjectVersion` a fundo, porque materializar
+"pendente/genérico" seria repetir o mesmo padrão de contrato incompleto
+que vimos eliminando desde N3. Investigação completa (6 pontos pedidos
+pelo ChatGPT): `subjectVersion` só existe em 4 types da Skill03
+(`ApprovalRequestIntent`, `ApprovalRequest`, `ApprovalDecision`,
+`ApprovalResolvedEvent`), nunca entra em nenhum hash canônico (nenhum
+dos 4 types tem hash próprio), a idempotência real já é por
+`sourceIntentId`, e nenhum produtor do corpus (nem `VideoArtifact` do
+gate mais antigo, `VIDEO_COMPLIANCE`, nem `PublicationPlan`) tem campo
+de revisão de conteúdo que pudesse alimentá-lo. O padrão corpus-wide de
+referência de artifact (`KernelArtifactRef`, Skill01) também não tem
+esse conceito — só `artifactId`/`artifactHash`/`schemaVersion` (este
+último é versão de CONTRATO, nunca de conteúdo).
+
+Resolução: `subjectVersion` REMOVIDO dos 4 types. Nova identidade
+canônica `ExactApprovalSubject = subjectType + subjectId + artifactHash`.
+O mecanismo `SUBJECT_VERSION_CONFLICT`/`decisionBlockedReason` também
+foi removido inteiro (única causa possível deixou de existir — manter
+um campo com um único valor literal seria a mesma pseudo-configuração
+já banida no Ponto M1) — a proteção real que ele tentava dar ("mesmo
+sourceIntentId não pode mudar de conteúdo") já é coberta pelo
+`INTENT_ID_CONFLICT` existente, sem precisar bloquear uma
+`ApprovalRequest` já materializada. ~15 pontos de prosa/hash/matching
+corrigidos em cascata (Idempotência, Interface Skill01↔Skill03,
+Observabilidade, Plano de testes, Critério de aprovação, tabela de
+gates, `ApprovalEvidenceItem`). 2 lint rules novas
+(`G_N8_APPROVAL_SUBJECT_VERSION_BANNED`,
+`G_N8_APPROVAL_EXACT_SUBJECT_HASH_REQUIRED`), testadas por fault
+injection. `errorCount=0, PASS`.
+
+Achado extra relevante pro N5 descoberto durante essa investigação:
+`FirstRealPublishClaim` (Skill03) já usa `publicationIntentId`/
+`publicationIntentHash` LITERALMENTE nesses nomes, dentro do hash real
+`FIRST_REAL_PUBLISH_CLAIM_V1` — N5 vai precisar corrigir esse hash
+projection de verdade, não só a prosa/tabela de gates.
+
+**N5 — `PublicationIntent` sem definição canônica (fechado 2026-09-19)**:
+comparados os 4 candidatos reais da Skill17 —
+`PublicationExecution` (descartado: mutável, carrega jobId/attemptNumber/
+providerKey, é registro de execução pós-autorização, não intenção
+pré-side-effect), `PublicationReservation` (descartado: mutável, lock
+de concorrência, sem conteúdo semântico próprio), `LogicalPublicationIdentity`
+(candidato forte mas incompleto: imutável e pré-side-effect, mas é
+deliberadamente uma projeção enxuta pra dedup/idempotência, sem os
+`steps`/payload completos), `PublicationPlan` (CANDIDATO CORRETO:
+imutável, criado antes de `LogicalPublicationIdentity` na ordem
+canônica documentada — `PublicationInput → PublicationPlan → publicationSemanticPayloadHash
+→ LogicalPublicationIdentity → reservation/execution → provider →
+receipt → SocialPublicationBinding` —, e o mais completo:
+`publicationTargetKey`/`finalizedVideoRenditionId+Hash`/
+`creativeCtaIntentRef`/`affiliateLinkArtifactId+Hash`/`steps` com
+`semanticPayload`).
+
+O único item da lista de requisitos da Skill03 que `PublicationPlan`
+não carrega — identidade de integração/provider — é EXCLUSÃO
+DELIBERADA, mesmo racional já documentado pra `LogicalPublicationIdentity`
+("a identidade representa O QUE pretendemos publicar, não COMO vamos
+executar"): `publicationTargetKey` já é a identidade de target de
+negócio; `providerKey`/`providerAccountId` são resolvidos/revalidados
+separadamente na execução, via os contratos de integração e o
+`FirstRealPublishClaim`/F1 já existentes. Aprovar um `PublicationPlan`
+não significa "qualquer provider pode publicar" — são duas garantias
+distintas, ambas exigidas antes do side effect.
+
+Migração semântica dirigida (não substituição cega de string, por
+pedido explícito do ChatGPT) em 5 arquivos: Skill03 (tabela de gates,
+`FirstRealPublishClaim.publicationIntentId/Hash` → `publicationPlanId/Hash`
+— corrigindo o hash real `FIRST_REAL_PUBLISH_CLAIM_V1`, seção "Lineage
+FIRST_REAL_PUBLISH" inteira, critério de fechamento S4), Skill01
+(comentário do `StageApprovalRequirement`, nota do subject resolution),
+Skill17 (3 menções normativas — fluxo antes/depois da rede, resposta às
+5 perguntas do debate, fluxo `FirstRealPublishClaim`), Skill02 e Skill04
+(exemplos de artifact citando o nome errado). `DeletePublicationIntent`
+(Skill17) preservado intacto — é um conceito futuro diferente
+(delete-request), não o mesmo problema.
+
+2 lint rules novas (`G_N5_UNDECLARED_PUBLICATION_INTENT_BANNED` —
+corpus-wide, nenhum SPEC.md pode declarar `type PublicationIntent`;
+`G_N5_FIRST_REAL_PUBLISH_SUBJECT_MUST_BE_PUBLICATION_PLAN` — tabela
+normativa da Skill03 precisa dizer `PublicationPlan`), testadas por
+fault injection. `errorCount=0, PASS` no corpus completo.
+
+Com N5 fechado, o F/B5 do relatório original do Fable está agora
+CLOSED por completo (antes só "PARTIALLY RESOLVED", preso por este
+achado).
+
+**R5 — desconexão Skill20↔Skill07 `VariationDirective` (fechado
+2026-09-19, ÚLTIMO achado da re-review)**: investigação nos 8 pontos
+pedidos pelo ChatGPT confirmou o **caso A (dívida V2 legítima)**, não o
+caso B (contrato quebrado escondido): `CreativeDirectionInput` real da
+Skill07 (linha 353) tem exatamente `tenantId`/`runId`/
+`stageSubjectBindingId`/`trendResearchResultId?`/`creativeDirectionPolicyKey`
+— zero ocorrência de `VariationDirective`, zero campo fantasma.
+`IMPLEMENTATION-SCOPE.md` já declarava "no V1 pipeline adapter may
+emit CREATIVE_VARIANT work units derived from Skill20" e que Skills
+11/12/14/17 não dependem da Skill20 — mas a auditoria original do M5
+tinha **pulado a Skill07**, mesmo sendo a conexão mais óbvia
+("Skill20 diz o que variar, Skill07 é dona da `CreativeDirectionResult`").
+Skill01 só tem `experimentVariantIdentityHash` como plumbing
+condicional/opcional, sem conexão obrigatória 20→07.
+
+Fechamento (documental + proteção de escopo, sem alteração funcional
+na Skill07 — deliberadamente NÃO adicionamos `variationDirectiveId?`
+nem opcional, isso criaria o "campo fantasma" que hoje não existe):
+`IMPLEMENTATION-SCOPE.md` ganhou a Skill07 explicitamente no "Achado
+real de corpus" da Skill20, mais um contrato V1/V2 explícito (V1:
+Skill07 não recebe `VariationDirective`, Skill20 não é invocada,
+nenhuma decisão/work unit/`StageExecution` V1 depende dela, nenhum
+adapter emite `CREATIVE_VARIANT`; V2: consumida via
+`Skill20 → VariationDirective/VariantExecutionIntent → Skill01 →
+ProductionRun da variante → Skill07`, ponto de extensão especificado
+mas não ativo). 2 lint rules novas
+(`G_R5_SKILL07_V1_VARIATION_DIRECTIVE_DEPENDENCY_BANNED` — nenhum type
+V1 real da Skill07 pode referenciar `VariationDirective`, nem
+opcionalmente; `G_R5_V1_CREATIVE_VARIANT_WORK_UNIT_BANNED` — protege a
+frase normativa que já proibia `CREATIVE_VARIANT` derivado da Skill20
+no V1), testadas por fault injection. `errorCount=0, PASS`.
+
+## Estado final da re-review GPT-6 Astra (2026-09-19)
+
+Com R5 fechado, **não sobra nenhum finding conhecido aberto desta
+re-review no nível de especificação**: `R1-R6 → CLOSED`, `N1-N8 →
+CLOSED` (N8 foi descoberto e fechado NO MEIO do trabalho do N5),
+`B/B4 → CLOSED`, `C/B1 → CLOSED`, `D/B2 → CLOSED`, `F/B5 → CLOSED`,
+`G → CLOSED`. `contract-lint.mjs`: `errorCount=0, PASS` no corpus
+completo (25/25 SPEC.md).
+
+**Importante — "CLOSED" é resolução por escopo/spec, não confirmação
+externa**: o próprio ChatGPT foi explícito que isso não deve ser
+declarado "corpus implementável confirmado" por conta própria. Depois
+deste patch, o passo correto é congelar um novo snapshot/commit/archive
+e mandar pra uma nova revisão independente (Fable/Astra de novo), com
+commit SHA e SHA-256 do ZIP coerentes entre si — só uma revisão externa
+confirma que não apareceu nenhuma nova contradição transversal. Isso
+exige decisão do Heber (commit + eventual push/ZIP), não é algo pra
+decidir sozinho.
+
 ## Regra de ouro (herdada)
 
 Nenhuma Skill é considerada "pronta" só por ter o `SPEC.md` escrito. Uma

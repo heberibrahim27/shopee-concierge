@@ -133,12 +133,52 @@ capability ≠ V1 product capability enabled`. O perfil V1 declara:
 from Skill20.` O eixo continua existindo pra não refazer o kernel no
 futuro.
 
-**Achado real de corpus**: nenhuma das Skills 11/12/14/17 tem qualquer
-campo/dependência sobre `experimentVariant*`/output da Skill20 — a
-única plumbing existente (`experimentVariantIdentityHash` em Skill01,
+**Achado real de corpus**: nenhuma das Skills 11/12/14/17 **nem 07**
+(PATCH R5, kernel repair pós re-review GPT-6 Astra, 2026-09-19 — a
+auditoria original do M5 tinha pulado a Skill07, mesmo sendo a conexão
+mais óbvia com a Skill20: "Skill20 diz o que variar, Skill07 é dona da
+`CreativeDirectionResult`") tem qualquer campo/dependência sobre
+`experimentVariant*`/`VariationDirective`/output da Skill20 — a única
+plumbing existente (`experimentVariantIdentityHash` em Skill01,
 `01-orquestrador-de-producao/SPEC.md`) já é condicional/opcional,
 owned pela Skill01, e só entra quando uma variante está sendo
-produzida dentro de um `ProductionRun` — nada a corrigir.
+produzida dentro de um `ProductionRun` — nada a corrigir. Essa
+plumbing sozinha **não torna a Skill20 dependência V1**: no V1 deve
+permanecer ausente e não pode provocar branching, fan-out ou chamada à
+Skill20.
+
+**Contrato V1/V2 explícito Skill20↔Skill07 (R5)**:
+
+```text
+V1:
+- Skill20 = DEFERRED_V2_CONTRACT.
+- Skill20 não é invocada pelo pipeline V1.
+- Skill07 não recebe VariationDirective.
+- CreativeDirectionInput V1 não possui dependency/ref/hash de VariationDirective.
+- Nenhuma decisão, work unit ou StageExecution V1 depende de Skill20.
+- Nenhum pipeline adapter V1 pode emitir CREATIVE_VARIANT derivado de Skill20.
+
+V2:
+- VariationDirective será consumida através do pipeline normal:
+    Skill20
+      → VariationDirective / VariantExecutionIntent
+      → Skill01
+      → ProductionRun da variante
+      → Skill07
+- Esse ponto de extensão está especificado conceitualmente, mas NÃO ATIVO no V1.
+```
+
+Deliberadamente **não** adicionamos `variationDirectiveId?`/
+`variationDirectiveHash?` (nem opcionais) a `CreativeDirectionInput`
+agora — isso criaria exatamente o "campo fantasma" que hoje felizmente
+não existe. O contrato de entrada V2 só deve ser materializado quando
+a Skill20 for ativada operacionalmente e a lineage completa puder ser
+definida.
+
+**R5 → CLOSED como `DEFERRED_V2_CONTRACT`** — "CLOSED" aqui significa
+que o achado está corretamente resolvido por escopo (dívida V2
+legítima, sem contrato quebrado escondido), não que a integração
+Skill20→Skill07 tenha sido implementada.
 
 ## Skill21 — relatórios
 

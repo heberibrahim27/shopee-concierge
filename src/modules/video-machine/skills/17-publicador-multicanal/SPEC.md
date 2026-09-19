@@ -121,7 +121,7 @@ link errado, ou correlação impossível pra Skill 16.
 
 ```text
 ANTES DA REDE
-PublicationIntent/Reservation
+PublicationPlan/Reservation
 → identidade lógica congelada, rendition exata, AffiliateLinkArtifact
   exato, CreativeCtaIntent exato, target exato, approval/gates,
   provider request identity
@@ -217,7 +217,10 @@ lógica.**
 > autorização válida produzida pela autoridade da Skill 03 e a revalida
 > imediatamente antes do side effect externo.
 
-Fluxo: `PublicationIntent` exato → Skill 03 authority →
+Fluxo: `PublicationPlan` exato (PATCH N5, 2026-09-19 — antes
+`PublicationIntent`, artifact nunca declarado; ver "Gates V1 e subject
+exato por gate", skills/03-gestor-de-aprovacao/SPEC.md) → Skill 03
+authority →
 `PublicationAuthorizationResolution`
 (`AUTHORIZED`/`WAITING_APPROVAL`/`REJECTED`/`BLOCKED`), provando que
 `FIRST_REAL_PUBLISH` foi respeitado pra `tenantId`+`publicationTargetKey`
@@ -299,7 +302,7 @@ reescreve CTA, decide aprovação, ou atribui conversão.
 
 ### Respostas diretas às 5 perguntas do debate
 
-1. **Binding antes ou depois?** `PublicationIntent`/`Reservation` antes
+1. **Binding antes ou depois?** `PublicationPlan`/`Reservation` antes
    da rede; `SocialPublicationBinding` final nasce depois da confirmação
    externa e de identificadores suficientemente confiáveis.
    `WAIT_FOR_BINDING` cobre a janela real — nunca binding fictício
@@ -1119,8 +1122,9 @@ em paralelo/depois: AUXILIARY steps → comentário/link/etc.
 > Skill 17 **não define esses tipos, só consome**; nenhuma definição
 > local concorrente permanece neste arquivo.
 
-Fluxo consumido pela Skill 17 (resumo, sem redeclarar tipos):
-`PublicationIntent` exato → se for a primeira publicação real do
+Fluxo consumido pela Skill 17 (resumo, sem redeclarar tipos; PATCH N5,
+2026-09-19 — antes dizia `PublicationIntent`):
+`PublicationPlan` exato → se for a primeira publicação real do
 `(tenantId, integrationBindingId, publicationChannelKey)`:
 `FirstRealPublishClaim` (Skill 03) → aprovação manual (sempre `MANUAL`
 pra esse gate, nunca `AUTO`/`HYBRID`) → `PublicationAuthorizationResolutionRef`
