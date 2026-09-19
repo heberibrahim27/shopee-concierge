@@ -927,6 +927,21 @@ function lintSkillSpec(skillDirName) {
           detail: "Não encontrei a seção normativa 'Serialização claim × seal' — sem ela, claim de Wi e criação do seal podem correr em paralelo e ambos vencerem pro mesmo Wi, quebrando a cobertura exata do manifest (achado N9)",
         });
       }
+
+      // PATCH (N9, achado real do re-review GPT-6 Astra sobre o ZIP
+      // d487eec, 2026-09-19): sem a condição de conjunto vazio, a regra
+      // de presença de shortCircuitDecisionRef ("presente sse >=1 member
+      // é SKIPPED_SHORT_CIRCUIT") contradiz a regra "se existe qualquer
+      // seal pra M, shortCircuitDecisionRef aponta pra ele" no caso de
+      // uma work unit única/última disparando START_NEXT_ITERATION sem
+      // nenhuma Wi NOT_STARTED sobrando. Checagem textual/dirigida —
+      // mesma família das outras checagens N9 acima.
+      if (!markdown.includes("nenhum `StageExpansionShortCircuitDecision` é materializado")) {
+        findings.push({
+          rule: "G_N9_EMPTY_SEAL_NOT_MATERIALIZED_RULE_MISSING",
+          detail: "Não encontrei a regra normativa que proíbe materializar StageExpansionShortCircuitDecision quando o conjunto NOT_STARTED está vazio — sem ela, um seal vazio contradiz 'shortCircuitDecisionRef presente sse >=1 member SKIPPED_SHORT_CIRCUIT' (achado real do re-review sobre d487eec)",
+        });
+      }
       if (!seenSymbols.has("StageExpansionShortCircuitDecision")) {
         findings.push({
           rule: "G_N9_SHORT_CIRCUIT_DECISION_MISSING",
@@ -1040,6 +1055,75 @@ function lintSkillSpec(skillDirName) {
         findings.push({
           rule: "G_R1_UNGUARDED_SUBMITTING_TRANSITION",
           detail: `'ExternalEffectCheckpoint.state = SUBMITTING' encontrado sem beginExternalSubmission nas proximidades (índice ~${m.index}) — write solto de SUBMITTING sem fencing é exatamente o buraco do R1`,
+        });
+      }
+    }
+
+    // PATCH (R1 revisado, achado real do re-review GPT-6 Astra sobre o
+    // ZIP d487eec, 2026-09-19): a migração de JobAttempt.externalEffectState
+    // pra ExternalEffectCheckpoint.state (R1 revisado) ficou incompleta —
+    // a transação atômica de entrada em BLOCKED (seção "Transação atômica
+    // de entrada em BLOCKED") continuava escrevendo o campo já removido
+    // de JobAttempt. Não é um bug de shape checável por AST (o campo não
+    // existe mais no type, mas a PROSA normativa ainda citava o nome
+    // antigo) — precisa ser textual, banindo a string por completo depois
+    // que R1 revisado a removeu do JobAttempt.
+    if (markdown.includes("JobAttempt.externalEffectState")) {
+      findings.push({
+        rule: "G_R1_STALE_JOB_ATTEMPT_EXTERNAL_EFFECT_STATE_REFERENCE",
+        detail: "Encontrei 'JobAttempt.externalEffectState' no SPEC — esse campo foi removido de JobAttempt pelo R1 revisado (migrou pra ExternalEffectCheckpoint.state); qualquer transação normativa que ainda o cite não foi migrada (achado real do re-review sobre d487eec)",
+      });
+    }
+
+    // PATCH (R1, fechamento do BLOCKER apontado pelo re-review GPT-6
+    // Astra sobre o ZIP d487eec, 2026-09-19, desenhado com o ChatGPT):
+    // beginExternalSubmission só cobria a ENTRADA em SUBMITTING — não
+    // existia nenhuma operação pra registrar/reconciliar o RESULTADO
+    // (CONFIRMED/NOT_APPLIED/UNKNOWN) de uma occurrence específica.
+    // reportExternalEffectObservation fecha essa porta de saída. 4
+    // regras textuais/dirigidas, mesma família das outras checagens R1.
+    if (skillDirName.startsWith("02-")) {
+      // Duas checagens independentes (não uma subconjunto textual da
+      // outra — uma checagem cuja condição de FAIL nunca é alcançável
+      // quando a outra passa é código morto, e não prova nada em
+      // fault-injection real): (1) a operação existe (call syntax, sem
+      // exigir a assinatura completa literal); (2) SEPARADAMENTE, ela
+      // aceita o seletor de occurrence — não um jobId/attemptNumber
+      // sozinho, que reabriria a ambiguidade que o R1 revisado já
+      // fechou: qual checkpoint, entre vários da mesma Attempt, está
+      // sendo atualizado.
+      const observationCallIdx = markdown.indexOf("reportExternalEffectObservation(");
+      if (observationCallIdx === -1) {
+        findings.push({
+          rule: "G_R1_EXTERNAL_EFFECT_OBSERVATION_OPERATION_MISSING",
+          detail: "Não encontrei reportExternalEffectObservation(...) — sem ela, um SUBMITTING/UNKNOWN não tem porta de saída fechada pra CONFIRMED/NOT_APPLIED/UNKNOWN por occurrence (achado BLOCKER real do re-review sobre d487eec)",
+        });
+      } else {
+        const signatureWindow = markdown.slice(observationCallIdx, observationCallIdx + 300);
+        if (!signatureWindow.includes("externalEffectOccurrenceKey")) {
+          findings.push({
+            rule: "G_R1_EXTERNAL_EFFECT_OBSERVATION_OCCURRENCE_SELECTOR_MISSING",
+            detail: "reportExternalEffectObservation não tem externalEffectOccurrenceKey como parâmetro explícito (nos 300 caracteres após a chamada) — sem seletor de occurrence, a operação não sabe qual ExternalEffectCheckpoint específico atualizar entre vários da mesma Attempt (achado BLOCKER real do re-review sobre d487eec)",
+          });
+        }
+      }
+      if (
+        !markdown.includes("NUNCA escrevem ExternalEffectCheckpoint.state") &&
+        !markdown.includes("nunca escrevem ExternalEffectCheckpoint.state") &&
+        !markdown.includes("nunca escrevem `ExternalEffectCheckpoint.state`")
+      ) {
+        findings.push({
+          rule: "G_R1_JOB_SETTLEMENT_EXTERNAL_EFFECT_WRITE_BANNED",
+          detail: "Não encontrei a proibição explícita de JobExecutionResult/JobExecutionSettlement escreverem ExternalEffectCheckpoint.state — sem ela, poderia surgir uma segunda state machine divergente pro mesmo checkpoint (achado real do re-review sobre d487eec)",
+        });
+      }
+      if (
+        !markdown.includes("CONFIRMED é terminal, nunca reaberto") ||
+        !markdown.includes("NOT_APPLIED é terminal, nunca")
+      ) {
+        findings.push({
+          rule: "G_R1_EXTERNAL_EFFECT_TERMINAL_REOPEN_BANNED",
+          detail: "Não encontrei a proibição explícita de reabrir CONFIRMED/NOT_APPLIED via reportExternalEffectObservation — sem ela, um checkpoint terminal poderia ser mutado de volta pra SUBMITTING/UNKNOWN (achado real do re-review sobre d487eec)",
         });
       }
     }

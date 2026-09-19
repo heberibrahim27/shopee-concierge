@@ -2389,12 +2389,141 @@ anteriores, `CLOSED` aqui significa "corrigido no corpus e protegido
 por lint/fault-injection", nunca "validado por revisão externa
 independente" — essa validação só acontece quando o GPT-6 Astra revisar
 os bytes novos de verdade (mesma lição documentada acima, depois do
-"not implementable, ainda" desta própria rodada). Próximo passo
-técnico (ChatGPT): congelar um snapshot novo (commit SHA + ZIP do
-mesmo commit + SHA-256 do ZIP + saída do contract-lint + matriz
-R1-R6/N1-N12 com status) e mandar pra próxima revisão independente do
-Astra — pendente autorização do Heber pra criar o commit (regra do
-projeto: nunca commitar sem perguntar de novo a cada vez).
+"not implementable, ainda" desta própria rodada). Commit `d487eec`
+criado (local, nunca enviado ao GitHub), ZIP `shopee-concierge-d487eec.zip`
+(SHA-256 `ef8553f892f2e59f7931747532944babde7ed9ac4f45c3eea13693ce839f2496`)
+gerado e entregue ao Heber pra mandar ao Astra.
+
+## Quarta passagem — Astra revisou o d487eec de verdade (2026-09-19)
+
+O Astra revisou o ZIP `shopee-concierge-d487eec.zip` de fato (ZIP e SHA
+conferidos, lint PASS/0 erros/23 avisos com contraprovas executadas).
+Resultado: **"not implementable, ainda"**, mas evolução real —
+`N10`/`N11`/`N12` confirmados `VERIFIED CLOSED`; `R1` e `N9`
+`PARTIALLY RESOLVED`, com achados concretos e reais (verificados
+pessoalmente no corpus antes de agir):
+
+- **N9 (SIGNIFICANT, fechado sozinho — mecânico)**: quando o conjunto
+  `NOT_STARTED` fica vazio no instante do seal (manifest de 1 work
+  unit, ou `Wk` sendo a última a resolver), a regra antiga
+  materializava `StageExpansionShortCircuitDecision` mesmo assim — e
+  aí duas regras contradiziam: "`shortCircuitDecisionRef` presente sse
+  >=1 member `SKIPPED_SHORT_CIRCUIT`" (nenhum seria, nesse caso) vs.
+  "se existe qualquer seal pra `M`, `shortCircuitDecisionRef` aponta
+  pra ele". Fix
+  (`src/modules/video-machine/skills/01-orquestrador-de-producao/SPEC.md`,
+  "Mecanismo de short-circuit"): o seal só é materializado quando o
+  conjunto `NOT_STARTED` é não-vazio; se vazio, nenhum seal é criado,
+  a resolution fecha só com members `EXECUTED`,
+  `shortCircuitDecisionRef` ausente — as duas condições viram a mesma
+  condição, nunca mais divergentes. Lint novo
+  `G_N9_EMPTY_SEAL_NOT_MATERIALIZED_RULE_MISSING`, fault-injection
+  confirmada.
+- **R1 (SIGNIFICANT, fechado sozinho — mecânico, migração incompleta)**:
+  a "Transação atômica de entrada em `BLOCKED`"
+  (`src/modules/video-machine/skills/02-gestor-de-fila-jobs/SPEC.md`)
+  ainda escrevia `JobAttempt.externalEffectState = UNKNOWN` — campo
+  que o R1 revisado já tinha removido de `JobAttempt` na passagem
+  anterior, mas essa seção específica não foi migrada junto (mesma
+  classe de bug do N3: consumidor de um patch não atualizado). Fix:
+  migrado pra `ExternalEffectCheckpoint.state = UNKNOWN`, escopado à
+  `externalEffectOccurrenceKey` exata. Lint novo
+  `G_R1_STALE_JOB_ATTEMPT_EXTERNAL_EFFECT_STATE_REFERENCE` (banimento
+  textual do nome do campo removido — não é checável por AST porque o
+  campo já não existe no type, só sobrava na prosa), fault-injection
+  confirmada (achado o cuidado extra de não deixar o próprio comentário
+  explicativo citar a frase banida — lição do S4/M1).
+- **R1 (BLOCKER, real, verificado — precisa de desenho novo)**: não
+  existe protocolo fechado pra confirmar/reconciliar um
+  `ExternalEffectCheckpoint` específico depois de `SUBMITTING`.
+  Verificado: `beginExternalSubmission` só cobre a entrada
+  `NOT_STARTED→SUBMITTING`; `reportExecution` usa o `JobExecutionReport`
+  antigo (LEGACY/SUPERSEDED, sem seletor de occurrence);
+  `JobExecutionResult`/`JobExecutionSettlement` não têm nenhum campo
+  de occurrence/observação de efeito externo; a prosa da máquina de
+  estados só diz "provider respondeu + operationId persistido:
+  CONFIRMED" sem definir quem escreve isso nem como. Caso concreto do
+  Astra: `C1` (post primário) confirma, `C2` (comentário) fica
+  pendente/ambíguo — sem caminho pra atualizar `C2` especificamente.
+  **Enviado ao ChatGPT pra desenho antes de aplicar** — não é achado
+  mecânico, é lacuna real de protocolo.
+
+**BLOCKER do R1 fechado.** Desenho completo do ChatGPT aplicado: nova
+operação `reportExternalEffectObservation(jobId, leaseFence,
+attemptNumber, externalEffectOccurrenceKey, expectedCheckpointVersion,
+observation: ExternalEffectObservation, observationSource?)` — a porta
+de SAÍDA que faltava (`beginExternalSubmission` só cobria a entrada
+`NOT_STARTED→SUBMITTING`).
+
+- Novo tipo `ExternalEffectObservation`: discriminated union
+  `CONFIRMED`/`NOT_APPLIED`/`UNKNOWN`, cada um com seus campos próprios
+  (`externalOperationId`/`outcome`/`errorCode`/`nextPollAt`/`deadlineAt`
+  conforme a branch). Deliberadamente sem estado `RECONCILED` —
+  reconciliação é *como* a observação foi obtida
+  (`observationSource?: "PROVIDER_RESPONSE" | "RECONCILIATION"`, só
+  metadado de auditoria), nunca um quarto estado.
+- Transições permitidas: `SUBMITTING→{CONFIRMED,NOT_APPLIED,UNKNOWN}`,
+  `UNKNOWN→{CONFIRMED,NOT_APPLIED,UNKNOWN}` (self-loop permitido pra
+  reconciliação inconclusiva repetida). Proibido: `NOT_STARTED→`
+  qualquer observation (só `beginExternalSubmission` sai de
+  `NOT_STARTED`); reabrir terminais (`CONFIRMED`/`NOT_APPLIED→`
+  qualquer coisa).
+- `externalOperationId` ganhou a mesma disciplina de congelamento que
+  `providerRequestKey` já tinha: uma vez definido, divergência numa
+  observação seguinte da mesma occurrence →
+  `REJECTED_EXTERNAL_OPERATION_ID_CONFLICT` (FATAL, fail-closed).
+- `JobExecutionResult`/`JobExecutionSettlement` explicitamente NUNCA
+  escrevem `ExternalEffectCheckpoint.state` — só `beginExternalSubmission`
+  + `reportExternalEffectObservation` são autoridade; settlement pode
+  OBSERVAR checkpoints pra decidir disposition, nunca ter cópia própria
+  do estado (evita duas state machines divergentes — exatamente o
+  problema que a transação de `BLOCKED` tinha antes deste fechamento;
+  agora ela reusa a mesma operação canônica, nunca um write direto).
+- 13 cenários de teste adicionados (lista "R1 —
+  `reportExternalEffectObservation`"), cobrindo o caso concreto do
+  Astra (`C1` confirma, `C2` fica ambíguo, atualizar `C2` não toca
+  `C1`), worker zumbi (fence stale), conflito de `externalOperationId`,
+  replay idempotente, e o caso de auditoria (settlement de sucesso
+  enquanto um checkpoint obrigatório ainda não está `CONFIRMED`).
+- 4 lint rules novas: `G_R1_EXTERNAL_EFFECT_OBSERVATION_OPERATION_MISSING`,
+  `G_R1_EXTERNAL_EFFECT_OBSERVATION_OCCURRENCE_SELECTOR_MISSING` (as
+  duas desenhadas como checagens genuinamente independentes — a
+  primeira versão tinha a segunda como subconjunto textual da primeira,
+  o que a tornava código morto/não-testável; corrigido antes mesmo de
+  reportar, achado pela própria disciplina de fault-injection),
+  `G_R1_JOB_SETTLEMENT_EXTERNAL_EFFECT_WRITE_BANNED`,
+  `G_R1_EXTERNAL_EFFECT_TERMINAL_REOPEN_BANNED`. Todas as 4
+  fault-injection confirmadas.
+
+`contract-lint.mjs`: `errorCount=0, PASS`, 25/25 SPEC.md, depois de
+tudo isso.
+
+**ChatGPT confirmou o fechamento completo (2026-09-19).** Depois de
+uma checklist detalhada de condições (`ExternalEffectObservation`
+diferencia os 3 estados; `UNKNOWN→UNKNOWN` permitido;
+`externalOperationId` congelado com conflito fail-closed;
+`providerRequestKey` já imutável; `leaseFence`/`expectedCheckpointVersion`
+stale → zero mutation; replay de terminal idempotente;
+`JobExecutionResult`/`JobExecutionSettlement` nunca escrevem o
+checkpoint; `BLOCKED` nunca vira terceira autoridade; Job não conclui
+`SUCCESS` com efeito obrigatório `SUBMITTING`/`UNKNOWN`) — todas
+confirmadas presentes no fechamento aplicado — o veredito final:
+
+```
+R1  → CLOSED / awaiting external verification
+N9  → CLOSED / awaiting external verification
+N10 → VERIFIED CLOSED (pelo Astra)
+N11 → VERIFIED CLOSED (pelo Astra)
+N12 → VERIFIED CLOSED (pelo Astra)
+```
+
+Distinção mantida deliberadamente: "CLOSED" aqui é reparo no corpus
+verificado por lint+fault-injection+revisão do ChatGPT — nunca
+"VERIFIED CLOSED", que só o Astra concede depois de ler os bytes
+novos de fato. Próximo passo (ChatGPT): gerar snapshot/commit/ZIP novo
+(commit SHA + ZIP do mesmo commit + SHA-256 + contract-lint PASS) e
+devolver ao Astra focando especialmente em R1 e N9 — pendente
+autorização do Heber pra criar o commit.
 
 - **N10 — contradição entre R3 e o boundary Skill01↔Skill03 (Skill 01)**:
   a frase adicionada no R3 ("`WAITING_APPROVAL` só depois da

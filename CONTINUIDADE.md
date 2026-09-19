@@ -8,20 +8,29 @@
 
 ## Pendências ativas
 
-### 🎬 Máquina de Vídeos — reparo pós re-review GPT-6 Astra CONCLUÍDO (2026-09-19)
-Segunda revisão externa do corpus de 25 SPEC.md (`src/modules/video-machine/`)
-tinha devolvido "not implementable" com 7 achados (N1-N7) + 6 pendências
-reabertas (R1-R6). Todos fechados nesta madrugada, um a um, sempre
-debatidos com o ChatGPT antes de aplicar — incluindo um achado extra
-descoberto no meio do trabalho (N8, `subjectVersion` sem produtor
-canônico no contrato de aprovação). Estado final: `R1-R6 → CLOSED`,
-`N1-N8 → CLOSED`, `contract-lint.mjs`: `errorCount=0, PASS` no corpus
-completo. Detalhe técnico completo em
-`src/modules/video-machine/feito.md`. **Isso NÃO é "aprovado
-definitivamente"** — só uma nova revisão externa (Fable/Astra de novo)
-confirma ausência de nova contradição; próximo passo (novo
-commit/snapshot + reenvio) depende de decisão do Heber. Nenhum push
-feito — só commits locais, aguardando autorização do Heber.
+### 🎬 Máquina de Vídeos — 2ª rodada real do GPT-6 Astra fechada (2026-09-19)
+Depois do fechamento interno de R1-R6/N1-N8 (madrugada de 2026-09-19), o
+commit `4689f1b` foi de fato enviado ao GPT-6 Astra (ZIP + snapshot).
+Veredito real: **"not implementable, ainda"** — Astra confirmou 11/13 de
+R1-R6/N1-N7 + N8 como `VERIFIED CLOSED`, mas achou 4 conflitos
+arquiteturais reais (R1 reaberto/BLOCKER, N9, N10, N11) + 1 bug mecânico
+no próprio lint (N12, guarda de shape do R2 que assumia que `Job` sempre
+existia). Todos os 5 corrigidos e debatidos com o ChatGPT antes de
+aplicar (ordem N10→N11→R1 revisado→N9), incluindo uma segunda rodada de
+fechamento onde o ChatGPT apontou 2 buracos reais (imutabilidade de
+`providerRequestKey` no R1; identidade do work unit ausente em
+`StageTransitionMember` + regra de serialização claim×seal no N9) — ambos
+corrigidos e confirmados `CLOSED`. Estado final: `R1-R6 → CLOSED`,
+`N1-N12 → CLOSED`, `contract-lint.mjs`: `errorCount=0, PASS`, 25/25
+SPEC.md. Commit novo: `d487eec` (local, nunca enviado ao GitHub). Detalhe
+técnico completo em `src/modules/video-machine/feito.md`, seção
+"Terceira passagem". **Isso NÃO é "aprovado definitivamente"** — a
+própria história desta rodada (R1-R6/N1-N8 "fechados" internamente
+depois provaram ter 4 conflitos reais sob revisão externa) é a prova viva
+de por que só uma nova revisão externa confirma ausência de nova
+contradição. Próximo passo: mandar o ZIP `shopee-concierge-d487eec.zip`
+(gerado, entregue ao Heber) pro Astra revisar de novo — depende do Heber
+mandar. Nenhum push feito — só commits locais.
 
 ### 🔐 Security findings rastreados (Skill 25 — Segurança/Auditoria)
 Registro formal dos achados operacionais de segurança que alimentaram o

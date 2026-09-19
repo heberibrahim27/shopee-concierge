@@ -2305,13 +2305,38 @@ a Skill 01, na MESMA transação lógica que materializa a
 1. lê o conjunto de `Wi` do manifest `M` que ainda estão `NOT_STARTED`
    (nenhum `StageSubjectBinding`/`StageExecution` claimed) nesse
    instante;
-2. materializa `StageExpansionShortCircuitDecision` selando
-   exatamente esse conjunto (`triggeringSource` = a source de `Wk`);
-3. a partir daqui, qualquer tentativa de reivindicar/iniciar uma work
+2. **se esse conjunto for vazio** (todo o resto do manifest já tinha
+   `StageSubjectBinding`/`StageExecution` claimed ou resolvido no
+   instante em que `Wk` resolveu — inclusive o caso trivial de
+   manifest de 1 work unit, ou `Wk` sendo a última a resolver) —
+   **nenhum `StageExpansionShortCircuitDecision` é materializado**. Não
+   há nada a proteger: sem `Wi` `NOT_STARTED`, não existe risco de uma
+   claim tardia, então o seal não tem função (PATCH, achado real do
+   re-review GPT-6 Astra sobre `d487eec`, 2026-09-19: sem essa condição,
+   um seal vazio seria materializado mesmo assim, e a regra "presente
+   sse >=1 member é `SKIPPED_SHORT_CIRCUIT`" — nenhum member seria
+   `SKIPPED_SHORT_CIRCUIT` nesse caso — entraria em contradição direta
+   com "se existe qualquer seal, `shortCircuitDecisionRef` aponta pra
+   ele", abaixo). A `StageTransitionResolution` stage-level fecha
+   normalmente, só com members `EXECUTED` (a source de `Wk` entre eles)
+   e `shortCircuitDecisionRef` **ausente** — como se nenhum
+   short-circuit tivesse ocorrido, porque, na prática, não sobrou nada
+   pra encurtar.
+3. **se o conjunto for não-vazio**: materializa
+   `StageExpansionShortCircuitDecision` selando exatamente esse
+   conjunto (`triggeringSource` = a source de `Wk`);
+4. a partir daqui, qualquer tentativa de reivindicar/iniciar uma work
    unit selada → rejeitada (`FATAL`, reaproveitar
    `STAGE_WORK_UNIT_NOT_IN_MANIFEST` como família de erro, já que a
    unidade deixou de ser elegível pro manifest ativo — nunca criar
    `StageSubjectBinding` pra ela depois do seal).
+
+Consequência direta (fecha a contradição citada no passo 2): como o
+seal só é materializado quando cobre pelo menos 1 `Wi`, "existe
+qualquer seal pra `M`" e ">=1 member é `SKIPPED_SHORT_CIRCUIT`" viram a
+MESMA condição — nunca mais divergentes. `sealedWorkUnitIdentityHashes`
+vazio nunca é um estado válido persistido (se ficaria vazio, o passo 2
+acima impede que o seal chegue a existir).
 
 **Serialização claim × seal (PATCH N9, fechamento com o ChatGPT,
 2026-09-19)**: descrever o seal como "lê NOT_STARTED, depois materializa"
@@ -2333,7 +2358,7 @@ implementação), duas invariantes normativas, fail-closed:
 
 Consequência: as duas operações competem pela mesma autoridade
 serializada sobre `(M, Wi)` — uma das duas necessariamente perde (o
-claim vê o seal já commitado → rejeitado como no item 3 acima; ou o
+claim vê o seal já commitado → rejeitado como no item 4 acima; ou o
 seal, ao ler o conjunto `NOT_STARTED` no seu próprio commit, já não
 encontra mais `Wi` nesse estado porque o claim venceu → `Wi` fica fora
 de `sealedWorkUnitIdentityHashes` e segue seu caminho normal de

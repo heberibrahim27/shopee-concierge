@@ -340,6 +340,52 @@ type ExternalEffectCheckpoint = {
 // sobre um checkpoint já NOT_APPLIED → REJECTED_INVALID_STATE, zero
 // provider calls.
 
+// PATCH (R1, fechamento do BLOCKER apontado pelo re-review GPT-6 Astra
+// sobre o ZIP d487eec, 2026-09-19, desenhado com o ChatGPT): o R1
+// revisado criou o owner certo (ExternalEffectCheckpoint) mas só
+// especificou a porta de ENTRADA dele (beginExternalSubmission,
+// NOT_STARTED→SUBMITTING). Faltava a porta de SAÍDA — como um
+// SUBMITTING (ou UNKNOWN, em reconciliação) chega a CONFIRMED/
+// NOT_APPLIED/UNKNOWN de novo. Sem ela, o caso concreto do Astra (C1
+// confirma, C2 fica ambíguo) não tinha caminho pra atualizar C2
+// especificamente — reportExecution/JobExecutionReport são LEGACY, sem
+// seletor de occurrence, e JobExecutionResult/JobExecutionSettlement
+// são Job-level, nunca tiveram (nem deveriam ter) campo de observação
+// de efeito externo por occurrence.
+type ExternalEffectObservation =
+  | {
+      observation: 'CONFIRMED';
+      externalOperationId?: string;
+      outcome?: string;
+      errorCode?: never;
+      nextPollAt?: never;
+      deadlineAt?: never;
+    }
+  | {
+      observation: 'NOT_APPLIED';
+      outcome?: string;
+      errorCode?: string;
+      externalOperationId?: never;
+      nextPollAt?: never;
+      deadlineAt?: never;
+    }
+  | {
+      observation: 'UNKNOWN';
+      externalOperationId?: string;
+      nextPollAt?: string;
+      deadlineAt?: string;
+      outcome?: string;
+      errorCode?: string;
+    };
+// hash: EXTERNAL_EFFECT_OBSERVATION_V1 (elemento, hasheado dentro do
+// checkpoint que a recebe — não é artifact persistido independente)
+//
+// Deliberadamente NÃO existe um estado "RECONCILED": reconciliação é
+// COMO a observação foi obtida (ver observationSource, opcional, abaixo
+// em reportExternalEffectObservation), nunca o estado resultante — o
+// resultado de uma reconciliação é sempre CONFIRMED, NOT_APPLIED ou
+// UNKNOWN, os mesmos três já existentes em ExternalEffectState.
+
 type JobAttempt = {
   jobId: string;
   attemptNumber: number; // UNIQUE(jobId, attemptNumber)
@@ -470,6 +516,94 @@ type JobResultEvent = {
 //   silenciosamente ignorado nem sobrescrito. Isso fecha o caso onde um
 //   bug de handler tentaria reusar a operação com uma key diferente
 //   pra "forçar" nova tentativa sobre uma occurrence já em andamento.
+// reportExternalEffectObservation(jobId, leaseFence, attemptNumber, externalEffectOccurrenceKey, expectedCheckpointVersion, observation: ExternalEffectObservation, observationSource?: "PROVIDER_RESPONSE" | "RECONCILIATION") ->
+//   { disposition: "ACCEPTED"; committedCheckpointVersion: number }
+//   | { disposition: "ALREADY_CONFIRMED" }
+//   | { disposition: "ALREADY_NOT_APPLIED" }
+//   | { disposition: "ALREADY_UNKNOWN" }
+//   | { disposition: "REJECTED_STALE_FENCE" }
+//   | { disposition: "REJECTED_VERSION_CONFLICT" }
+//   | { disposition: "REJECTED_INVALID_STATE" }
+//   | { disposition: "REJECTED_PROVIDER_REQUEST_KEY_CONFLICT" }
+//   | { disposition: "REJECTED_EXTERNAL_OPERATION_ID_CONFLICT" }
+//   PATCH (R1, fechamento do BLOCKER, kernel repair pós re-review GPT-6
+//   Astra sobre o ZIP d487eec, 2026-09-19, desenhado com o ChatGPT) —
+//   ÚNICA autoridade (junto com beginExternalSubmission) capaz de
+//   transicionar ExternalEffectCheckpoint.state pra fora de SUBMITTING/
+//   UNKNOWN. beginExternalSubmission autoriza a ENTRADA em SUBMITTING;
+//   esta operação registra/reconcilia o RESULTADO daquela occurrence
+//   específica — a porta de saída que faltava. Valida atomicamente, na
+//   mesma transação: Job existe, Attempt corrente é exatamente
+//   attemptNumber, lease ativo, leaseFence é o vigente, resolve o
+//   ExternalEffectCheckpoint pela chave (jobId, externalEffectOccurrenceKey),
+//   e faz CAS contra expectedCheckpointVersion (== ExternalEffectCheckpoint.version,
+//   NUNCA o Job.version — são versionamentos independentes):
+//     checkpoint inexistente ou state=NOT_STARTED
+//       → REJECTED_INVALID_STATE, zero mutation (a ÚNICA autoridade pra
+//         sair de NOT_STARTED continua sendo beginExternalSubmission —
+//         nunca esta operação)
+//     state=SUBMITTING, observation=CONFIRMED|NOT_APPLIED|UNKNOWN
+//       → ACCEPTED, transiciona pro observation.observation informado,
+//         aplica externalOperationId/outcome/errorCode/nextPollAt/
+//         deadlineAt conforme a branch de ExternalEffectObservation
+//     state=UNKNOWN, observation=CONFIRMED|NOT_APPLIED
+//       → ACCEPTED, transiciona (reconciliação resolveu a ambiguidade)
+//     state=UNKNOWN, observation=UNKNOWN
+//       → ACCEPTED (self-loop permitido — reconciliação pode continuar
+//         inconclusiva várias vezes), atualiza nextPollAt/deadlineAt/
+//         outcome/errorCode; replay EXATO (nenhum campo muda) →
+//         ALREADY_UNKNOWN, sem incrementar version
+//     state=CONFIRMED, observation=CONFIRMED com o MESMO externalOperationId
+//     já congelado (ou ambos ausentes)
+//       → ALREADY_CONFIRMED, zero mutation (replay idempotente)
+//     state=CONFIRMED, observation=CONFIRMED com externalOperationId
+//     DIVERGENTE do já congelado
+//       → REJECTED_EXTERNAL_OPERATION_ID_CONFLICT (FATAL, fail-closed)
+//     state=CONFIRMED, observation=NOT_APPLIED|UNKNOWN
+//       → REJECTED_INVALID_STATE — CONFIRMED é terminal, nunca reaberto
+//     state=NOT_APPLIED, observation=NOT_APPLIED (replay idêntico)
+//       → ALREADY_NOT_APPLIED, zero mutation
+//     state=NOT_APPLIED, observation=CONFIRMED|UNKNOWN
+//       → REJECTED_INVALID_STATE — NOT_APPLIED é terminal, nunca
+//         reaberto (mesma regra já existente, agora também aplicada a
+//         esta operação)
+//   `expectedCheckpointVersion` divergente → REJECTED_VERSION_CONFLICT,
+//   zero mutation. `leaseFence` stale → REJECTED_STALE_FENCE, zero
+//   mutation — mesma proteção contra worker zumbi que beginExternalSubmission
+//   já tinha: se o worker A perdeu a lease enquanto aguardava o
+//   provider e a resposta chega tarde, A não consegue mais escrever
+//   (fence 10 vencido, B já está em fence 11); B reconcilia
+//   normalmente usando o checkpoint durável (que já está em SUBMITTING
+//   ou UNKNOWN — nunca perdido).
+//   externalOperationId (PATCH, mesma disciplina de providerRequestKey
+//   do R1 revisado): quando ausente, pode ser preenchido pela primeira
+//   observação confiável que o fornecer; uma vez congelado, observações
+//   subsequentes da MESMA occurrence não podem substituí-lo por outro
+//   valor — divergência → REJECTED_EXTERNAL_OPERATION_ID_CONFLICT
+//   (FATAL, fail-closed), nunca sobrescrito silenciosamente. Se o
+//   provider não fornece ID nenhum, o protocolo funciona normalmente
+//   via externalEffectOccurrenceKey+providerRequestKey — nunca inventar
+//   um ID artificial só pra preencher o campo.
+//   `observationSource` é só metadado de auditoria (como a observação
+//   foi obtida) — nunca vira estado novo; o resultado de uma
+//   reconciliação é sempre um dos três estados que
+//   ExternalEffectState já define (CONFIRMED/NOT_APPLIED/UNKNOWN), nunca
+//   um quarto estado "RECONCILED".
+//   `beginExternalSubmission` + `reportExternalEffectObservation` são as
+//   ÚNICAS autoridades públicas da state machine de
+//   ExternalEffectCheckpoint. JobExecutionResult/JobExecutionSettlement
+//   permanecem Job-level e NUNCA escrevem ExternalEffectCheckpoint.state
+//   — podem OBSERVAR checkpoints (via leitura) pra decidir disposition
+//   de settlement (ex.: todo efeito obrigatório CONFIRMED → Job pode
+//   concluir sucesso; algum UNKNOWN/SUBMITTING → não pode concluir
+//   sucesso ainda; efeito obrigatório NOT_APPLIED → segue RetryPolicy já
+//   definida), nunca carregar cópia autoritativa própria do estado —
+//   isso criaria uma segunda state machine divergente (o mesmo buraco
+//   que a "Transação atômica de entrada em BLOCKED" tinha antes deste
+//   patch: ela precisa mutar o checkpoint obedecendo exatamente as
+//   mesmas precondições/transições canônicas descritas acima — nunca um
+//   caminho alternativo que escreva ExternalEffectCheckpoint.state
+//   livremente).
 // reportExecution(jobId, leaseFence, expectedVersion, JobExecutionReport) -> aceito | REJECTED_STALE_FENCE
 // consumeRunCancellationIntent(intent: RunCancellationIntent) -> void
 ```
@@ -546,28 +680,45 @@ antes da chamada externa:
     banco aberta atravessando a chamada de rede)
 
 provider respondeu + operationId persistido:
-  CONFIRMED (só pra esta externalEffectOccurrenceKey)
+  handler MUST call reportExternalEffectObservation(jobId, leaseFence,
+    attemptNumber, externalEffectOccurrenceKey, expectedCheckpointVersion,
+    { observation: "CONFIRMED", externalOperationId, outcome? })
+  → ACCEPTED transiciona SUBMITTING → CONFIRMED (só pra esta
+    externalEffectOccurrenceKey; outras occurrences da mesma Attempt
+    não são afetadas)
+  → replay idêntico (mesmo externalOperationId já congelado) →
+    ALREADY_CONFIRMED, zero mutation
+  → externalOperationId DIVERGENTE do já congelado →
+    REJECTED_EXTERNAL_OPERATION_ID_CONFLICT, FATAL, fail-closed
 
 SUBMITTING + perda de lease/crash + nenhuma confirmação persistida:
   Lease loss after ACCEPTED does not authorize a second automatic
   submission by another worker. A later worker observing SUBMITTING
-  (via disposition RECONCILE_REQUIRED) MUST enter reconciliation, not
-  fresh submission:
+  (via disposition RECONCILE_REQUIRED de beginExternalSubmission) MUST
+  enter reconciliation, not fresh submission — nunca chama
+  beginExternalSubmission de novo pra essa occurrence, sempre
+  reportExternalEffectObservation:
   → handler tenta reconciliação quando for segura (provider com
     idempotência nativa → reconcilia pela MESMA providerRequestKey,
     congelada desde o ACCEPTED original — nunca regenerada)
-  → se o provider confirma que a operação ocorreu: CONFIRMED
-  → se há prova confiável de que NÃO ocorreu: NOT_APPLIED — só então
-    uma NOVA externalEffectOccurrenceKey (nova occurrence semântica,
-    nunca a mesma reaberta) pode ser submetida, sob um
-    leaseFence/beginExternalSubmission novo
+  → se o provider confirma que a operação ocorreu:
+      reportExternalEffectObservation(..., { observation: "CONFIRMED", ... })
+      → CONFIRMED
+  → se há prova confiável de que NÃO ocorreu:
+      reportExternalEffectObservation(..., { observation: "NOT_APPLIED", ... })
+      → NOT_APPLIED — só então uma NOVA externalEffectOccurrenceKey
+        (nova occurrence semântica, nunca a mesma reaberta) pode ser
+        submetida, sob um leaseFence/beginExternalSubmission novo
   → se o estado continuar indeterminável:
-      ExternalEffectCheckpoint.state = UNKNOWN (só desta occurrence)
-      Job.status = BLOCKED
-      Job.blockReason = EXTERNAL_STATE_UNKNOWN
-      + JobBlockedEvent
-    (as três mudanças acima na mesma transação lógica; UNKNOWN nunca
-    autoriza repetição automática)
+      reportExternalEffectObservation(..., { observation: "UNKNOWN", ... })
+      → transiciona (ou permanece, self-loop permitido) UNKNOWN só
+        deste checkpoint — na MESMA transação lógica que essa chamada,
+        também: Job.status = BLOCKED; Job.blockReason =
+        EXTERNAL_STATE_UNKNOWN; + JobBlockedEvent (ver "Transação
+        atômica de entrada em BLOCKED", abaixo — a mutação do
+        checkpoint ali reusa exatamente esta mesma operação canônica,
+        nunca um write direto de ExternalEffectCheckpoint.state; UNKNOWN
+        nunca autoriza repetição automática)
 ```
 
 **Invariante central (R1, revisado)**: nenhum external side effect pode
@@ -716,13 +867,26 @@ emite `JobBlockedEvent`, avisando a Skill 01 que a Run deve ficar `BLOCKED`
 ### Transação atômica de entrada em `BLOCKED`
 
 A garantia atômica é **"estado durável que causou o bloqueio + evento
-correspondente"** — o `JobAttempt` só entra na transação quando existe um
-`Attempt` efetivamente afetado; nem toda entrada em `BLOCKED` atualiza um
-`JobAttempt`:
+correspondente"** — o `ExternalEffectCheckpoint` só entra na transação
+quando existe uma `externalEffectOccurrenceKey` efetivamente afetada;
+nem toda entrada em `BLOCKED` atualiza um `ExternalEffectCheckpoint`:
 
 ```
-EXTERNAL_STATE_UNKNOWN (existe Attempt afetado) — mesma transação:
-  JobAttempt.externalEffectState = UNKNOWN
+EXTERNAL_STATE_UNKNOWN (existe ExternalEffectCheckpoint afetado) —
+mesma transação:
+  reportExternalEffectObservation(..., { observation: "UNKNOWN", ... })
+    transiciona o checkpoint identificado por
+    jobId+externalEffectOccurrenceKey cujo resultado ficou
+    indeterminável (PATCH R1 revisado, fechamento 2026-09-19: antes
+    escrevia o campo externalEffectState diretamente na JobAttempt,
+    removido de lá pelo R1 revisado; migrado pro checkpoint da
+    occurrence exata — outros checkpoints da mesma Attempt não são
+    afetados. PATCH R1, fechamento do BLOCKER, 2026-09-19: a mutação
+    reusa exatamente a mesma operação canônica/precondições de
+    reportExternalEffectObservation — esta transação NUNCA escreve
+    ExternalEffectCheckpoint.state por um caminho alternativo; ela é a
+    MESMA chamada, só que atomicamente acompanhada das mudanças de Job
+    abaixo, nunca uma terceira autoridade divergente)
   Job.status = BLOCKED
   Job.blockReason = EXTERNAL_STATE_UNKNOWN
   incrementa Job.version
@@ -1046,6 +1210,48 @@ cobertura sim:
       resolve pra um `ExternalEffectCheckpoint` isolado, com seu próprio
       `state`; `E1=CONFIRMED` e `E2=SUBMITTING` simultaneamente é válido
       e esperado.
+- **R1 — `reportExternalEffectObservation` (fechamento do BLOCKER,
+  kernel repair pós re-review GPT-6 Astra sobre `d487eec`, 2026-09-19,
+  desenhado com o ChatGPT)**:
+  1. `C1` `CONFIRMED` + `C2` `UNKNOWN` na mesma Attempt → atualizar
+     `C2` (`reportExternalEffectObservation` pra `E2`) não toca `C1`.
+  2. `SUBMITTING` (`C2`) → `CONFIRMED` → só a occurrence exata muda;
+     `C1`/outras occurrences da mesma Attempt inalteradas.
+  3. `SUBMITTING` → `UNKNOWN` → `CONFIRMED` → válido (reconciliação
+     resolve a ambiguidade).
+  4. `SUBMITTING` → `UNKNOWN` → `NOT_APPLIED` → válido, só com prova
+     negativa confiável (nunca inferida automaticamente).
+  5. `CONFIRMED` → `UNKNOWN` (tentativa) → `REJECTED_INVALID_STATE`,
+     zero mutation — `CONFIRMED` é terminal.
+  6. `NOT_APPLIED` → `SUBMITTING` na mesma occurrence (tentativa via
+     `reportExternalEffectObservation`, não `beginExternalSubmission`)
+     → `REJECTED_INVALID_STATE` — `NOT_APPLIED` é terminal.
+  7. `leaseFence` stale → `REJECTED_STALE_FENCE`, zero mutation (worker
+     zumbi: fence 10 tenta escrever depois que fence 11 já assumiu).
+  8. `expectedCheckpointVersion` stale → `REJECTED_VERSION_CONFLICT`,
+     zero mutation.
+  9. `externalOperationId` congelado `OP1`; nova observação chega com
+     `OP2` pra mesma occurrence → `REJECTED_EXTERNAL_OPERATION_ID_CONFLICT`,
+     FATAL, fail-closed.
+  10. `providerRequestKey` `K1` congelada (via `beginExternalSubmission`);
+      `reportExternalEffectObservation` não recebe `providerRequestKey`
+      novo — não há como esse campo divergir por esta operação (só
+      `beginExternalSubmission` valida `providerRequestKey`, já coberto
+      pelo cenário R1 #9 acima).
+  11. Replay `CONFIRMED` idêntico (mesmo `externalOperationId`) →
+      `ALREADY_CONFIRMED`, sem incrementar `version`, zero mutation.
+  12. `JobExecutionSettlement` com `disposition=JOB_SUCCEEDED` enquanto
+      um `ExternalEffectCheckpoint` obrigatório do Job ainda está
+      `UNKNOWN`/`SUBMITTING` → proibido (achado de auditoria de
+      consistência — `JobExecutionResult`/`JobExecutionSettlement`
+      nunca escrevem `ExternalEffectCheckpoint.state`, mas settlement
+      de sucesso ainda precisa OBSERVAR que todo checkpoint obrigatório
+      chegou a `CONFIRMED` antes de declarar o Job bem-sucedido).
+  13. `state=UNKNOWN`, `observation=UNKNOWN` (reconciliação inconclusiva
+      de novo) → `ACCEPTED`, self-loop permitido, atualiza
+      `nextPollAt`/`deadlineAt`/`outcome`/`errorCode`; replay EXATO
+      (nenhum campo muda) → `ALREADY_UNKNOWN`, sem incrementar
+      `version`.
 - `WAITING_EXTERNAL` com `deadlineAt` vencido → não cria novo `Attempt`;
   readquire com `POLL_EXISTING_ATTEMPT` e força reconciliação.
 - Heartbeat com `leaseFence` válido renova só o lease — não incrementa

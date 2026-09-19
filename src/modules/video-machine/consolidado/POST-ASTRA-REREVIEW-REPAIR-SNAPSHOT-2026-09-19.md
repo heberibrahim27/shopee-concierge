@@ -1,5 +1,19 @@
 # POST-ASTRA-REREVIEW-REPAIR SNAPSHOT — 2026-09-19
 
+> **SUPERSEDED (2026-09-19, mesmo dia)**: o commit `4689f1b` registrado
+> abaixo foi o que o GPT-6 Astra realmente revisou, e o veredito dele foi
+> "not implementable, ainda" — achou R1 (reaberto), N9, N10, N11
+> (conflitos arquiteturais reais) e N12 (bug mecânico no próprio lint).
+> Todos os 5 foram corrigidos e confirmados `CLOSED` pelo ChatGPT numa
+> rodada de reparo subsequente (ver
+> `src/modules/video-machine/feito.md`, seção "Terceira passagem"). O
+> commit `d487eec` é o novo commit de referência pra próxima rodada de
+> revisão do Astra — a seção "Commit de referência" abaixo já foi
+> atualizada pra ele. O resto deste documento (Skills, contratos, testes)
+> ainda descreve o corpus corretamente — só o status R1-R6/N1-N8 (sem
+> N9-N12/R1-revisado) e a alegação de "nenhum achado conhecido restante"
+> ficaram desatualizados pelas descobertas do Astra.
+
 > Documento de congelamento para uma futura nova rodada de revisão
 > independente (Fable/GPT-6 Astra). Não reexplica as 25 Skills — registra
 > só o estado verificável do corpus neste momento. Se algo aqui divergir
@@ -182,7 +196,7 @@ src/modules/video-machine/skills/19-analista-de-performance/SPEC.md
 src/modules/video-machine/skills/20-gerador-de-variacoes/SPEC.md
 ```
 
-## Commit de referência
+## Commit de referência (histórico — revisado pelo Astra, achou 5 problemas)
 
 ```text
 reviewSnapshotCommit: 4689f1b
@@ -190,6 +204,22 @@ branch: main
 zipFile: shopee-concierge-4689f1b.zip
 zipSha256: 9c012c791433a7d886b6c66548e6650905b46d2982ceeb82dc765ade91a0508a
 ```
+
+## Commit de referência (atual — pra próxima rodada de revisão do Astra)
+
+```text
+reviewSnapshotCommit: d487eec
+branch: main
+zipFile: shopee-concierge-d487eec.zip
+zipSha256: ef8553f892f2e59f7931747532944babde7ed9ac4f45c3eea13693ce839f2496
+```
+
+Fecha N9, N10, N11, N12 e R1 (revisado) sobre o commit `4689f1b`
+acima — ver `feito.md` seção "Terceira passagem" pro detalhamento
+completo de cada fix. `contract-lint.mjs`: 25/25 SPEC.md, errorCount=0,
+PASS. Commit local (**nunca enviado ao GitHub** — nenhum push foi
+autorizado). O ZIP foi gerado via `git archive --format=zip d487eec`,
+296 arquivos, verificado sem `.env`/`node_modules` (só `.env.example`).
 
 Commit local (**nunca enviado ao GitHub** — nenhum push foi autorizado).
 O ZIP entregue junto com este documento foi gerado via
