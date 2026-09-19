@@ -184,14 +184,19 @@ src/modules/video-machine/skills/20-gerador-de-variacoes/SPEC.md
 
 ## Commit de referência
 
-**Nenhum commit foi feito ainda para esta rodada** — as mudanças acima
-estão só no working tree local. Antes de qualquer commit novo, preciso
-de confirmação explícita do Heber (regra permanente: nunca commitar
-sem perguntar cada vez). Depois de commitado, o próximo passo correto
-(sugerido pelo próprio ChatGPT) é gerar um snapshot/archive novo com
-commit SHA e SHA-256 do ZIP coerentes entre si — evitando repetir a
-inconsistência `37cda13` vs `b48a78c` que bloqueou a revisão anterior
-— e só então reenviar pra uma nova revisão externa independente.
+```text
+reviewSnapshotCommit: 4689f1b
+branch: main
+zipFile: shopee-concierge-4689f1b.zip
+zipSha256: 9c012c791433a7d886b6c66548e6650905b46d2982ceeb82dc765ade91a0508a
+```
+
+Commit local (**nunca enviado ao GitHub** — nenhum push foi autorizado).
+O ZIP entregue junto com este documento foi gerado via
+`git archive --format=zip 4689f1b`, 296 arquivos, verificado sem
+`.env`/`node_modules` (só `.env.example`). O SHA acima e o SHA-256 do
+ZIP são coerentes entre si por construção — evita repetir a
+inconsistência `37cda13` vs `b48a78c` que bloqueou a revisão anterior.
 
 ## Missão da próxima revisão externa (se/quando o Heber autorizar)
 
