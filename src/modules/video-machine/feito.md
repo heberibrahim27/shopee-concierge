@@ -2681,6 +2681,36 @@ tenant mismatch, interseção de categoria inválida. Zero linha residual
 após limpeza (só as linhas marcadas de teste foram escritas/removidas
 — o pool real nunca foi alterado, só lido).
 
+## Fase 2 — Skill 05 (Análise de Oferta/Comissão) (2026-09-19)
+
+Consome o `ProductDiscoveryResult` da Skill04 e produz
+`OfferAnalysisResult`. Migration
+`supabase/migrations/20260919180000_create_video_machine_skill05.sql`
+(3 tabelas). Código em
+`src/modules/video-machine/skills/05-analise-de-oferta-comissao/offerAnalysis.ts`
+— três camadas de dado econômico nunca misturadas (observado/derivado/
+realizado), tipos de unidade distintos
+(`CommissionRateFraction`/`DiscountRatePercent`/`MoneyBRL`),
+calibrações `COMMISSION_RATE_SIGNAL_V1`/`COMMISSION_VALUE_SIGNAL_V1`
+congeladas como constantes (calibradas sobre 790 `offer_snapshots`
+reais, 2026-09-17), consistência `commission ≈ price_min*commission_rate`
+(tolerância R$0,01), nunca rediversifica — só filtra/reordena o
+conjunto que a Skill04 já selecionou.
+
+**Verificação**: `scripts/test-video-machine-skill05.ts`, 4/4 passaram,
+**encadeados com a Skill04 de verdade** contra o pool real (8
+elegíveis, 5 primary ordenados por `offerScore` DESC) — caminho feliz,
+replay idempotente, `discoveryResultId` inexistente →
+`DISCOVERY_RESULT_NOT_ANALYZABLE`, policy sem peso ativo →
+`INVALID_OFFER_ANALYSIS_POLICY`. Zero resíduo após limpeza.
+
+**Estado da Fase 2 até aqui**: kernel (Skill01+02) + Skill04 + Skill05
+implementados, testados contra produção real, commitados. Faltam 18
+Skills de conteúdo (03, 06-21 exceto 04/05 — 06/20/21 deferidas pra V2)
+pra completar o V1. Skills 09-11 (geração de frame/prompt/vídeo)
+dependem de escolher e contratar um provedor de IA de vídeo — decisão
+e ação que só o Heber pode tomar (criar conta/assinar serviço).
+
 - **N10 — contradição entre R3 e o boundary Skill01↔Skill03 (Skill 01)**:
   a frase adicionada no R3 ("`WAITING_APPROVAL` só depois da
   materialização durável do `ApprovalRequest` pela Skill03")
