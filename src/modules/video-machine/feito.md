@@ -17,7 +17,7 @@
 | 06 — Pesquisa de Tendências | ✅ | ✅ **APROVADA — 6/25** (auditoria real encontrou ZERO fonte de tendência operacional; spec capability-aware, sem sinais inventados) | `skills/06-pesquisa-de-tendencias/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
 | 07 — Direção Criativa | ✅ | ✅ **APROVADA — 7/25** (auditoria real: zero lógica criativa existente; resolve o bug real da convenção "QUERO" desconectada) | `skills/07-direcao-criativa/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
 | 08 — Roteirista | ✅ | ✅ **APROVADA — 8/25** (herda estratégia da Skill 07 sem reinterpretar; nenhuma alegação factual vira fato só por ser escrita pelo modelo) | `skills/08-roteirista/SPEC.md` | ✅ — `skills/08-roteirista/scriptWriting.ts`, testado contra produção real (2026-09-19) |
-| 09 — Gerador de Frame | ✅ | ✅ **APROVADA — 9/25** (greenfield total — zero geração de imagem existente; PRODUCT IDENTITY factual vs SCENE COMPOSITION criativa; só 1 referência real por snapshot hoje) | `skills/09-gerador-de-frame/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
+| 09 — Gerador de Frame | ✅ | ✅ **APROVADA — 9/25** (greenfield total — zero geração de imagem existente; PRODUCT IDENTITY factual vs SCENE COMPOSITION criativa; só 1 referência real por snapshot hoje) | `skills/09-gerador-de-frame/SPEC.md` | ✅ (parcial — provider real ainda NOT_IMPLEMENTED) — `skills/09-gerador-de-frame/frameGeneration.ts`, testado contra produção real (2026-09-19) |
 | 10 — Gerador de Prompt de Vídeo | ✅ | ✅ **APROVADA — 10/25** (greenfield total, mais vazio ainda — spike 00A nunca executado; VideoGenerationIntent provider-agnostic; adapter determinístico, nunca IA escondida) | `skills/10-gerador-de-prompt-de-video/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
 | 11 — Executor de Geração | ✅ | ✅ **APROVADA — 11/25** (primeira Skill com side effect pago real; state machine multi-tick sob o limite de 60s do Vercel; resposta perdida nunca autoriza resubmissão) | `skills/11-executor-de-geracao/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
 | 12 — Auditor de Vídeo | ✅ | ✅ **APROVADA — 12/25** (verdict COMPLIANT/NON_COMPLIANT/INCONCLUSIVE, nunca APPROVED/REJECTED; ausência de evidência nunca é conformidade) | `skills/12-auditor-de-video/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
@@ -2874,6 +2874,57 @@ vídeo) é o ponto real de bloqueio: depende de escolher e contratar um
 provedor de IA de vídeo, decisão/ação que só o Heber pode tomar (criar
 conta/assinar serviço). Skill03 (aprovação) segue adiada até existir um
 gate real pra testar contra.
+
+## Fase 2 — Skill 09 (Gerador de Frame) (2026-09-19)
+
+Skill09 materializa o `ProductVisualReferenceSet` (Stage 1 do contrato
+— de onde a referência visual afirma vir, a partir de
+`offer_snapshots.image_url` real) e deriva `FrameRequirement[]` do
+`ScriptResult.beats`. Código em
+`src/modules/video-machine/skills/09-gerador-de-frame/frameGeneration.ts`
+— migration `20260919220000` (7 tabelas: `product_visual_reference_set`,
+`frame_policy`+`_binding`, `frame_requirement`,
+`frame_generation_checkpoint`, `frame_artifact`, `frame_generation_result`).
+
+**Decisão de escopo explícita**: a auditoria do próprio SPEC.md confirma
+que `ImageGenerationProvider = NOT_IMPLEMENTED` — zero geração de
+imagem por IA existe no repositório hoje (o único uso de `openai` é
+visão/reconhecimento no Concierge, nunca `images.generate`). Implementar
+um gerador de imagem "de verdade" sem o validador semântico de
+fidelidade de produto que o SPEC exige (`FrameValidationSummary`
+completo, incluindo `productIdentityPreserved`/
+`unsupportedProductCompletion`) seria fingir uma garantia central da
+Skill ("o produto anunciado precisa ser o mesmo que chega ao
+comprador") sem realmente cumpri-la — pior que não implementar. Por
+isso, quando uma referência real existe (`POPULATED`) e um
+`FrameRequirement` exigiria geração, o código retorna
+`FRAME_PROVIDER_CAPABILITY_UNSUPPORTED` (mesmo padrão do
+`SCRIPT_PROVIDER_NOT_CONFIGURED` da Skill08) — nenhum `FrameArtifact`
+fabricado, nenhum checkpoint criado. Os dois branches de domínio que
+**não** exigem provider — `NO_FRAME_REQUIRED` (via
+`FramePolicy.requireFrame=false`) e `REFERENCE_UNAVAILABLE` (sem
+referência utilizável) — são implementados de ponta a ponta e
+totalmente reais.
+
+**Verificação**: `scripts/test-video-machine-skill09.ts`, encadeado
+Skill04→05→`StageSubjectBinding`→07→09 (o `ScriptResult` foi inserido
+diretamente com a mesma forma que `writeScript` produziria, já que
+`OPENAI_API_KEY` continua ausente e a Skill09 só consome um
+`ScriptResult` já materializado — não decide como ele foi gerado). 6/6
+testes passaram: `NO_FRAME_REQUIRED`, `REFERENCE_UNAVAILABLE`,
+`FRAME_PROVIDER_CAPABILITY_UNSUPPORTED` (usando um `offer_snapshot`
+**real** com `image_url` populada — 1048/1048 snapshots reais têm
+imagem hoje, confirmado via `execute_sql`), `FRAME_CREATIVE_DIRECTION_MISMATCH`,
+`FRAME_SCRIPT_RESULT_MISMATCH`, `FRAME_POLICY_BINDING_NOT_FOUND`. Zero
+resíduo após limpeza.
+
+**Estado da Fase 2 até aqui**: kernel + Skill04 + Skill05 + Skill07 +
+Skill08 + Skill09 (parcial, provider ainda NOT_IMPLEMENTED) testados
+contra produção real, commitados. Skill10 (prompt de vídeo) é só texto
+— parece alcançável sem provedor de vídeo contratado, a confirmar
+quando chegar a vez dela. Skill11 (execução de geração de vídeo)
+continua sendo o ponto real de bloqueio: só o Heber pode escolher/
+contratar um provedor de IA de vídeo.
 
 ## Regra de ouro (herdada)
 
