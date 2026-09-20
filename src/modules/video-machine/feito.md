@@ -3229,6 +3229,54 @@ conteúdo alcançável sem provedor de vídeo. Skill 11 (execução de
 geração de vídeo) segue bloqueada até o Heber conseguir orçamento pro
 provedor (Runway Gen-4 Turbo recomendado, ~$10 mínimo).
 
+## Motor manual (04-10) + botão no admin (2026-09-20)
+
+Heber pediu: já que não temos provedor de vídeo, o motor deve rodar até
+entregar **prompt + foto pronta** pra fazer o vídeo por fora, com um
+botão no `/admin` pra disparar. Implementado:
+
+- **`src/modules/video-machine/orchestrator/runOnce.ts`** —
+  `runVideoMachineOnce()`, orquestrador pragmático (não é o Skill01
+  formal do SPEC — sem `StageIteration`/transition completos) que
+  encadeia Skill04→05→07→08→09→10 pra **um produto real**, cria um
+  `Job` simples por etapa (mesmo padrão dos scripts de teste),
+  substituível depois pelo Skill01 formal sem afetar nenhuma Skill
+  individual. Cria o tenant real `descontos-chegando` (Skill22) e as
+  policies mínimas de cada Skill sob demanda, idempotente.
+- **Frame chamado com `requireFrame=false` de propósito** — sem
+  provedor de geração de imagem (Skill09 continua `NOT_IMPLEMENTED`
+  nesse ponto), a "foto pronta" do pacote é sempre a foto **real** do
+  produto na Shopee (`offer_snapshots.image_url`), nunca uma imagem
+  fabricada por IA.
+- **Botão "Iniciar Máquina de Vídeos"** em `/admin`
+  (`src/components/admin/VideoMachineRunButton.tsx` +
+  `src/app/api/admin/video-machine-run/route.ts`, protegido por
+  `isAuthedAdminRequest`, mesmo padrão do botão "Revalidar agora"
+  existente) — mostra produto, preço, direção criativa, roteiro e o
+  prompt de vídeo pronto pra copiar numa ferramenta externa.
+
+**Bug real encontrado e corrigido na primeira chamada de produção**: o
+prompt do Skill08 (`scriptWriting.ts`) não listava explicitamente quais
+`fieldPath` são válidos em `factCatalog`, nem instruía claramente qual
+slot (`onScreenText`) devia carregar a CTA com a keyword literal — o
+modelo tinha que inferir isso, e falhou validação real logo na primeira
+chamada (`SCRIPT_FACT_BASIS_INVALID`, depois `SCRIPT_PROVIDER_INVALID_OUTPUT`
+por CTA ausente). Corrigido com instruções diretivas explícitas;
+`promptTemplateVersion` subiu de `v1` pra `v3` (muda
+`providerRequestHash`, nunca `generationContextHash` — mesmo princípio
+já testado no SPEC).
+
+**Verificação real, ponta a ponta**: rodado via
+`scripts/run-video-machine-engine-once.ts` (CLI direto) e via clique
+real no botão do `/admin` no browser (screenshot + `get_page_text`
+confirmando o resultado renderizado). Produto real selecionado:
+"ROMANTIC CROWN Mochila Viagem..." (R$ 119,98) — foto real da Shopee,
+direção criativa `EVERGREEN_PRODUCT_DEMO`/`RESULT_FIRST`, roteiro real
+gerado pela OpenAI com hook + CTA "Comenta QUERO que eu te mando o
+link!", prompt de vídeo completo combinando visualIntent + câmera +
+texto exato. Zero erro de console. `OPENAI_API_KEY` (fornecida pelo
+Heber nesta sessão) salva só no `.env` local, nunca commitada.
+
 ## Regra de ouro (herdada)
 
 Nenhuma Skill é considerada "pronta" só por ter o `SPEC.md` escrito. Uma
