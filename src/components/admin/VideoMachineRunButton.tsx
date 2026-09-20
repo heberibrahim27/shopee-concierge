@@ -61,8 +61,16 @@ export function VideoMachineRunButton() {
           <strong style={{ fontSize: 14 }}>{result.productName}</strong>
           {result.priceMin != null ? <span style={{ fontSize: 12, color: "#666" }}>Preço: R$ {result.priceMin.toFixed(2)}</span> : null}
           {result.productPhotoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={result.productPhotoUrl} alt={result.productName} style={{ width: "100%", maxWidth: 280, borderRadius: 8 }} />
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={result.productPhotoUrl} alt={result.productName} style={{ width: "100%", maxWidth: 280, borderRadius: 8 }} />
+              <a
+                href={`/api/admin/video-machine-run/photo?url=${encodeURIComponent(result.productPhotoUrl)}`}
+                style={{ fontSize: 12, color: "#0a8a4a", fontWeight: 600, textDecoration: "none" }}
+              >
+                ⬇️ Baixar foto
+              </a>
+            </>
           ) : (
             <span style={{ fontSize: 12, color: "#999" }}>Sem foto do produto disponível.</span>
           )}
