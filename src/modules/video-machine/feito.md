@@ -3277,6 +3277,29 @@ link!", prompt de vídeo completo combinando visualIntent + câmera +
 texto exato. Zero erro de console. `OPENAI_API_KEY` (fornecida pelo
 Heber nesta sessão) salva só no `.env` local, nunca commitada.
 
+## 2 bugs reais encontrados pelo Heber no primeiro uso real (2026-09-20)
+
+Testando o motor pelo celular em produção, o Heber reportou 2 problemas
+reais — ambos corrigidos e testados de verdade:
+
+- **Download da foto não funcionava no mobile** — `<img download>` não
+  força download cross-origin no Safari/Chrome mobile. Corrigido com
+  proxy server-side (`/api/admin/video-machine-run/photo`, protegido
+  por admin auth, restrito a domínios da Shopee) que devolve a imagem
+  com `Content-Disposition: attachment` — download real garantido em
+  qualquer navegador. Testado: 163KB JPEG baixando certo, domínio não
+  autorizado bloqueado (400).
+- **Motor sempre escolhia o mesmo produto** — a policy de discovery
+  usada pelo motor (`engine-default`) tinha `reuse_policy=ALLOW`, sem
+  nenhuma exclusão de produto já usado — sempre escolhia o
+  "objetivamente melhor" e repetia. Corrigido: policy `v2` com
+  `reuse_policy=COOLDOWN` (3 dias) + o orquestrador agora grava
+  `ProductUsageEvidence` (`usage_kind=MATERIALIZED`) depois de cada
+  roteiro gerado — o leitor já existia em `discoverProducts` (Skill04,
+  Ponto S9 do SPEC), mas o **writer nunca tinha sido implementado**.
+  Testado real: 2 chamadas seguidas → produtos diferentes na segunda;
+  `policy v1` permanece imutável, só o binding foi atualizado pra `v2`.
+
 ## Regra de ouro (herdada)
 
 Nenhuma Skill é considerada "pronta" só por ter o `SPEC.md` escrito. Uma
