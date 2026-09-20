@@ -18,7 +18,7 @@
 | 07 — Direção Criativa | ✅ | ✅ **APROVADA — 7/25** (auditoria real: zero lógica criativa existente; resolve o bug real da convenção "QUERO" desconectada) | `skills/07-direcao-criativa/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
 | 08 — Roteirista | ✅ | ✅ **APROVADA — 8/25** (herda estratégia da Skill 07 sem reinterpretar; nenhuma alegação factual vira fato só por ser escrita pelo modelo) | `skills/08-roteirista/SPEC.md` | ✅ — `skills/08-roteirista/scriptWriting.ts`, testado contra produção real (2026-09-19) |
 | 09 — Gerador de Frame | ✅ | ✅ **APROVADA — 9/25** (greenfield total — zero geração de imagem existente; PRODUCT IDENTITY factual vs SCENE COMPOSITION criativa; só 1 referência real por snapshot hoje) | `skills/09-gerador-de-frame/SPEC.md` | ✅ (parcial — provider real ainda NOT_IMPLEMENTED) — `skills/09-gerador-de-frame/frameGeneration.ts`, testado contra produção real (2026-09-19) |
-| 10 — Gerador de Prompt de Vídeo | ✅ | ✅ **APROVADA — 10/25** (greenfield total, mais vazio ainda — spike 00A nunca executado; VideoGenerationIntent provider-agnostic; adapter determinístico, nunca IA escondida) | `skills/10-gerador-de-prompt-de-video/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
+| 10 — Gerador de Prompt de Vídeo | ✅ | ✅ **APROVADA — 10/25** (greenfield total, mais vazio ainda — spike 00A nunca executado; VideoGenerationIntent provider-agnostic; adapter determinístico, nunca IA escondida) | `skills/10-gerador-de-prompt-de-video/SPEC.md` | ✅ — `skills/10-gerador-de-prompt-de-video/videoPromptGeneration.ts`, testado contra produção real (2026-09-19) |
 | 11 — Executor de Geração | ✅ | ✅ **APROVADA — 11/25** (primeira Skill com side effect pago real; state machine multi-tick sob o limite de 60s do Vercel; resposta perdida nunca autoriza resubmissão) | `skills/11-executor-de-geracao/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
 | 12 — Auditor de Vídeo | ✅ | ✅ **APROVADA — 12/25** (verdict COMPLIANT/NON_COMPLIANT/INCONCLUSIVE, nunca APPROVED/REJECTED; ausência de evidência nunca é conformidade) | `skills/12-auditor-de-video/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
 | 13 — Corretor Automático | ✅ | ✅ **APROVADA — 13/25** (transformação determinística, sem provider externo na V1; decide O QUE corrigir, nunca SE haverá retry — isso é Skill 02) | `skills/13-corretor-automatico/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
@@ -2925,6 +2925,47 @@ contra produção real, commitados. Skill10 (prompt de vídeo) é só texto
 quando chegar a vez dela. Skill11 (execução de geração de vídeo)
 continua sendo o ponto real de bloqueio: só o Heber pode escolher/
 contratar um provedor de IA de vídeo.
+
+## Fase 2 — Skill 10 (Gerador de Prompt de Vídeo) (2026-09-19)
+
+Diferente das Skills 07/08/09, a Skill10 é **pura/determinística e sem
+side effect externo** — o próprio SPEC.md dispensa checkpoint/state
+machine. Traduz `ScriptResult` + `CreativeDirectionResult` +
+`FrameArtifact` (opcional) num `VideoGenerationIntent`
+provider-agnostic, depois renderiza um `ProviderInstruction` via um
+`ProviderPromptAdapter` — que o próprio SPEC exige ser **código, não
+IA** ("Nada na auditoria indica necessidade de um segundo LLM só para
+escrever prompt"). Implementado um único adapter real,
+`GENERIC_PROMPT_TEXT_V1` (template determinístico que expressa a
+intenção como texto livre, todos os generation parameters embutidos
+como `PROMPT_TEXT`) — genuíno e testável, não um placeholder, já que o
+próprio contrato pede exatamente isso: provider-agnostic primeiro,
+adapter Veo como camada futura explícita.
+
+Código em
+`src/modules/video-machine/skills/10-gerador-de-prompt-de-video/videoPromptGeneration.ts`
+— migration `20260919230000` (5 tabelas: `video_prompt_policy`+
+`_binding`, `video_provider_profile`+`_binding`, `video_prompt_artifact`).
+`VideoGenerationProvider` real (Veo/execução) continua
+`NOT_IMPLEMENTED` — isso é explicitamente responsabilidade da Skill 11,
+fora do escopo desta Skill mesmo em V1 completa.
+
+**Verificação**: `scripts/test-video-machine-skill10.ts`, encadeado
+Skill04→05→`StageSubjectBinding`→07→09(`NO_FRAME_REQUIRED`)→10. 7/7
+testes passaram: `TEXT_TO_VIDEO` com hash determinístico e replay sem
+recomputar, `VIDEO_VISUAL_SEED_REQUIRED` (`BLOCKED`, zero artifact),
+mismatches de `creativeDirectionHash`/`scriptHash`/`beatIndex`,
+invariante de presença de `frameArtifactId`↔`frameContentHash`, policy
+binding ausente. Nenhuma dependência de `OPENAI_API_KEY` ou qualquer
+outra credencial — a Skill inteira roda sem provider externo. Zero
+resíduo após limpeza.
+
+**Estado da Fase 2 até aqui**: kernel + Skill04 + Skill05 + Skill07 +
+Skill08 + Skill09 (parcial) + Skill10 testados contra produção real,
+commitados. Skill11 (execução de geração de vídeo) é agora o único
+ponto real de bloqueio pendente antes de completar a cadeia de conteúdo
+até vídeo bruto — depende de escolher/contratar um provedor de IA de
+vídeo, decisão/ação que só o Heber pode tomar.
 
 ## Regra de ouro (herdada)
 
