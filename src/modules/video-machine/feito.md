@@ -3300,6 +3300,40 @@ reais — ambos corrigidos e testados de verdade:
   Testado real: 2 chamadas seguidas → produtos diferentes na segunda;
   `policy v1` permanece imutável, só o binding foi atualizado pra `v2`.
 
+## Achado real de alucinação de produto pela ferramenta externa (2026-09-20)
+
+Heber fez um vídeo de verdade numa ferramenta externa (a partir da foto
++ prompt do motor) e reportou 2 problemas reais na saída:
+1. A ferramenta **alucinou uma peça interna** que o produto real
+   (cozedor de ovos elétrico) não tem — confirma o risco central que o
+   SPEC.md da Skill 09 sempre alertou.
+2. A **legenda automática por áudio** da ferramenta duplicou palavras
+   ("Comenta QUERO que eu **que** te mando o link!").
+
+Causa raiz: o `VideoGenerationIntent` já carregava
+`productIdentityConstraints` (`preserveProductIdentity`,
+`doNotInventUnsupportedProductRegions` etc.) no tipo, mas o adapter
+`GENERIC_PROMPT_TEXT_V1` nunca traduzia isso em **texto real** dentro
+do `promptText` — a garantia existia só na estrutura de dados, nunca
+chegava na ferramenta externa que a pessoa realmente usa.
+
+Corrigido em `renderGenericPrompt`
+(`skills/10-gerador-de-prompt-de-video/videoPromptGeneration.ts`,
+`adapterTemplateVersion` v1→v2): toda instrução de vídeo agora inclui
+(a) fidelidade do produto explícita ("nunca inventar peça/mecanismo/
+compartimento interno não visível na foto de referência"), (b)
+instrução pra digitar a legenda literalmente em vez de usar legenda
+automática por áudio (causa real da duplicação), (c) um padrão fixo de
+estilo de legenda (fonte/cor/alinhamento) consistente em todo prompt
+gerado. Testado real — novo prompt confirmado com as 3 instruções
+presentes.
+
+Limitação honesta: isso reduz o risco (a ferramenta externa recebe a
+instrução), mas não elimina — ainda depende da ferramenta de vídeo
+respeitar o prompt. Eliminar de verdade exigiria a Skill 09 real (frame
+gerado com validação de identidade) + Skill 11 com provider próprio,
+que seguem bloqueadas até haver orçamento.
+
 ## Regra de ouro (herdada)
 
 Nenhuma Skill é considerada "pronta" só por ter o `SPEC.md` escrito. Uma
