@@ -30,7 +30,7 @@
 | 19 — Analista de Performance | ✅ | ✅ **APROVADA — 19/25** (deterministic derivations only, zero LLM decidindo números; AnalysisBasis como fronteira de imutabilidade; HeuristicAttributionHypothesis com triplo bloqueio estrutural contra virar evidência canônica ou score factual) | `skills/19-analista-de-performance/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
 | 20 — Gerador de Variações | ✅ | ✅ **APROVADA — 20/25** (V1 explicitamente observacional, nunca controlled experiment; uma dimensão primária por experimento; ExperimentPlanCommit como visibility gate; Skill20 nunca declara winner/causalidade, só verifica se o plano foi satisfeito) | `skills/20-gerador-de-variacoes/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
 | 21 — Relatórios | ✅ | ✅ **APROVADA — 21/25** (apresenta, nunca recomputa; ReportProjection semanticamente neutro sem tipo de valor "computado"; ReportSnapshot imutável independente de formato; three barreiras estruturais contra hipótese virar fato) | `skills/21-relatorios/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
-| 22 — Gestor de Conta/Tenant | ✅ | ✅ **APROVADA — 22/25** (rodada única condensada — 1ª das 4 Skills de infra mínima; tenantId hoje é valor hardcoded, auth é senha única compartilhada; LEGACY_SHARED_ADMIN_SESSION nunca vira identidade humana nominal; capability, não rótulo "admin", é a base de autorização) | `skills/22-gestor-de-conta-tenant/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
+| 22 — Gestor de Conta/Tenant | ✅ | ✅ **APROVADA — 22/25** (rodada única condensada — 1ª das 4 Skills de infra mínima; tenantId hoje é valor hardcoded, auth é senha única compartilhada; LEGACY_SHARED_ADMIN_SESSION nunca vira identidade humana nominal; capability, não rótulo "admin", é a base de autorização) | `skills/22-gestor-de-conta-tenant/SPEC.md` | ✅ — `skills/22-gestor-de-conta-tenant/tenantAuthority.ts`, testado contra produção real (2026-09-20) |
 | 23 — Gestor de Créditos/Quotas | ✅ | ✅ **APROVADA — 23/25** (2 rodadas, não 1 como a Skill 22 — no caminho crítico de side effects pagos reais; `spendAuthorizationRef`/`processingAuthorizationRef`/`providerOperationAuthorizationRef` reconciliados como mesma autoridade Skill23 com `QuotaAuthorizationClass` incompatíveis entre si; `QuotaExecutionClaim` separa autorização abandonável de operação já comprometida; settlement por recurso nunca por reservation inteira; overage nunca escondido/capado; `UNKNOWN` nunca libera capacidade por TTL; billing tardio sempre liquida a janela original, nunca a atual; 20 FATAL_ERROR, 16 hashes canônicos, 40 testes) | `skills/23-gestor-de-creditos-quotas/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
 | 25 — Segurança/Auditoria | ✅ | ✅ **APROVADA — 25/25** (2 rodadas — última das 25 Skills, segurança real em produção encontrada, não só arquitetura futura. Achado real confirmado e ainda não corrigido: webhook Z-API sem nenhuma validação de assinatura/token — ChatGPT recomendou contenção imediata, tratada como correção operacional urgente separada da spec, aguardando decisão do usuário; RLS habilitado sem policy em 7 tabelas ≠ "RLS desativado" (correção de premissa), mas `product_groups` genuinamente exposta via anon key; baseline de 5 security findings reais rastreáveis registrado; `SecurityFinding`/`SecurityIncident` com lifecycles independentes (incident resolvido não fecha finding automaticamente); `SecurityCredentialCompromiseHandoff` faz handoff formal pra Skill24 sem nunca carregar o secret; `SecurityGateDecision` é sempre AND, nunca "maioria"; taxonomia `SecurityConfidentialityClass`×`SecurityDataCategory` unifica as 3 listas de "nunca logar" já existentes (Skills 21/23/24) sem alterar hashes delas; 3 patches de compatibilidade aplicados na rodada 1 (SecurityFinding imutável, freshness de evidence, invariantes de retenção); 20 FATAL_ERROR, 18 hashes canônicos, 40 testes) | `skills/25-seguranca-auditoria/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
 
@@ -2966,6 +2966,62 @@ commitados. Skill11 (execução de geração de vídeo) é agora o único
 ponto real de bloqueio pendente antes de completar a cadeia de conteúdo
 até vídeo bruto — depende de escolher/contratar um provedor de IA de
 vídeo, decisão/ação que só o Heber pode tomar.
+
+## Bloqueio real da Skill 11 + pivô pra infraestrutura (2026-09-20)
+
+Skill 11 exige um provedor pago de geração de vídeo real (Veo/Runway/
+Kling/Luma) — orçamento pesquisado com o Heber (Runway Gen-4 Turbo,
+$0,05/s, ~$0,40 por clipe de 8s, mínimo $10 em créditos pra ativar a
+API). Heber confirmou que não pode pagar agora. Diferente das Skills
+08/09/10, o SPEC.md da Skill 11 não define nenhum resultado de domínio
+legítimo "sem provider" — toda execução real pressupõe um provider já
+contratado — então não há como avançar essa Skill sem fabricar
+comportamento, o que quebraria a disciplina seguida desde a
+especificação. Pivô decidido com o Heber: seguir pelas Skills de
+infraestrutura que não dependem de vídeo (22, 23, 24) e pela Skill 15
+(link/tracking, que só depende de produto/oferta) até haver orçamento
+pra retomar 11-14. Nenhum retrabalho — quando o provider existir, volta
+exatamente de onde parou.
+
+## Fase 2 — Skill 22 (Gestor de Conta/Tenant) (2026-09-20)
+
+Formaliza a autoridade de `tenantId`/ator/capability que as Skills
+01-21 já citavam internamente como `trustedTenantId = Job.tenantId`
+sem essa Skill existir de fato. Auditoria do próprio SPEC.md confirmou
+multi-tenant como aspiracional hoje (tenantId é valor único hardcoded,
+auth é `ADMIN_PASSWORD` compartilhada, sem NextAuth/Supabase Auth) —
+V1 formaliza o contrato sem fingir SaaS multi-cliente.
+
+Código em
+`src/modules/video-machine/skills/22-gestor-de-conta-tenant/tenantAuthority.ts`
+— migration `20260920100000` (3 tabelas: `tenant_config`,
+`tenant_actor_binding` append-only versionado, `tenant_authorization_decision`
+audit trail). Implementados os dois fluxos reais hoje —
+`INTERNAL_JOB` (resolve ator `SERVICE`, `PIPELINE_OPERATE` automático)
+e `LEGACY_ADMIN_SESSION` (ator `LEGACY_SHARED_ADMIN_SESSION`,
+`SHARED_CREDENTIAL`, capabilities via `TenantActorBinding`).
+`AUTHENTICATED_USER_SESSION`/`PROVIDER_ACCOUNT_INGRESS` ficam fora
+desta fase — dependem de auth real/Skill 24, sem consumidor ainda.
+
+**Decisão de fidelidade ao SPEC**: `video_machine_tenant_config` existe
+como tabela real mesmo o SPEC dizendo "não cria tabela tenants nesta
+fase" — a leitura foi que isso se refere a uma tabela SaaS completa
+(users/billing/membership), não à config mínima de status
+(`ACTIVE`/`SUSPENDED`/`DISABLED`) que o próprio SPEC exige ser testável
+de verdade. Mesmo padrão de Policy-como-linha-de-DB já usado em todas
+as outras Skills — não uma tabela `tenants` prematura.
+
+**Verificação**: `scripts/test-video-machine-skill22.ts`, tenant de
+teste isolado (não mexe na config real, que ainda nem existe). 8/8
+testes passaram: `INTERNAL_JOB` resolve `SERVICE`/`PIPELINE_OPERATE`,
+tenant não configurado → `BLOCKED`/`TENANT_NOT_CONFIGURED` (fail
+closed), `LEGACY_ADMIN_SESSION` sem evidência → `FATAL_ERROR`, sem
+binding → `BLOCKED`, fluxo de autorização completo (concede/nega/
+`IDENTITY_ASSURANCE_INSUFFICIENT`) com as 3 decisões persistidas no
+audit trail, binding `SUSPENDED`/`REVOKED` bloqueia resolução
+preservando histórico append-only, capability concedida não supera
+tenant `SUSPENDED` (revalidado no boundary, nunca licença eterna),
+`TENANT_CROSS_TENANT_BINDING`. Zero resíduo após limpeza.
 
 ## Regra de ouro (herdada)
 
