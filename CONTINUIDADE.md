@@ -79,32 +79,38 @@ o próximo deploy) antes de considerar RESOLVED.
 
 ---
 SEC-025-PRODUCT-GROUPS-ANON-RLS
-Status: OPEN
+Status: RESOLVED (2026-09-20)
 
 Current implementation finding:
-a tabela public.product_groups está com Row Level Security desativado —
-qualquer um com a chave anon consegue ler ou escrever nela livremente.
-Ver seção "🚨 Segurança (achado em 2026-09-15)" abaixo.
+a tabela public.product_groups estava com Row Level Security
+desativado — qualquer um com a chave anon conseguia ler ou escrever
+nela livremente. Ver seção "🚨 Segurança (achado em 2026-09-15)" abaixo.
 
-Required runtime validation:
-decisão explícita do usuário: PUBLIC_BY_DESIGN (com policy explícita) ou
-NOT_PUBLIC (ativar RLS com policy adequada) — nunca deixar aberta por
-acidente.
+Resolução: auditoria de código confirmou zero uso client-side/anon-key
+em todo o repositório (nenhum Supabase client de browser existe nesta
+app) — único consumo real é server-side via service_role
+(src/lib/admin/stats.ts, painel /admin). RLS habilitado sem policy
+(migration 20260920130000), mesmo padrão de toda outra tabela do
+projeto — decisão NOT_PUBLIC, sem exposição legítima a preservar.
 
 ---
 SEC-025-CRON-PRODUCTION-AUTH
-Status: OPEN / UNVERIFIED
+Status: CODE FIXED (2026-09-20) / pendente confirmação em produção
 
 Current implementation finding:
-/api/cron/publish-product e /api/cron/source-deals só checam o header
-Authorization SE a env var CRON_SECRET existir — sem ela, a rota fica
-aberta. Valor já gerado, mas sem confirmação de que foi colado nas env
-vars de produção da Vercel. Ver item 4 da seção de automação de posts
-abaixo.
+/api/cron/publish-product, /api/cron/source-deals e
+/api/cron/video-machine-worker só checavam o header Authorization SE a
+env var CRON_SECRET existisse — sem ela, a rota ficava aberta
+(fail-open clássico). Ver item 4 da seção de automação de posts abaixo.
+
+Resolução: as 3 rotas agora falham fechado — CRON_SECRET ausente
+rejeita sempre (401), nunca libera sem autenticação.
 
 Required runtime validation:
 confirmar em Vercel → Environment Variables que CRON_SECRET está
-configurado em produção, e que uma chamada sem o header é rejeitada.
+configurado em produção antes do próximo deploy — sem isso, os crons
+passam a retornar 401 em vez de rodar sem proteção (comportamento
+correto, mas precisa do valor configurado pra continuar funcionando).
 
 ---
 SEC-025-ML-SECRET-ROTATION
@@ -289,16 +295,23 @@ horas", "não quero ter que ficar pedindo pra vc"). Peças novas:
    de disparar.
 3. ~~Deploy~~ — feito em 2026-09-16 (commit `5fd4b7e`, push pra `main`);
    os 2 fixes do item 2 acima ainda não foram deployados.
-4. **🚨 Segurança: `CRON_SECRET` gerado (2026-09-16), falta colar no
-   Vercel.** A rota `/api/cron/publish-product` (e `/api/cron/source-deals`)
-   checa o header `Authorization` só SE a env var `CRON_SECRET` existir —
-   até isso ser configurado no Vercel, a rota fica **aberta**: qualquer um
-   que descobrir a URL pode disparar um post real no Instagram. Valor já
+4. **🚨 Segurança: `CRON_SECRET` gerado (2026-09-16) — código corrigido
+   pra fail-closed em 2026-09-20, falta confirmar no Vercel.** As rotas
+   `/api/cron/publish-product`, `/api/cron/source-deals` e
+   `/api/cron/video-machine-worker` checavam o header `Authorization`
+   só SE a env var `CRON_SECRET` existisse — até 2026-09-20, sem essa
+   env var configurada no Vercel, a rota ficava **aberta**: qualquer um
+   que descobrisse a URL podia disparar um post real no Instagram.
+   Corrigido: as 3 rotas agora rejeitam (401) sempre que `CRON_SECRET`
+   não está configurado, nunca liberam sem autenticação. Valor já
    gerado e salvo no `.env` local (gitignorado); falta o Heber colar o
    mesmo valor em Vercel → Project Settings → Environment Variables →
-   `CRON_SECRET` (todas as envs). O próprio Cron do Vercel já manda
-   `Authorization: Bearer $CRON_SECRET` sozinho quando a env var existe —
-   não precisa mexer no `vercel.json`.
+   `CRON_SECRET` (todas as envs) — **sem isso, os crons vão parar de
+   rodar (401) até o valor ser configurado**, o que agora é o
+   comportamento correto (fail-closed), mas precisa da confirmação pra
+   não interromper a automação de verdade. O próprio Cron do Vercel já
+   manda `Authorization: Bearer $CRON_SECRET` sozinho quando a env var
+   existe — não precisa mexer no `vercel.json`.
 4. **Canva Autofill** (fidelidade 100% ao template Canva do Heber, em vez
    da recriação em código): tentei publicar os 2 designs do Heber
    (`DAHVYyRDaJ4` feed, `DAHVYyG_BwY` story) como Brand Template via MCP
@@ -314,17 +327,18 @@ Ver [[project_shopee_concierge_session_notes]] e o histórico completo da
 sessão 2026-09-16 pra mais contexto (inclui toda a novela da fatura da
 Vercel, resolvida na mesma sessão).
 
-### 🚨 Segurança (achado em 2026-09-15): RLS desativado em `product_groups`
+### ✅ Segurança (achado em 2026-09-15, corrigido em 2026-09-20): RLS estava desativado em `product_groups`
 O Supabase apontou automaticamente ao listar as tabelas do projeto
-`babamanager-pro`: a tabela `public.product_groups` está com Row Level
-Security **desativado** — qualquer um com a chave anon (a mesma exposta
-no client-side) consegue ler ou escrever nela livremente. Hoje ela só
-guarda ids de agrupamento (produto físico em marketplaces diferentes),
-nada sensível, mas ainda é uma falha de configuração real. Não corrigi
-sozinho porque ativar RLS sem política de acesso definida bloquearia todo
-acesso à tabela (inclusive o legítimo). Precisa decidir com o usuário:
-manter aberta (aceitável enquanto for só metadado não-sensível) ou
-definir uma política (ex: leitura pública, escrita só via service role).
+`babamanager-pro`: a tabela `public.product_groups` estava com Row
+Level Security **desativado** — qualquer um com a chave anon (a mesma
+exposta no client-side) conseguia ler ou escrever nela livremente.
+Ela só guarda ids de agrupamento (produto físico em marketplaces
+diferentes). Auditoria de código (2026-09-20) confirmou zero uso
+client-side/anon-key em todo o repositório — nenhum Supabase client de
+browser existe nesta app; o único consumo real é server-side via
+service_role (`src/lib/admin/stats.ts`, painel `/admin`). RLS
+habilitado sem policy (migration `20260920130000`), mesmo padrão de
+toda outra tabela do projeto — sem exposição legítima a preservar.
 
 ### 📋 Painel /admin — 6 blocos prioritários implementados (2026-09-15), falta testar em produção
 O painel (`/admin`, senha via `ADMIN_PASSWORD` + cookie assinado, ver
