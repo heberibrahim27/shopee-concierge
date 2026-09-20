@@ -9,9 +9,12 @@ export const maxDuration = 60;
 // até o kernel estar provado (ver plano de implementação). Mesmo padrão
 // de auth dos crons existentes (src/app/api/cron/publish-product).
 export async function GET(request: NextRequest) {
+  // Fail-closed (achado real SEC-025-CRON-PRODUCTION-AUTH, ver
+  // CONTINUIDADE.md "Security findings rastreados"): CRON_SECRET
+  // ausente agora REJEITA, nunca libera a rota sem autenticação.
   const authHeader = request.headers.get("authorization");
-  const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-  if (expected && authHeader !== expected) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || authHeader !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

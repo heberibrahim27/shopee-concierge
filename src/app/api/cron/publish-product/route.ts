@@ -120,9 +120,12 @@ async function windsorAction(action: string, params: Record<string, unknown>) {
 }
 
 export async function GET(request: NextRequest) {
+  // Fail-closed (achado real SEC-025-CRON-PRODUCTION-AUTH, ver
+  // CONTINUIDADE.md "Security findings rastreados"): CRON_SECRET
+  // ausente agora REJEITA, nunca libera a rota sem autenticação.
   const authHeader = request.headers.get("authorization");
-  const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-  if (expected && authHeader !== expected) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || authHeader !== `Bearer ${secret}`) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
