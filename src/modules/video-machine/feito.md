@@ -1043,7 +1043,7 @@ independente do GPT-6 Astra. Nenhuma migration, tabela, RPC, worker ou
 linha de código de runtime foi criada em nenhum momento deste reparo —
 tudo permanece especificação/contrato.
 
-| 24 — Gestor de Integrações | ✅ | ✅ **APROVADA — 24/25** (2 rodadas como a Skill 23 — 8 Skills já aprovadas dependem dela; achado central da auditoria: Skills 16 e 18 já congelaram independentemente dois formatos diferentes de "capability snapshot" — decisão: Skill24 nunca funde/substitui esses contratos, fica numa camada inferior (`IntegrationCapabilityEvidence`) da qual cada Skill consumidora projeta sua própria semântica; `IntegrationCredentialHandleRef` fecha a promessa de "handle seguro" das Skills 10/11 — secret nunca entra em contrato, nem como hash derivado; rotação segue stage→valida→ativa atomicamente, revogação nunca tem fallback automático; identidade imutável (hasheada) separada de runtime state mutável — 1 bug real de tipo duplicado (`IntegrationHealthStatus`) autocorrigido antes do carimbo; Bling confirmado ZERO evidência neste repo; 20 FATAL_ERROR, 14 hashes canônicos, 40 testes) | `skills/24-gestor-de-integracoes/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
+| 24 — Gestor de Integrações | ✅ | ✅ **APROVADA — 24/25** (2 rodadas como a Skill 23 — 8 Skills já aprovadas dependem dela; achado central da auditoria: Skills 16 e 18 já congelaram independentemente dois formatos diferentes de "capability snapshot" — decisão: Skill24 nunca funde/substitui esses contratos, fica numa camada inferior (`IntegrationCapabilityEvidence`) da qual cada Skill consumidora projeta sua própria semântica; `IntegrationCredentialHandleRef` fecha a promessa de "handle seguro" das Skills 10/11 — secret nunca entra em contrato, nem como hash derivado; rotação segue stage→valida→ativa atomicamente, revogação nunca tem fallback automático; identidade imutável (hasheada) separada de runtime state mutável — 1 bug real de tipo duplicado (`IntegrationHealthStatus`) autocorrigido antes do carimbo; Bling confirmado ZERO evidência neste repo; 20 FATAL_ERROR, 14 hashes canônicos, 40 testes) | `skills/24-gestor-de-integracoes/SPEC.md` | ✅ (parcial — ver "escopo reduzido" abaixo) — `skills/24-gestor-de-integracoes/integrationRegistry.ts`, testado contra produção real (2026-09-20) |
 
 **Interface Skill 01 ↔ Skill 02: congelada em 2026-09-17.** Outbox duplo
 (`LogicalJobIntent` para trabalho, `RunCancellationIntent` para
@@ -3093,6 +3093,69 @@ antes de claim, expiração TTL sem claim, cross-tenant bloqueado. Zero
 resíduo após limpeza. Migration aplicada em produção só depois de
 confirmação explícita do Heber (funções Postgres novas com locking —
 mesma disciplina de sempre pra "modificar recursos compartilhados").
+
+## Fase 2 — Skill 24 (Gestor de Integrações) — escopo reduzido (2026-09-20)
+
+O SPEC.md completo (2 rodadas, 21 `FATAL_ERROR`, 14 hashes canônicos,
+40 testes) define `IntegrationCapabilityEvidence` com dois eixos
+(verification/restriction) numa camada abaixo dos capability snapshots
+já congelados pelas Skills 16/18, a state machine completa de rotação
+de credencial (5 estados: `STAGED`/`ACTIVE`/`SUPERSEDED`/`REVOKED`/
+`INVALID`) e health check requests/runs. Mesma decisão de escopo das
+Skills 22/23: nenhuma dessas peças tem consumidor real hoje — zero
+código no repositório verifica capability em runtime (confirmado pela
+própria auditoria do SPEC), zero rotação de credencial jamais
+aconteceu, e as Skills 16/17 (as consumidoras reais do credential
+handle) ainda não existem em código.
+
+Implementado nesta fase: `IntegrationBinding` +
+`IntegrationCredentialHandleRef`, resolvidos via
+`ENV_BACKED_CREDENTIAL_RESOLVER` — **literalmente o runtime V1 que o
+próprio SPEC.md já prescreve**: "resolve o handle pros env vars atuais
+de hoje — sem migration, sem tabela nova [de secret]". Código em
+`src/modules/video-machine/skills/24-gestor-de-integracoes/integrationRegistry.ts`
+— migration `20260920120000` (5 tabelas). Isso resolve de verdade a
+dívida explícita que a Skill 10 deixou registrada
+(`video_machine_video_provider_profile.integration_binding_id/hash`
+como texto livre, comentário "IntegrationBinding real (Skill24) ainda
+não existe").
+
+**Disciplina de secret**: `resolveCredentialHandle()` é a única função
+de todo o módulo que pode ver o valor do secret — lê `process.env`
+internamente, nunca retorna o nome da env var, nunca loga, nunca
+persiste o valor. `CredentialResolutionRecord` audita **que** uma
+resolução aconteceu e **qual revisão** foi usada, nunca o valor em si
+— confirmado no teste (`JSON.stringify` do registro não contém o
+secret real usado no teste).
+
+**O que ficou explicitamente NOT_IMPLEMENTED**: `IntegrationCapabilityEvidence`
+(verification/restriction), a state machine de rotação de credencial
+(V1 só tem 1 revisão `ACTIVE`/`REVOKED` por handle, sem `STAGED`/
+`SUPERSEDED`/`INVALID`), `IntegrationHealthCheckRequest`/`Run`
+completo (só um campo `health_status` mutável, sem ping real de
+conectividade), `ProviderAccountIngressResolution`.
+
+**Verificação**: `scripts/test-video-machine-skill24.ts`, tenant de
+teste isolado, usando `SUPABASE_SERVICE_ROLE_KEY` real só pra provar
+que o resolver funciona (nunca impresso). 8/8 testes passaram: criar/
+resolver binding, binding duplicado por (tenant, providerKey) é fatal
+(reflete a realidade real de conta única por provider), binding não
+configurado bloqueia, env var ausente bloqueia sem vazar o nome da
+variável, revogar credencial bloqueia resoluções futuras
+(`INTEGRATION_ACTIVE_CREDENTIAL_REVISION_MISSING`), tenant mismatch é
+fatal. Zero resíduo após limpeza, zero secret vazado em log/teste/
+tabela.
+
+**Estado da Fase 2 até aqui**: kernel + Skill04 + Skill05 + Skill07 +
+Skill08 + Skill09 (parcial) + Skill10 + Skill22 + Skill23 (parcial) +
+Skill24 (parcial) testados contra produção real, commitados. Falta só
+a Skill 25 (Segurança/Auditoria) entre as 4 Skills de infraestrutura —
+inclui o achado real de segurança ainda não corrigido (webhook Z-API
+sem validação de assinatura/token), aguardando decisão do Heber.
+Skill 15 (link/tracking) continua no radar como próxima Skill de
+conteúdo alcançável sem provedor de vídeo. Skill 11 (execução de
+geração de vídeo) segue bloqueada até o Heber conseguir orçamento pro
+provedor.
 
 ## Regra de ouro (herdada)
 
