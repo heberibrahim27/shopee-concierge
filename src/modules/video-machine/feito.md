@@ -31,7 +31,7 @@
 | 20 — Gerador de Variações | ✅ | ✅ **APROVADA — 20/25** (V1 explicitamente observacional, nunca controlled experiment; uma dimensão primária por experimento; ExperimentPlanCommit como visibility gate; Skill20 nunca declara winner/causalidade, só verifica se o plano foi satisfeito) | `skills/20-gerador-de-variacoes/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
 | 21 — Relatórios | ✅ | ✅ **APROVADA — 21/25** (apresenta, nunca recomputa; ReportProjection semanticamente neutro sem tipo de valor "computado"; ReportSnapshot imutável independente de formato; three barreiras estruturais contra hipótese virar fato) | `skills/21-relatorios/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
 | 22 — Gestor de Conta/Tenant | ✅ | ✅ **APROVADA — 22/25** (rodada única condensada — 1ª das 4 Skills de infra mínima; tenantId hoje é valor hardcoded, auth é senha única compartilhada; LEGACY_SHARED_ADMIN_SESSION nunca vira identidade humana nominal; capability, não rótulo "admin", é a base de autorização) | `skills/22-gestor-de-conta-tenant/SPEC.md` | ✅ — `skills/22-gestor-de-conta-tenant/tenantAuthority.ts`, testado contra produção real (2026-09-20) |
-| 23 — Gestor de Créditos/Quotas | ✅ | ✅ **APROVADA — 23/25** (2 rodadas, não 1 como a Skill 22 — no caminho crítico de side effects pagos reais; `spendAuthorizationRef`/`processingAuthorizationRef`/`providerOperationAuthorizationRef` reconciliados como mesma autoridade Skill23 com `QuotaAuthorizationClass` incompatíveis entre si; `QuotaExecutionClaim` separa autorização abandonável de operação já comprometida; settlement por recurso nunca por reservation inteira; overage nunca escondido/capado; `UNKNOWN` nunca libera capacidade por TTL; billing tardio sempre liquida a janela original, nunca a atual; 20 FATAL_ERROR, 16 hashes canônicos, 40 testes) | `skills/23-gestor-de-creditos-quotas/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
+| 23 — Gestor de Créditos/Quotas | ✅ | ✅ **APROVADA — 23/25** (2 rodadas, não 1 como a Skill 22 — no caminho crítico de side effects pagos reais; `spendAuthorizationRef`/`processingAuthorizationRef`/`providerOperationAuthorizationRef` reconciliados como mesma autoridade Skill23 com `QuotaAuthorizationClass` incompatíveis entre si; `QuotaExecutionClaim` separa autorização abandonável de operação já comprometida; settlement por recurso nunca por reservation inteira; overage nunca escondido/capado; `UNKNOWN` nunca libera capacidade por TTL; billing tardio sempre liquida a janela original, nunca a atual; 20 FATAL_ERROR, 16 hashes canônicos, 40 testes) | `skills/23-gestor-de-creditos-quotas/SPEC.md` | ✅ (parcial — ver "escopo reduzido" abaixo) — `skills/23-gestor-de-creditos-quotas/quotaGuard.ts`, testado contra produção real (2026-09-20) |
 | 25 — Segurança/Auditoria | ✅ | ✅ **APROVADA — 25/25** (2 rodadas — última das 25 Skills, segurança real em produção encontrada, não só arquitetura futura. Achado real confirmado e ainda não corrigido: webhook Z-API sem nenhuma validação de assinatura/token — ChatGPT recomendou contenção imediata, tratada como correção operacional urgente separada da spec, aguardando decisão do usuário; RLS habilitado sem policy em 7 tabelas ≠ "RLS desativado" (correção de premissa), mas `product_groups` genuinamente exposta via anon key; baseline de 5 security findings reais rastreáveis registrado; `SecurityFinding`/`SecurityIncident` com lifecycles independentes (incident resolvido não fecha finding automaticamente); `SecurityCredentialCompromiseHandoff` faz handoff formal pra Skill24 sem nunca carregar o secret; `SecurityGateDecision` é sempre AND, nunca "maioria"; taxonomia `SecurityConfidentialityClass`×`SecurityDataCategory` unifica as 3 listas de "nunca logar" já existentes (Skills 21/23/24) sem alterar hashes delas; 3 patches de compatibilidade aplicados na rodada 1 (SecurityFinding imutável, freshness de evidence, invariantes de retenção); 20 FATAL_ERROR, 18 hashes canônicos, 40 testes) | `skills/25-seguranca-auditoria/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
 
 ## 🏁 Marco: as 25 Skills estão especificadas e aprovadas (2026-09-18)
@@ -3022,6 +3022,77 @@ audit trail, binding `SUSPENDED`/`REVOKED` bloqueia resolução
 preservando histórico append-only, capability concedida não supera
 tenant `SUSPENDED` (revalidado no boundary, nunca licença eterna),
 `TENANT_CROSS_TENANT_BINDING`. Zero resíduo após limpeza.
+
+## Fase 2 — Skill 23 (Gestor de Créditos/Quotas) — escopo reduzido (2026-09-20)
+
+O SPEC.md completo (2 rodadas, 1600 linhas, 20 `FATAL_ERROR`, 16 hashes
+canônicos, 40 testes) define a máquina financeira inteira: `QuotaPolicy`,
+autorização/reserva atômica, `QuotaExecutionClaim`, a lifecycle
+completa de reservation (`HELD`/`CLAIMED`/`HELD_EXTERNAL_UNKNOWN`/
+`SETTLEMENT_PENDING`/`PARTIALLY_SETTLED`/`SETTLED`/`RELEASED`), effect
+evidence, usage/billing evidence e settlement com ledger `RESERVED`/
+`CONSUMED`. Decisão de escopo, mesma disciplina de
+`StageSubjectBinding`/`EXPANDABLE` das Skills 01/09: **nenhuma** das
+Skills que chamariam essa máquina inteira (11/12/14/15/20) existe em
+código ainda — implementar `QuotaExecutionClaim`/settlement/evidence às
+cegas, sem consumidor real, repetiria o erro que "kernel repair" já
+corrigiu duas vezes nesta especificação.
+
+Implementado nesta fase: só o caminho **REQUEST AUTHORIZATION →
+RESERVE** — o "`QuotaGuard`" que as Skills 07/08 já citam como
+pré-requisito. Código em
+`src/modules/video-machine/skills/23-gestor-de-creditos-quotas/quotaGuard.ts`
+— migration `20260920110000` (5 tabelas + 2 funções Postgres).
+
+**Atomicidade real, não simulada**: a autorização (capacity check +
+`QuotaReservation` + `QuotaAuthorization` + `QuotaLedgerEntry` RESERVED-
+increase) roda dentro de uma função `plpgsql` única
+(`video_machine_quota_authorize`), serializada por
+`pg_advisory_xact_lock(tenant, authorizationClass)` — a mesma técnica
+que resolve de verdade o teste "duas requests concorrentes com 1
+unidade restante produzem exatamente uma `AUTHORIZED`", sem depender de
+transação multi-statement do lado do cliente (Supabase JS não oferece
+isso).
+
+**O que ficou implementado e testado de verdade**: idempotência por
+`(tenantId, authorizationRequestKey)` — retransmissão da mesma Attempt
+reutiliza a autorização, payload divergente na mesma Attempt é
+`QUOTA_AUTHORIZATION_REQUEST_REPLAY_CONFLICT`, nova Attempt sempre gera
+nova autorização; `HARD_LIMIT` monetário sem exposure upper-bound
+declarada no request bloqueia (`QUOTA_UNKNOWN_COST_BLOCKED_BY_POLICY`),
+nunca autoriza às cegas; `HARD_LIMIT` com exposure declarada respeita o
+teto real (testado com $0,40+$0,80 contra teto de $1,00/dia); denial
+nunca cria reservation; cancelamento antes de claim libera a
+reservation com ledger `DECREASE` espelhado (liberar de novo é
+`FATAL_ERROR`); TTL expirado sem claim libera automaticamente como
+"unused" (`resolveEffectiveAuthorizationDecision`, sem precisar de
+worker dedicado — mesma permissão que o SPEC dá: "expiração pode ser
+detectada por tentativa de claim, reconciliação periódica, retry de
+job").
+
+**O que ficou explicitamente NOT_IMPLEMENTED** (documentado na própria
+migration): `QuotaExecutionClaim`, a lifecycle completa de reservation
+(só `HELD`/`RELEASED`/`CONSUMED` existem — `CLAIMED`/
+`HELD_EXTERNAL_UNKNOWN`/`SETTLEMENT_PENDING`/`PARTIALLY_SETTLED`/
+`SETTLED` não), `QuotaReservationTransition` audit trail,
+`QuotaExecutionEffectEvidence`, `ProviderUsageEvidence`/
+`ProviderBillingEvidence`, `QuotaSettlementDecision`, ledger bucket
+`CONSUMED`, `QuotaAuthorizationRun`/`QuotaSettlementRun` state
+machines. `QuotaAuthorizationSubject` foi colapsado em
+`operationIdentityHash` (nenhum consumidor real exige diferenciação
+ainda).
+
+**Verificação**: `scripts/test-video-machine-skill23.ts`, tenant de
+teste isolado. 12/12 testes passaram (subconjunto real e testável dos
+40 do SPEC — os que não dependem da máquina de claim/settlement
+adiada): policy ausente bloqueia, autorização atômica com ledger,
+concorrência real com `pg_advisory_xact_lock`, denial sem reservation,
+retransmissão idempotente, nova Attempt gera nova autorização, payload
+incompatível é replay conflict, `HARD_LIMIT` sem/com exposure, release
+antes de claim, expiração TTL sem claim, cross-tenant bloqueado. Zero
+resíduo após limpeza. Migration aplicada em produção só depois de
+confirmação explícita do Heber (funções Postgres novas com locking —
+mesma disciplina de sempre pra "modificar recursos compartilhados").
 
 ## Regra de ouro (herdada)
 
