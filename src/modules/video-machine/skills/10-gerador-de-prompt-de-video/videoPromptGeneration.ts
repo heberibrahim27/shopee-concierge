@@ -57,6 +57,12 @@ const GENERIC_ADAPTER_CAPABILITIES = {
   parameterTransport: { duration: "PROMPT_TEXT", aspectRatio: "PROMPT_TEXT", resolution: "PROMPT_TEXT", seed: "PROMPT_TEXT", audio: "PROMPT_TEXT" } as const,
 };
 
+// Padrão fixo de legenda — aplicado em TODO prompt gerado, pra ficar
+// consistente entre vídeos mesmo quando quem opera a ferramenta externa
+// é uma pessoa diferente. Ajustar aqui muda o padrão de todos os
+// próximos prompts de uma vez só.
+const ON_SCREEN_TEXT_STYLE = "fonte bold arredondada (ex.: Poppins Bold/Montserrat Bold), branca com contorno preto grosso, alinhada ao centro, no terço inferior do quadro";
+
 function renderGenericPrompt(intent: any, generationParameters: any): { promptText: string; negativePromptText?: string } {
   const parts: string[] = [];
   parts.push(intent.scene.visualIntent);
@@ -64,8 +70,13 @@ function renderGenericPrompt(intent: any, generationParameters: any): { promptTe
   if (intent.cinematicIntent.subjectMotionIntent) parts.push(`Movimento do sujeito: ${intent.cinematicIntent.subjectMotionIntent}`);
   if (intent.cinematicIntent.sceneMotionIntent) parts.push(`Movimento de cena: ${intent.cinematicIntent.sceneMotionIntent}`);
   if (intent.textualConstraints.providerGeneratedTextPolicy === "ALLOW_EXACT_SCRIPT_TEXT") {
-    if (intent.scene.onScreenText) parts.push(`Texto na tela (exato): "${intent.scene.onScreenText}"`);
+    if (intent.scene.onScreenText) parts.push(`Texto na tela (exato, digite literalmente este texto — NÃO gere legenda automática por reconhecimento de áudio, isso causa palavras duplicadas/erradas): "${intent.scene.onScreenText}". Estilo do texto: ${ON_SCREEN_TEXT_STYLE}.`);
     if (intent.scene.spokenText) parts.push(`Fala (exata): "${intent.scene.spokenText}"`);
+  }
+  if (intent.productIdentityConstraints?.preserveProductIdentity) {
+    parts.push(
+      "Fidelidade do produto (obrigatório): manter EXATAMENTE a aparência do produto mostrado na foto de referência — mesma cor, formato, botões, textura e componentes visíveis. NUNCA inventar peça, mecanismo ou compartimento interno que não apareça na foto de referência. Se o ângulo/ação pedido exigiria mostrar uma parte do produto não visível na foto, prefira reenquadrar ou evitar esse ângulo em vez de imaginar o que tem lá dentro."
+    );
   }
   if (generationParameters.durationSeconds) parts.push(`Duração: ${generationParameters.durationSeconds}s`);
   if (generationParameters.aspectRatio) parts.push(`Proporção: ${generationParameters.aspectRatio}`);
@@ -248,7 +259,7 @@ export async function generateVideoPrompt(db: SupabaseClient, input: VideoPrompt
     audioMode: policy.audio_policy === "GENERATED_AUDIO_ALLOWED" ? "GENERATED" : policy.audio_policy === "NO_GENERATED_AUDIO" ? "DISABLED" : "PROVIDER_DEFAULT",
   };
 
-  const adapterTemplateVersion = "v1";
+  const adapterTemplateVersion = "v2";
   const providerInstructionSchemaVersion = "PROVIDER_VIDEO_INSTRUCTION_V1";
   const adapterRequestHash = `VIDEO_PROMPT_ADAPTER_REQUEST_V1:sha256:${canonicalHash("VIDEO_PROMPT_ADAPTER_REQUEST_V1", {
     intentHash,
