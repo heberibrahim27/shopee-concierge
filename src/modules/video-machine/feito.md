@@ -3334,6 +3334,24 @@ respeitar o prompt. Eliminar de verdade exigiria a Skill 09 real (frame
 gerado com validação de identidade) + Skill 11 com provider próprio,
 que seguem bloqueadas até haver orçamento.
 
+## Prompt formatado em seções legíveis (2026-09-20)
+
+Heber pediu pra manter o CTA "Comenta QUERO" (mesmo com marcação nativa
+do produto no Reels, porque ainda gera engajamento de comentário +
+alimenta a futura automação de DM da Skill 16), mas reportou que o
+prompt de vídeo saía como "um monte de letras empilhadas sem beleza" —
+um parágrafo único emendado com pontos, difícil de ler/copiar.
+
+Corrigido em `renderGenericPrompt`
+(`skills/10-gerador-de-prompt-de-video/videoPromptGeneration.ts`,
+`adapterTemplateVersion` v2→v3): saída agora em seções nomeadas
+(`CENA`, câmera/movimento, `TEXTO NA TELA`, `FALA`, `FIDELIDADE DO
+PRODUTO`, `CONFIGURAÇÕES`) separadas por linha em branco. Textarea do
+`/admin` ajustada junto (mais alta, fonte legível, `pre-wrap`,
+redimensionável). Testado real via browser —
+`document.querySelector('textarea').value` confirmado com quebras de
+linha reais entre seções.
+
 ## Regra de ouro (herdada)
 
 Nenhuma Skill é considerada "pronta" só por ter o `SPEC.md` escrito. Uma
