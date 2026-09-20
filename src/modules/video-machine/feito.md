@@ -3352,6 +3352,17 @@ redimensionável). Testado real via browser —
 `document.querySelector('textarea').value` confirmado com quebras de
 linha reais entre seções.
 
+## Botão de copiar prompt/texto (2026-09-20)
+
+Heber pediu um botão pra copiar o prompt sem precisar selecionar tudo
+manualmente. Adicionado `CopyButton` reutilizável em
+`VideoMachineRunButton.tsx` — `navigator.clipboard.writeText()` com
+fallback via `<textarea>` temporário + `document.execCommand("copy")`
+quando a API de clipboard não está disponível. Usado em 2 lugares:
+"Copiar texto" (o CTA/`onScreenText`, direto pra colar na legenda da
+ferramenta externa) e "Copiar prompt" (o texto inteiro). Feedback
+visual "Copiado! ✓" por 2s.
+
 ## Regra de ouro (herdada)
 
 Nenhuma Skill é considerada "pronta" só por ter o `SPEC.md` escrito. Uma
