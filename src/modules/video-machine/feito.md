@@ -2704,12 +2704,43 @@ replay idempotente, `discoveryResultId` inexistente →
 `DISCOVERY_RESULT_NOT_ANALYZABLE`, policy sem peso ativo →
 `INVALID_OFFER_ANALYSIS_POLICY`. Zero resíduo após limpeza.
 
-**Estado da Fase 2 até aqui**: kernel (Skill01+02) + Skill04 + Skill05
-implementados, testados contra produção real, commitados. Faltam 18
-Skills de conteúdo (03, 06-21 exceto 04/05 — 06/20/21 deferidas pra V2)
-pra completar o V1. Skills 09-11 (geração de frame/prompt/vídeo)
-dependem de escolher e contratar um provedor de IA de vídeo — decisão
-e ação que só o Heber pode tomar (criar conta/assinar serviço).
+## Fase 2 — StageSubjectBinding (kernel) + Skill 07 (Direção Criativa) (2026-09-19)
+
+`StageSubjectBinding` (Skill01) adicionado ao kernel — ficou fora da
+Fase 1 por falta de consumidor real; a Skill07 exige
+`stageSubjectBindingId` como autoridade do subject, então entrou agora
+(migration `20260919190000`).
+
+Skill07 decide estratégia criativa (arquétipo/hook/narrativa/abordagem
+visual/CTA) a partir do `OfferAnalysisResult`. Como Skill06
+(tendências) está `DEFERRED_V2_CONTRACT`, `creativeMode` sempre resolve
+`EVERGREEN` — caminho legítimo já previsto no próprio SPEC (Ponto M5),
+nunca erro. Código em
+`src/modules/video-machine/skills/07-direcao-criativa/creativeDirection.ts`
+— resolução determinística quando a policy só permite 1 opção por
+dimensão (`POLICY_ONLY`, zero chamadas externas), chamada real à
+OpenAI (`gpt-4o-mini`, já usado pelo Concierge) quando há múltiplas
+opções (`MODEL_ASSISTED`), `CreativeCtaIntent` com `keyword` sempre
+congelada pela policy (nunca inventada pelo modelo), checkpoint
+`RESPONSE_CAPTURED` pra replay nunca rechamar o provider.
+
+**Verificação**: `scripts/test-video-machine-skill07.ts`, encadeado
+Skill04→05→`StageSubjectBinding`→07 contra o pool real. Caminho
+`POLICY_ONLY` passou (zero chamadas externas, CTA="QUERO" congelado).
+Caminho `MODEL_ASSISTED` pulado graciosamente — **`OPENAI_API_KEY` não
+está configurada no `.env` local** (mesma chave que o Concierge já usa
+em produção — provavelmente só existe nas env vars da Vercel). Zero
+resíduo após limpeza.
+
+**Estado da Fase 2 até aqui**: kernel (Skill01+02, +StageSubjectBinding)
++ Skill04 + Skill05 + Skill07 implementados, testados contra produção
+real, commitados. Faltam 17 Skills de conteúdo (03, 06, 08-21 exceto
+07 — 06/20/21 deferidas pra V2) pra completar o V1. Skills 09-11
+(geração de frame/prompt/vídeo) dependem de escolher e contratar um
+provedor de IA de vídeo — decisão e ação que só o Heber pode tomar
+(criar conta/assinar serviço). Skill03 (aprovação) fica pra quando
+existir um gate real (ex.: depois da Skill12/auditor) pra testar
+contra — sem isso, seria implementação no vácuo.
 
 - **N10 — contradição entre R3 e o boundary Skill01↔Skill03 (Skill 01)**:
   a frase adicionada no R3 ("`WAITING_APPROVAL` só depois da
