@@ -32,7 +32,7 @@
 | 21 — Relatórios | ✅ | ✅ **APROVADA — 21/25** (apresenta, nunca recomputa; ReportProjection semanticamente neutro sem tipo de valor "computado"; ReportSnapshot imutável independente de formato; three barreiras estruturais contra hipótese virar fato) | `skills/21-relatorios/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
 | 22 — Gestor de Conta/Tenant | ✅ | ✅ **APROVADA — 22/25** (rodada única condensada — 1ª das 4 Skills de infra mínima; tenantId hoje é valor hardcoded, auth é senha única compartilhada; LEGACY_SHARED_ADMIN_SESSION nunca vira identidade humana nominal; capability, não rótulo "admin", é a base de autorização) | `skills/22-gestor-de-conta-tenant/SPEC.md` | ✅ — `skills/22-gestor-de-conta-tenant/tenantAuthority.ts`, testado contra produção real (2026-09-20) |
 | 23 — Gestor de Créditos/Quotas | ✅ | ✅ **APROVADA — 23/25** (2 rodadas, não 1 como a Skill 22 — no caminho crítico de side effects pagos reais; `spendAuthorizationRef`/`processingAuthorizationRef`/`providerOperationAuthorizationRef` reconciliados como mesma autoridade Skill23 com `QuotaAuthorizationClass` incompatíveis entre si; `QuotaExecutionClaim` separa autorização abandonável de operação já comprometida; settlement por recurso nunca por reservation inteira; overage nunca escondido/capado; `UNKNOWN` nunca libera capacidade por TTL; billing tardio sempre liquida a janela original, nunca a atual; 20 FATAL_ERROR, 16 hashes canônicos, 40 testes) | `skills/23-gestor-de-creditos-quotas/SPEC.md` | ✅ (parcial — ver "escopo reduzido" abaixo) — `skills/23-gestor-de-creditos-quotas/quotaGuard.ts`, testado contra produção real (2026-09-20) |
-| 25 — Segurança/Auditoria | ✅ | ✅ **APROVADA — 25/25** (2 rodadas — última das 25 Skills, segurança real em produção encontrada, não só arquitetura futura. Achado real confirmado e ainda não corrigido: webhook Z-API sem nenhuma validação de assinatura/token — ChatGPT recomendou contenção imediata, tratada como correção operacional urgente separada da spec, aguardando decisão do usuário; RLS habilitado sem policy em 7 tabelas ≠ "RLS desativado" (correção de premissa), mas `product_groups` genuinamente exposta via anon key; baseline de 5 security findings reais rastreáveis registrado; `SecurityFinding`/`SecurityIncident` com lifecycles independentes (incident resolvido não fecha finding automaticamente); `SecurityCredentialCompromiseHandoff` faz handoff formal pra Skill24 sem nunca carregar o secret; `SecurityGateDecision` é sempre AND, nunca "maioria"; taxonomia `SecurityConfidentialityClass`×`SecurityDataCategory` unifica as 3 listas de "nunca logar" já existentes (Skills 21/23/24) sem alterar hashes delas; 3 patches de compatibilidade aplicados na rodada 1 (SecurityFinding imutável, freshness de evidence, invariantes de retenção); 20 FATAL_ERROR, 18 hashes canônicos, 40 testes) | `skills/25-seguranca-auditoria/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
+| 25 — Segurança/Auditoria | ✅ | ✅ **APROVADA — 25/25** (2 rodadas — última das 25 Skills, segurança real em produção encontrada, não só arquitetura futura. Achado real confirmado e ainda não corrigido: webhook Z-API sem nenhuma validação de assinatura/token — ChatGPT recomendou contenção imediata, tratada como correção operacional urgente separada da spec, aguardando decisão do usuário; RLS habilitado sem policy em 7 tabelas ≠ "RLS desativado" (correção de premissa), mas `product_groups` genuinamente exposta via anon key; baseline de 5 security findings reais rastreáveis registrado; `SecurityFinding`/`SecurityIncident` com lifecycles independentes (incident resolvido não fecha finding automaticamente); `SecurityCredentialCompromiseHandoff` faz handoff formal pra Skill24 sem nunca carregar o secret; `SecurityGateDecision` é sempre AND, nunca "maioria"; taxonomia `SecurityConfidentialityClass`×`SecurityDataCategory` unifica as 3 listas de "nunca logar" já existentes (Skills 21/23/24) sem alterar hashes delas; 3 patches de compatibilidade aplicados na rodada 1 (SecurityFinding imutável, freshness de evidence, invariantes de retenção); 20 FATAL_ERROR, 18 hashes canônicos, 40 testes) | `skills/25-seguranca-auditoria/SPEC.md` | ✅ (parcial — ver "escopo reduzido" abaixo) — `skills/25-seguranca-auditoria/securityRegistry.ts`, testado contra produção real (2026-09-20) |
 
 ## 🏁 Marco: as 25 Skills estão especificadas e aprovadas (2026-09-18)
 
@@ -3156,6 +3156,78 @@ Skill 15 (link/tracking) continua no radar como próxima Skill de
 conteúdo alcançável sem provedor de vídeo. Skill 11 (execução de
 geração de vídeo) segue bloqueada até o Heber conseguir orçamento pro
 provedor.
+
+## Correção de 2 achados de segurança reais abertos (2026-09-20)
+
+Antes de implementar a Skill 25, corrigidos de verdade 2 dos 5 achados
+reais rastreados em `CONTINUIDADE.md` "Security findings rastreados":
+
+- **`SEC-025-PRODUCT-GROUPS-ANON-RLS`** — `public.product_groups`
+  estava com RLS desativado, exposta via chave anon. Auditoria de
+  código (subagente `Explore`) confirmou zero uso client-side/anon-key
+  em todo o repositório — único consumo real é server-side via
+  `service_role` (`src/lib/admin/stats.ts`, painel `/admin`). RLS
+  habilitado sem policy (migration `20260920130000`), mesmo padrão de
+  toda outra tabela do projeto. **Status: RESOLVED.**
+- **`SEC-025-CRON-PRODUCTION-AUTH`** — as 3 rotas de cron
+  (`publish-product`, `source-deals`, `video-machine-worker`, essa
+  última minha própria do kernel Fase 1) tinham o padrão clássico
+  fail-open: `if CRON_SECRET existe: valida, senão: libera` — sem a
+  env var configurada, a rota ficava completamente aberta. Corrigido
+  pra fail-closed nas 3: `CRON_SECRET` ausente agora rejeita sempre.
+  **Status: CONTAINED** — código correto, falta confirmar que
+  `CRON_SECRET` está configurado nas env vars de produção da Vercel
+  (senão os crons passam a retornar 401 até o valor ser colado lá).
+
+`SEC-025-ZAPI-WEBHOOK-AUTH` já estava `CONTAINED` desde commit
+`60ae515` (antes desta sessão) — confirmado, não precisou de ação.
+`SEC-025-ML-SECRET-ROTATION` e `SEC-025-RETENTION-NOT-CONFIGURED`
+continuam `OPEN`, dependem de decisão do Heber (rotação manual de
+credencial / política de retenção de dados).
+
+## Fase 2 — Skill 25 (Segurança/Auditoria) — escopo reduzido (2026-09-20)
+
+O SPEC.md completo (2 rodadas, 20 `FATAL_ERROR`, 18 hashes canônicos,
+40 testes) define `SecurityIncident` + lifecycle,
+`SecurityCredentialCompromiseHandoff`, o `SecurityGateRequest`/`Run`
+completo e `SecurityRateLimit*` (o próprio SPEC já marca esse mecanismo
+como `DEFERRED_V2_MECHANISM`). Mesma decisão de escopo das Skills
+22-24: nenhuma dessas peças tem consumidor real hoje.
+
+Implementado nesta fase: `SecurityFinding` + lifecycle/transition (CAS
+versionado, append-only), `SecurityControlEvidence`/`SecurityControlDecision`
+(gate fail-closed) e `SecurityAuditEvent`. Código em
+`src/modules/video-machine/skills/25-seguranca-auditoria/securityRegistry.ts`
+— migration `20260920140000` (6 tabelas). Isso turna em **dado de
+primeira classe consultável** o que até agora só existia como prosa em
+`CONTINUIDADE.md` — os 5 achados reais (`SEC-025-*`) foram seedados
+formalmente via `scripts/seed-video-machine-security-findings.ts`
+(script único, idempotente por `findingKey`), com o estado atual
+exato (2 `CONTAINED`, 1 `RESOLVED`, 2 `OPEN`).
+
+`evaluateControlGate()` resolve literalmente o exemplo do próprio
+SPEC.md: "CRON_SECRET existe em algum lugar" nunca vira `VERIFIED` em
+produção sem `SecurityControlEvidence` real observada — testado com o
+próprio caso real (`ingress.cron.authentication`, status `UNVERIFIED`
+até o Heber confirmar a env var no Vercel).
+
+**Verificação**: `scripts/test-video-machine-skill25.ts`, prefixo de
+teste isolado. 8/8 testes passaram: registro idempotente, lifecycle
+`OPEN→CONTAINED→RESOLVED` com CAS auditável, colisão real de CAS (duas
+requisições de `UPDATE` contra a mesma versão lida uma única vez —
+exatamente uma afeta a linha), gate fail-closed sem evidência, gate
+com evidência `VERIFIED` permite, evidência expirada nega mesmo
+`VERIFIED` (freshness real), exemplo literal do SPEC, audit event
+persistido. Zero resíduo após limpeza.
+
+**Estado da Fase 2 até aqui**: kernel + Skill04 + Skill05 + Skill07 +
+Skill08 + Skill09 (parcial) + Skill10 + Skill22 + Skill23 (parcial) +
+Skill24 (parcial) + Skill25 (parcial) testados contra produção real,
+commitados — **as 4 Skills de infraestrutura (22-25) estão
+implementadas**. Skill 15 (link/tracking) segue como próxima Skill de
+conteúdo alcançável sem provedor de vídeo. Skill 11 (execução de
+geração de vídeo) segue bloqueada até o Heber conseguir orçamento pro
+provedor (Runway Gen-4 Turbo recomendado, ~$10 mínimo).
 
 ## Regra de ouro (herdada)
 
