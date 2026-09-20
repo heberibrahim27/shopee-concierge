@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { canonicalHash } from "../kernel/canonicalHash";
 import { startEchoProductionRun } from "../kernel/run";
 import { discoverProducts } from "../skills/04-descoberta-de-produtos/productDiscovery";
 import { analyzeOffers } from "../skills/05-analise-de-oferta-comissao/offerAnalysis";
@@ -72,21 +73,42 @@ async function makeJob(db: SupabaseClient, tenantId: string, productionRunId: st
 }
 
 async function ensurePolicies(db: SupabaseClient, tenantId: string) {
-  const upsertPolicyBinding = async (table: string, bindingTable: string, policyKey: string, row: Record<string, unknown>) => {
-    const { data: existing } = await db.from(bindingTable).select("active_policy_id").eq("tenant_id", tenantId).eq("policy_key", policyKey).maybeSingle();
-    if (existing) return;
-    const { data: policy, error } = await db.from(table).insert({ policy_key: policyKey, policy_version: "v1", tenant_id: tenantId, ...row }).select("policy_id").single();
-    if (error || !policy) throw new Error(`ensurePolicies(${table}): ${error?.message}`);
-    await db.from(bindingTable).upsert({ tenant_id: tenantId, policy_key: policyKey, active_policy_id: policy.policy_id, active_policy_version: "v1" });
+  const upsertPolicyBinding = async (table: string, bindingTable: string, policyKey: string, row: Record<string, unknown>, version = "v1") => {
+    const { data: existingBinding } = await db.from(bindingTable).select("active_policy_version").eq("tenant_id", tenantId).eq("policy_key", policyKey).maybeSingle();
+    if (existingBinding?.active_policy_version === version) return;
+    const { data: existingPolicy } = await db.from(table).select("policy_id").eq("tenant_id", tenantId).eq("policy_key", policyKey).eq("policy_version", version).maybeSingle();
+    const policyId =
+      existingPolicy?.policy_id ??
+      (
+        await db
+          .from(table)
+          .insert({ policy_key: policyKey, policy_version: version, tenant_id: tenantId, ...row })
+          .select("policy_id")
+          .single()
+      ).data?.policy_id;
+    if (!policyId) throw new Error(`ensurePolicies(${table}): falha ao criar/achar policy_id`);
+    await db.from(bindingTable).upsert({ tenant_id: tenantId, policy_key: policyKey, active_policy_id: policyId, active_policy_version: version });
   };
 
-  await upsertPolicyBinding("video_machine_product_selection_policy", "video_machine_product_selection_policy_binding", "engine-default", {
-    reuse_policy: "ALLOW",
-    minimum_usage_evidence_kind: "MATERIALIZED",
-    max_snapshot_age_seconds: 60 * 60 * 24 * 365,
-    eligible_source_statuses: ["discovered"],
-    ranking_weights: { discoveryCommercial: 100 },
-  });
+  // v2: reuse_policy COOLDOWN (era ALLOW na v1) — sem isso o motor sempre
+  // repetia o mesmo produto "objetivamente melhor" a cada clique. 3 dias
+  // de cooldown depois de um produto ser usado (MATERIALIZED = já teve
+  // roteiro/prompt gerado por este motor, ver recordProductUsageEvidence
+  // no final desta função).
+  await upsertPolicyBinding(
+    "video_machine_product_selection_policy",
+    "video_machine_product_selection_policy_binding",
+    "engine-default",
+    {
+      reuse_policy: "COOLDOWN",
+      cooldown_seconds: 60 * 60 * 24 * 3,
+      minimum_usage_evidence_kind: "MATERIALIZED",
+      max_snapshot_age_seconds: 60 * 60 * 24 * 365,
+      eligible_source_statuses: ["discovered"],
+      ranking_weights: { discoveryCommercial: 100 },
+    },
+    "v2"
+  );
 
   await upsertPolicyBinding("video_machine_offer_analysis_policy", "video_machine_offer_analysis_policy_binding", "engine-default", {
     max_snapshot_age_seconds: 60 * 60 * 24 * 365,
@@ -160,6 +182,19 @@ async function ensurePolicies(db: SupabaseClient, tenantId: string) {
   });
 }
 
+/**
+ * Grava ProductUsageEvidence (Skill04 SPEC.md, Ponto S9) — sem isso o
+ * reuse_policy=COOLDOWN não tem nada pra checar e o motor continuava
+ * repetindo sempre o mesmo produto "objetivamente melhor". Achado real
+ * reportado pelo Heber (2026-09-20): o writer nunca tinha sido
+ * implementado (só o leitor, dentro de discoverProducts).
+ */
+async function recordProductUsageEvidence(db: SupabaseClient, tenantId: string, productId: string, evidenceRef: { productionRunId: string; scriptResultId: string }): Promise<void> {
+  const usedAt = new Date().toISOString();
+  const hash = `PRODUCT_USAGE_EVIDENCE_V1:sha256:${canonicalHash("PRODUCT_USAGE_EVIDENCE_V1", { tenantId, productId, usageKind: "MATERIALIZED", evidenceRef, usedAt })}`;
+  await db.from("video_machine_product_usage_evidence").insert({ tenant_id: tenantId, product_id: productId, usage_kind: "MATERIALIZED", used_at: usedAt, evidence_ref: evidenceRef, product_usage_evidence_hash: hash });
+}
+
 export async function runVideoMachineOnce(db: SupabaseClient, tenantId: string = REAL_TENANT_ID): Promise<VideoMachineOutcome> {
   await db.from("video_machine_tenant_config").upsert({ tenant_id: tenantId, tenant_key: tenantId, status: "ACTIVE", display_name: "Descontos Chegando" });
   await ensurePolicies(db, tenantId);
@@ -221,6 +256,8 @@ export async function runVideoMachineOnce(db: SupabaseClient, tenantId: string =
 
   const { data: product } = await db.from("products").select("product_name").eq("id", candidate.productId).maybeSingle();
   const { data: snapshot } = await db.from("offer_snapshots").select("image_url, price_min").eq("id", candidate.sourceOfferSnapshotId).maybeSingle();
+
+  await recordProductUsageEvidence(db, tenantId, candidate.productId, { productionRunId, scriptResultId: script.resultId });
 
   const beat = beats[0];
   return {
