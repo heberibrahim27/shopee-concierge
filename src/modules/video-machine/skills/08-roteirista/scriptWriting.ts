@@ -178,7 +178,7 @@ export async function writeScript(db: SupabaseClient, input: ScriptWritingInput,
   if (!apiKey) return { outcome: "FATAL_ERROR", errorCode: "SCRIPT_PROVIDER_NOT_CONFIGURED" };
 
   const modelKey = process.env.CONCIERGE_VISION_MODEL ?? "gpt-4o-mini";
-  const providerRequestHash = `SCRIPT_PROVIDER_REQUEST_V1:sha256:${canonicalHash("SCRIPT_PROVIDER_REQUEST_V1", { generationContextHash, providerKey: "openai", modelKey, promptTemplateVersion: "v1" })}`;
+  const providerRequestHash = `SCRIPT_PROVIDER_REQUEST_V1:sha256:${canonicalHash("SCRIPT_PROVIDER_REQUEST_V1", { generationContextHash, providerKey: "openai", modelKey, promptTemplateVersion: "v3" })}`;
   const providerRequestKey = `${jobContext.jobId}:${jobContext.attemptNumber}`;
 
   const { data: existingCheckpoint } = await db
@@ -232,8 +232,12 @@ export async function writeScript(db: SupabaseClient, input: ScriptWritingInput,
               `"spokenText":{"text":"...","proposedKind":"CREATIVE_EXPRESSION|FACTUAL_CLAIM|CTA|TRANSITION","referencedFacts":[]},` +
               `"onScreenText":{"text":"...","proposedKind":"...","referencedFacts":[]},` +
               `"visualIntent":{"text":"o que deve acontecer na tela, nunca termos técnicos de geração de vídeo","referencedFacts":[]}}]}. ` +
-              `EXATAMENTE 1 beat. Nunca invente fatos fora do factCatalog fornecido. ` +
-              `Se ctaIntent.mechanism for COMMENT_KEYWORD, alguma statement precisa conter literalmente a keyword "${creativeConstraints.ctaIntent?.keyword ?? ""}".`,
+              `EXATAMENTE 1 beat, mesmo que ele precise conter tanto o gancho quanto a chamada pra ação — beat.purpose fica fixo no valor permitido, mas as statements dentro dele podem ter kinds diferentes. ` +
+              `Nunca invente fatos fora do factCatalog fornecido. ` +
+              `Regra crítica sobre referencedFacts: só use proposedKind="FACTUAL_CLAIM" quando a afirmação vier LITERALMENTE de um campo existente em factCatalog.productFacts (chaves válidas: ${JSON.stringify(Object.keys(factCatalog.productFacts))}) ou factCatalog.offerFacts (chaves válidas: ${JSON.stringify(Object.keys(factCatalog.offerFacts))}). Cada referencedFacts precisa ser {"type":"PRODUCT_FACT","fieldPath":"<chave exata de productFacts>"} ou {"type":"OFFER_FACT","fieldPath":"<chave exata de offerFacts>"} — nunca invente um fieldPath que não esteja nessas listas. Se a frase não puder ser sustentada por um campo exato, use proposedKind="CREATIVE_EXPRESSION" (sem referencedFacts) em vez de arriscar um FACTUAL_CLAIM inválido. ` +
+              (policy.require_cta && creativeConstraints.ctaIntent?.mechanism === "COMMENT_KEYWORD"
+                ? `OBRIGATÓRIO: "onScreenText" precisa ter proposedKind="CTA" e o campo "text" precisa conter literalmente a palavra "${creativeConstraints.ctaIntent.keyword}" (ex.: "Comenta ${creativeConstraints.ctaIntent.keyword} que eu te mando o link!") — sem isso a resposta é rejeitada. "spokenText" fica livre pra ser o gancho/pitch (proposedKind="CREATIVE_EXPRESSION" ou "FACTUAL_CLAIM"). `
+                : ""),
           },
           { role: "user", content: JSON.stringify({ creativeConstraints, factCatalog, requireHook: policy.require_hook, requireCta: policy.require_cta }) },
         ],
@@ -248,6 +252,7 @@ export async function writeScript(db: SupabaseClient, input: ScriptWritingInput,
     } catch {
       return await reject(db, jobContext, "SCRIPT_PROVIDER_INVALID_OUTPUT");
     }
+    if (process.env.SCRIPT_DEBUG) console.error("[script-debug] proposal:", JSON.stringify(proposal, null, 2));
 
     const providerResponseHash = `SCRIPT_PROVIDER_RESPONSE_V1:sha256:${canonicalHash("SCRIPT_PROVIDER_RESPONSE_V1", proposal)}`;
     await db
