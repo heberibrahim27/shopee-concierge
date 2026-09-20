@@ -95,7 +95,7 @@ projeto — decisão NOT_PUBLIC, sem exposição legítima a preservar.
 
 ---
 SEC-025-CRON-PRODUCTION-AUTH
-Status: CODE FIXED (2026-09-20) / pendente confirmação em produção
+Status: RESOLVED (2026-09-20)
 
 Current implementation finding:
 /api/cron/publish-product, /api/cron/source-deals e
@@ -104,13 +104,10 @@ env var CRON_SECRET existisse — sem ela, a rota ficava aberta
 (fail-open clássico). Ver item 4 da seção de automação de posts abaixo.
 
 Resolução: as 3 rotas agora falham fechado — CRON_SECRET ausente
-rejeita sempre (401), nunca libera sem autenticação.
-
-Required runtime validation:
-confirmar em Vercel → Environment Variables que CRON_SECRET está
-configurado em produção antes do próximo deploy — sem isso, os crons
-passam a retornar 401 em vez de rodar sem proteção (comportamento
-correto, mas precisa do valor configurado pra continuar funcionando).
+rejeita sempre (401), nunca libera sem autenticação. Heber confirmou
+via screenshot do painel da Vercel (Environment Variables) que
+CRON_SECRET está configurado em Produção (adicionado 16/09/2026) —
+validação em runtime concluída.
 
 ---
 SEC-025-ML-SECRET-ROTATION
@@ -295,23 +292,20 @@ horas", "não quero ter que ficar pedindo pra vc"). Peças novas:
    de disparar.
 3. ~~Deploy~~ — feito em 2026-09-16 (commit `5fd4b7e`, push pra `main`);
    os 2 fixes do item 2 acima ainda não foram deployados.
-4. **🚨 Segurança: `CRON_SECRET` gerado (2026-09-16) — código corrigido
-   pra fail-closed em 2026-09-20, falta confirmar no Vercel.** As rotas
+4. **✅ Segurança: `CRON_SECRET` gerado (2026-09-16), código corrigido
+   pra fail-closed e confirmado em produção (2026-09-20).** As rotas
    `/api/cron/publish-product`, `/api/cron/source-deals` e
    `/api/cron/video-machine-worker` checavam o header `Authorization`
    só SE a env var `CRON_SECRET` existisse — até 2026-09-20, sem essa
    env var configurada no Vercel, a rota ficava **aberta**: qualquer um
    que descobrisse a URL podia disparar um post real no Instagram.
    Corrigido: as 3 rotas agora rejeitam (401) sempre que `CRON_SECRET`
-   não está configurado, nunca liberam sem autenticação. Valor já
-   gerado e salvo no `.env` local (gitignorado); falta o Heber colar o
-   mesmo valor em Vercel → Project Settings → Environment Variables →
-   `CRON_SECRET` (todas as envs) — **sem isso, os crons vão parar de
-   rodar (401) até o valor ser configurado**, o que agora é o
-   comportamento correto (fail-closed), mas precisa da confirmação pra
-   não interromper a automação de verdade. O próprio Cron do Vercel já
-   manda `Authorization: Bearer $CRON_SECRET` sozinho quando a env var
-   existe — não precisa mexer no `vercel.json`.
+   não está configurado, nunca liberam sem autenticação. Heber
+   confirmou via screenshot do painel da Vercel que `CRON_SECRET` está
+   configurado em Produção (adicionado 16/09/2026) — achado fechado. O
+   próprio Cron do Vercel já manda `Authorization: Bearer $CRON_SECRET`
+   sozinho quando a env var existe — não precisa mexer no
+   `vercel.json`.
 4. **Canva Autofill** (fidelidade 100% ao template Canva do Heber, em vez
    da recriação em código): tentei publicar os 2 designs do Heber
    (`DAHVYyRDaJ4` feed, `DAHVYyG_BwY` story) como Brand Template via MCP
