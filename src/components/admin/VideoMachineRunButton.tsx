@@ -90,7 +90,12 @@ export function VideoMachineRunButton() {
 
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase" }}>Prompt de vídeo (colar na ferramenta externa)</div>
-            <textarea readOnly value={result.videoPrompt} style={{ width: "100%", minHeight: 90, fontSize: 12, fontFamily: "monospace", padding: 8, borderRadius: 6, border: "1px solid #ddd" }} onFocus={(e) => e.target.select()} />
+            <textarea
+              readOnly
+              value={result.videoPrompt}
+              style={{ width: "100%", minHeight: 260, fontSize: 13, lineHeight: 1.5, fontFamily: "-apple-system, system-ui, sans-serif", padding: 10, borderRadius: 8, border: "1px solid #ddd", whiteSpace: "pre-wrap", resize: "vertical" }}
+              onFocus={(e) => e.target.select()}
+            />
           </div>
         </div>
       ) : null}

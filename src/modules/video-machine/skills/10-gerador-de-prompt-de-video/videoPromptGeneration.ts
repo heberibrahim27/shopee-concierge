@@ -64,24 +64,51 @@ const GENERIC_ADAPTER_CAPABILITIES = {
 const ON_SCREEN_TEXT_STYLE = "fonte bold arredondada (ex.: Poppins Bold/Montserrat Bold), branca com contorno preto grosso, alinhada ao centro, no terço inferior do quadro";
 
 function renderGenericPrompt(intent: any, generationParameters: any): { promptText: string; negativePromptText?: string } {
-  const parts: string[] = [];
-  parts.push(intent.scene.visualIntent);
-  if (intent.cinematicIntent.cameraIntent) parts.push(`Câmera: ${intent.cinematicIntent.cameraIntent}`);
-  if (intent.cinematicIntent.subjectMotionIntent) parts.push(`Movimento do sujeito: ${intent.cinematicIntent.subjectMotionIntent}`);
-  if (intent.cinematicIntent.sceneMotionIntent) parts.push(`Movimento de cena: ${intent.cinematicIntent.sceneMotionIntent}`);
-  if (intent.textualConstraints.providerGeneratedTextPolicy === "ALLOW_EXACT_SCRIPT_TEXT") {
-    if (intent.scene.onScreenText) parts.push(`Texto na tela (exato, digite literalmente este texto — NÃO gere legenda automática por reconhecimento de áudio, isso causa palavras duplicadas/erradas): "${intent.scene.onScreenText}". Estilo do texto: ${ON_SCREEN_TEXT_STYLE}.`);
-    if (intent.scene.spokenText) parts.push(`Fala (exata): "${intent.scene.spokenText}"`);
-  }
-  if (intent.productIdentityConstraints?.preserveProductIdentity) {
-    parts.push(
-      "Fidelidade do produto (obrigatório): manter EXATAMENTE a aparência do produto mostrado na foto de referência — mesma cor, formato, botões, textura e componentes visíveis. NUNCA inventar peça, mecanismo ou compartimento interno que não apareça na foto de referência. Se o ângulo/ação pedido exigiria mostrar uma parte do produto não visível na foto, prefira reenquadrar ou evitar esse ângulo em vez de imaginar o que tem lá dentro."
+  // Seções nomeadas, uma por bloco, separadas por linha em branco — nunca
+  // um parágrafo único emendado com pontos (era ilegível pra colar/ler
+  // na ferramenta externa, achado real reportado pelo Heber 2026-09-20).
+  const sections: string[] = [];
+
+  sections.push(`CENA: ${intent.scene.visualIntent}`);
+
+  const cinematic: string[] = [];
+  if (intent.cinematicIntent.cameraIntent) cinematic.push(`Câmera: ${intent.cinematicIntent.cameraIntent}`);
+  if (intent.cinematicIntent.subjectMotionIntent) cinematic.push(`Movimento do sujeito: ${intent.cinematicIntent.subjectMotionIntent}`);
+  if (intent.cinematicIntent.sceneMotionIntent) cinematic.push(`Movimento de cena: ${intent.cinematicIntent.sceneMotionIntent}`);
+  if (cinematic.length > 0) sections.push(cinematic.join("\n"));
+
+  if (intent.textualConstraints.providerGeneratedTextPolicy === "ALLOW_EXACT_SCRIPT_TEXT" && intent.scene.onScreenText) {
+    sections.push(
+      [
+        `TEXTO NA TELA (digite literalmente — NÃO use legenda automática por reconhecimento de áudio, isso causa palavras duplicadas/erradas):`,
+        `"${intent.scene.onScreenText}"`,
+        `Estilo: ${ON_SCREEN_TEXT_STYLE}.`,
+      ].join("\n")
     );
   }
-  if (generationParameters.durationSeconds) parts.push(`Duração: ${generationParameters.durationSeconds}s`);
-  if (generationParameters.aspectRatio) parts.push(`Proporção: ${generationParameters.aspectRatio}`);
-  if (generationParameters.audioMode) parts.push(`Áudio: ${generationParameters.audioMode}`);
-  return { promptText: parts.join(". ") };
+
+  if (intent.textualConstraints.providerGeneratedTextPolicy === "ALLOW_EXACT_SCRIPT_TEXT" && intent.scene.spokenText) {
+    sections.push(`FALA (narração, use se a ferramenta permitir voz): "${intent.scene.spokenText}"`);
+  }
+
+  if (intent.productIdentityConstraints?.preserveProductIdentity) {
+    sections.push(
+      [
+        "FIDELIDADE DO PRODUTO (obrigatório):",
+        "Manter EXATAMENTE a aparência do produto mostrado na foto de referência — mesma cor, formato, botões, textura e componentes visíveis.",
+        "NUNCA inventar peça, mecanismo ou compartimento interno que não apareça na foto de referência.",
+        "Se o ângulo/ação pedido exigiria mostrar uma parte do produto não visível na foto, prefira reenquadrar ou evitar esse ângulo em vez de imaginar o que tem lá dentro.",
+      ].join("\n")
+    );
+  }
+
+  const settings: string[] = [];
+  if (generationParameters.durationSeconds) settings.push(`Duração: ${generationParameters.durationSeconds}s`);
+  if (generationParameters.aspectRatio) settings.push(`Proporção: ${generationParameters.aspectRatio}`);
+  if (generationParameters.audioMode) settings.push(`Áudio: ${generationParameters.audioMode}`);
+  if (settings.length > 0) sections.push(`CONFIGURAÇÕES: ${settings.join(" · ")}`);
+
+  return { promptText: sections.join("\n\n") };
 }
 
 export async function generateVideoPrompt(db: SupabaseClient, input: VideoPromptInput, jobContext: VideoPromptJobContext): Promise<VideoPromptOutcome> {
@@ -259,7 +286,7 @@ export async function generateVideoPrompt(db: SupabaseClient, input: VideoPrompt
     audioMode: policy.audio_policy === "GENERATED_AUDIO_ALLOWED" ? "GENERATED" : policy.audio_policy === "NO_GENERATED_AUDIO" ? "DISABLED" : "PROVIDER_DEFAULT",
   };
 
-  const adapterTemplateVersion = "v2";
+  const adapterTemplateVersion = "v3";
   const providerInstructionSchemaVersion = "PROVIDER_VIDEO_INSTRUCTION_V1";
   const adapterRequestHash = `VIDEO_PROMPT_ADAPTER_REQUEST_V1:sha256:${canonicalHash("VIDEO_PROMPT_ADAPTER_REQUEST_V1", {
     intentHash,
