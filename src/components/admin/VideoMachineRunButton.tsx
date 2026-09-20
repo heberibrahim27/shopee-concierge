@@ -11,6 +11,51 @@ type ReadyResult = {
   creativeDirection: { archetype: string; hookStrategy: string; narrativeStructure: string; visualApproach: string };
 };
 
+function CopyButton({ text, label }: { text: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // navegadores sem permissão de clipboard (raro em https/localhost) — fallback via textarea temporário
+      const el = document.createElement("textarea");
+      el.value = text;
+      el.style.position = "fixed";
+      el.style.opacity = "0";
+      document.body.appendChild(el);
+      el.focus();
+      el.select();
+      try {
+        document.execCommand("copy");
+      } catch {
+        // sem fallback funcional — usuário ainda pode selecionar manualmente
+      }
+      document.body.removeChild(el);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <button
+      onClick={handleCopy}
+      style={{
+        padding: "4px 10px",
+        borderRadius: 6,
+        border: "1px solid #0a8a4a",
+        background: copied ? "#0a8a4a" : "#fff",
+        color: copied ? "#fff" : "#0a8a4a",
+        fontWeight: 600,
+        fontSize: 11,
+        cursor: "pointer",
+      }}
+    >
+      {copied ? "Copiado! ✓" : label}
+    </button>
+  );
+}
+
 export function VideoMachineRunButton() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,11 +130,19 @@ export function VideoMachineRunButton() {
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase" }}>Roteiro</div>
             {result.script.spokenText ? <p style={{ margin: "4px 0", fontSize: 13 }}>🗣️ {result.script.spokenText}</p> : null}
-            {result.script.onScreenText ? <p style={{ margin: "4px 0", fontSize: 13 }}>📝 {result.script.onScreenText}</p> : null}
+            {result.script.onScreenText ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "4px 0" }}>
+                <p style={{ margin: 0, fontSize: 13 }}>📝 {result.script.onScreenText}</p>
+                <CopyButton text={result.script.onScreenText} label="Copiar texto" />
+              </div>
+            ) : null}
           </div>
 
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase" }}>Prompt de vídeo (colar na ferramenta externa)</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase" }}>Prompt de vídeo (colar na ferramenta externa)</div>
+              <CopyButton text={result.videoPrompt} label="Copiar prompt" />
+            </div>
             <textarea
               readOnly
               value={result.videoPrompt}
