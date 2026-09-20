@@ -16,7 +16,7 @@
 | 05 — Análise de Oferta/Comissão | ✅ | ✅ **APROVADA — 5/25** (fórmulas calibradas sobre distribuição real de 790 snapshots, não chutadas) | `skills/05-analise-de-oferta-comissao/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
 | 06 — Pesquisa de Tendências | ✅ | ✅ **APROVADA — 6/25** (auditoria real encontrou ZERO fonte de tendência operacional; spec capability-aware, sem sinais inventados) | `skills/06-pesquisa-de-tendencias/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
 | 07 — Direção Criativa | ✅ | ✅ **APROVADA — 7/25** (auditoria real: zero lógica criativa existente; resolve o bug real da convenção "QUERO" desconectada) | `skills/07-direcao-criativa/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
-| 08 — Roteirista | ✅ | ✅ **APROVADA — 8/25** (herda estratégia da Skill 07 sem reinterpretar; nenhuma alegação factual vira fato só por ser escrita pelo modelo) | `skills/08-roteirista/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
+| 08 — Roteirista | ✅ | ✅ **APROVADA — 8/25** (herda estratégia da Skill 07 sem reinterpretar; nenhuma alegação factual vira fato só por ser escrita pelo modelo) | `skills/08-roteirista/SPEC.md` | ✅ — `skills/08-roteirista/scriptWriting.ts`, testado contra produção real (2026-09-19) |
 | 09 — Gerador de Frame | ✅ | ✅ **APROVADA — 9/25** (greenfield total — zero geração de imagem existente; PRODUCT IDENTITY factual vs SCENE COMPOSITION criativa; só 1 referência real por snapshot hoje) | `skills/09-gerador-de-frame/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
 | 10 — Gerador de Prompt de Vídeo | ✅ | ✅ **APROVADA — 10/25** (greenfield total, mais vazio ainda — spike 00A nunca executado; VideoGenerationIntent provider-agnostic; adapter determinístico, nunca IA escondida) | `skills/10-gerador-de-prompt-de-video/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
 | 11 — Executor de Geração | ✅ | ✅ **APROVADA — 11/25** (primeira Skill com side effect pago real; state machine multi-tick sob o limite de 60s do Vercel; resposta perdida nunca autoriza resubmissão) | `skills/11-executor-de-geracao/SPEC.md` | ❌ — aguarda Fable 5 Max + GPT-6 Astra |
@@ -2811,6 +2811,69 @@ contra — sem isso, seria implementação no vácuo.
 
 Estado do lint depois dos 4 fixes: `node scripts/contract-lint.mjs` →
 `errorCount=0, warningCount=23, PASS` (25/25 SPEC.md).
+
+## Fase 2 — Skill 08 (Roteirista) (2026-09-19)
+
+Skill08 transforma o `CreativeDirectionResult` exato da Skill07 num
+`ScriptResult` textual (`hookText`/`spokenText`/`onScreenText`/CTA em
+beats), sem poder reinterpretar a estratégia recebida nem inventar fato
+factual. Código em
+`src/modules/video-machine/skills/08-roteirista/scriptWriting.ts` —
+migration `20260919210000` (`script_policy`, `_binding`,
+`script_inference_checkpoint`, `script_result`).
+
+Decisões de implementação:
+- `creativeDirectionHash` exigido EXATO na entrada (mesmo princípio da
+  Skill07/StageSubjectBinding) — divergência vira
+  `SCRIPT_CREATIVE_DIRECTION_MISMATCH`, nunca "a direção mais recente".
+- `maxBeatCount=1` fixado na policy de teste — `VIDEO_COMPOSITION_V1`
+  exige `beats.length === 1` no `ScriptResult` materializado; o SPEC
+  permite reparo interno de múltiplos beats antes de materializar, mas
+  essa fase não implementou fan-in de múltiplos beats propostos — o
+  provider já é instruído a propor exatamente 1 beat combinando
+  hook+CTA quando a policy exige ambos.
+- `FactualClaimValidator` implementado como heurística por regex sobre
+  classes de alegação desligadas por padrão
+  (`allowScarcityClaims`/`allowSuperlativeClaims`/`allowComparativeClaims`/
+  `allowMedicalOrTherapeuticClaims=false`) — cobre o caso literal do
+  próprio SPEC ("preço R$39,90 não sustenta 'mais barato do Brasil'"),
+  mas **não é** um validador semântico geral; documentado como tal no
+  código (`scriptWriting.ts`, topo do arquivo) pra não ser confundido
+  com julgamento de IA.
+- `ScriptFactCatalog.trendEvidence` sempre `[]` (Skill06 ainda
+  `DEFERRED_V2_CONTRACT`, mesma herança da Skill07) — qualquer
+  `referencedFacts` do tipo `TREND_EVIDENCE` na proposta do provider é
+  rejeitado por `SCRIPT_TREND_EVIDENCE_NOT_ALLOWED_BY_DIRECTION`, nunca
+  silenciosamente ignorado.
+- CTA: mesmo padrão de `normalizeKeyword` da Skill07 — a keyword
+  operacional (`QUERO`) precisa aparecer literalmente numa statement
+  `CTA`; trocar o token vira `SCRIPT_CTA_CONSTRAINT_VIOLATION`.
+
+**Verificação**: `scripts/test-video-machine-skill08.ts`, encadeado
+Skill04→05→`StageSubjectBinding`→07(`POLICY_ONLY`)→08 contra o pool
+real. 6/6 testes passaram, incluindo um caso que **não é** skip —
+`OPENAI_API_KEY` continua ausente no `.env` local, e pro SPEC da
+Skill08 isso é literalmente a situação #2 de "sem provider"
+(`SCRIPT_PROVIDER_NOT_CONFIGURED`, `FATAL_ERROR`, nenhum `ScriptResult`
+materializado) — testado e confirmado como comportamento correto, não
+contornado. Também testados: `CreativeDirectionResult` inexistente,
+hash divergente, tenant divergente, policy binding inexistente, policy
+estruturalmente inválida. O caminho `MODEL_ASSISTED` completo (geração
+real de texto + validação de proposta + replay) fica **PULADO** até a
+chave existir — mesma lacuna já documentada na Skill07. Zero resíduo
+após limpeza (confirmado via `execute_sql`).
+
+**Estado da Fase 2 até aqui**: kernel (Skill01+02, +StageSubjectBinding)
++ Skill04 + Skill05 + Skill07 + Skill08 implementados, testados contra
+produção real, commitados. Faltam 16 Skills de conteúdo (03, 06,
+09-21 exceto — 06/20/21 deferidas pra V2) pra completar o V1.
+Skills 09/10 (frame/prompt de vídeo) parecem alcançáveis sem provedor
+de vídeo contratado (imagem via OpenAI, prompt é só texto) — a
+confirmar quando chegar a vez delas. Skill11 (execução de geração de
+vídeo) é o ponto real de bloqueio: depende de escolher e contratar um
+provedor de IA de vídeo, decisão/ação que só o Heber pode tomar (criar
+conta/assinar serviço). Skill03 (aprovação) segue adiada até existir um
+gate real pra testar contra.
 
 ## Regra de ouro (herdada)
 
