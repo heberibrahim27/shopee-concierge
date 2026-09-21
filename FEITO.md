@@ -4,6 +4,24 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-21 — "Comenta QUERO" funcionando de verdade via ReplyRush + cron de tênis Awin ao vivo
+
+Dois fechamentos reais no mesmo dia:
+
+**Awin**: `/api/cron/source-awin` rodou em produção pela primeira vez —
+12 tênis Nike + 12 Olympikus publicados no site, 24 `deal_candidates`
+criados (entram na fila do Instagram igual aos da Shopee), zero falha.
+Precisou adicionar `AWIN_DATAFEED_KEY` nas env vars da Vercel (só
+existia local).
+
+**"Quero" no Instagram**: o webhook próprio nunca ia funcionar com
+cliente real (app travado em modo Desenvolvedor pelo CNPJ pendente,
+ver CONTINUIDADE.md). Configurado o [ReplyRush](https://replyrush.com)
+(plano grátis, Meta Business Partner) como solução real: gatilho de
+palavra-chave "quero" → link de `/hoje` + explicação, cobrindo Story e
+Caixa de Entrada, sem limite de "uma vez por usuário". Testado ao vivo
+pelo Heber, confirmado funcionando.
+
 ## 2026-09-17 — Automação "QUERO" no Instagram (webhook próprio) validada entre contas testadoras
 
 Fechado o fluxo: alguém manda "quero" (DM ou resposta de Story) pro
