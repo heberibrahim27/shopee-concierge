@@ -156,6 +156,34 @@ export async function saveAffiliateLink(params: {
   return data;
 }
 
+/** Cria um product_group novo e linka os dois produtos a ele — é isso que liga um par (ex: Kabum + Shopee) como "mesmo produto físico" pro comparador do site (ver src/lib/site/catalog.ts, queryGroupOffers). */
+export async function linkProductsToGroup(
+  productIdA: string,
+  productIdB: string
+): Promise<{ groupId: string }> {
+  const db = getDb();
+  const { data: group, error: groupError } = await db
+    .from("product_groups")
+    .insert({})
+    .select("id")
+    .single();
+
+  if (groupError || !group) {
+    throw new Error(`Falha ao criar product_group: ${groupError?.message}`);
+  }
+
+  const { error: updateError } = await db
+    .from("products")
+    .update({ group_id: group.id })
+    .in("id", [productIdA, productIdB]);
+
+  if (updateError) {
+    throw new Error(`Falha ao linkar produtos ao grupo ${group.id}: ${updateError.message}`);
+  }
+
+  return { groupId: group.id };
+}
+
 function numOrNull(v: string | undefined): number | null {
   if (v === undefined || v === null || v === "") return null;
   const n = Number(v);

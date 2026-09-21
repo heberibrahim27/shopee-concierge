@@ -25,6 +25,10 @@ export interface AwinCatalogItem {
   deepLink: string;
   productLink: string;
   variantKey: string;
+  /** Código do modelo (coluna `mpn` do feed) — usado pra achar o mesmo produto na Shopee, ver src/lib/awin/matchShopee.ts. */
+  mpn: string | null;
+  /** Marca (coluna `brand_name`) — segundo sinal pro match com a Shopee, MPN sozinho colide demais com SKU de produto não relacionado (testado ao vivo, 2026-09-21). */
+  brand: string | null;
 }
 
 function toNumber(v: string | undefined): number | null {
@@ -118,6 +122,8 @@ export function dedupeCheapestVariants(
       deepLink,
       productLink: row["merchant_deep_link"] || deepLink,
       variantKey: key,
+      mpn: row["mpn"]?.trim() || null,
+      brand: row["brand_name"]?.trim() || null,
     });
   }
   return [...groups.values()].sort((a, b) => a.price - b.price);
@@ -128,7 +134,7 @@ export async function persistAwinProduct(params: {
   platform: string;
   category: string;
   categorySlug: string;
-}): Promise<{ productId: string; snapshotId: string; slug: string }> {
+}): Promise<{ productId: string; snapshotId: string; slug: string; groupId: string | null }> {
   const db = getDb();
   const shopeeItemId = `AWIN-${params.item.awProductId}`;
   const slug = buildProductSlug(params.item.productName, shopeeItemId);
@@ -149,7 +155,7 @@ export async function persistAwinProduct(params: {
       },
       { onConflict: "shopee_item_id" }
     )
-    .select("id")
+    .select("id, group_id")
     .single();
 
   if (productError || !product) {
@@ -184,5 +190,5 @@ export async function persistAwinProduct(params: {
     console.error(`[awin][revalidate] falhou pra ${slug}`, e)
   );
 
-  return { productId: product.id, snapshotId: snapshot.id, slug };
+  return { productId: product.id, snapshotId: snapshot.id, slug, groupId: (product as { group_id: string | null }).group_id };
 }

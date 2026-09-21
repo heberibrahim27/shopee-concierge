@@ -76,7 +76,7 @@ const SHOPEE_BADGE_MASK = { left: 695, top: 55, width: 335, height: 80 };
 // barra ficava lá mesmo pra platform=awin, mandando gente errado pra
 // Shopee num produto que não é da Shopee. Story não tem essa barra (o
 // "comente EU QUERO" já vem embutido no design do Story todo).
-const SHOPEE_CTA_BAR_MASK = { left: 90, top: 1152, width: 900, height: 86 };
+const SHOPEE_CTA_BAR_MASK = { left: 90, top: 1150, width: 900, height: 120 };
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -224,7 +224,7 @@ export async function GET(request: NextRequest) {
                 top: `${SHOPEE_CTA_BAR_MASK.top}px`,
                 left: `${SHOPEE_CTA_BAR_MASK.left}px`,
                 width: `${SHOPEE_CTA_BAR_MASK.width}px`,
-                height: `${SHOPEE_CTA_BAR_MASK.height}px`,
+                height: "86px",
                 borderRadius: "999px",
                 background: "#141414",
                 gap: "18px",

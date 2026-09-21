@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listAwinFeeds, fetchFeedProducts, AwinFeedInfo } from "../../../../lib/awin/client";
 import { dedupeCheapestVariants, isFootwear, isGiftCard, persistAwinProduct } from "../../../../lib/awin/ingest";
-import { createDealCandidate } from "../../../../lib/db/snapshots";
+import { findShopeeMatchByMpn } from "../../../../lib/awin/matchShopee";
+import { createDealCandidate, persistOfferSnapshot, linkProductsToGroup } from "../../../../lib/db/snapshots";
+import { buildProductSlug } from "../../../../lib/site/slug";
+import { getDb } from "../../../../lib/db/client";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -22,6 +25,12 @@ export const maxDuration = 120;
  * itens mais baratos do feed eram acessório de poucos reais (testado ao
  * vivo, 2026-09-21) — por isso minPrice.
  *
+ * Kabum também tenta achar o mesmo produto na Shopee via MPN (código do
+ * modelo) e linkar os dois em product_groups (ver matchAndLinkShopee
+ * abaixo e src/lib/awin/matchShopee.ts) — isso liga sozinho o
+ * comparador de preço que já existe no site (queryGroupOffers em
+ * src/lib/site/catalog.ts), sem precisar tocar em nada lá.
+ *
  * Cria deal_candidate igual ao pipeline da Shopee — é isso que faz esses
  * produtos entrarem na fila do /api/cron/publish-product (Instagram)
  * também, não só aparecerem no site.
@@ -37,17 +46,56 @@ function pickFeed(feeds: AwinFeedInfo[], advertiserName: string, preferNameInclu
   return candidates[0];
 }
 
+/**
+ * Acha o mesmo produto na Shopee pelo MPN (ver src/lib/awin/matchShopee.ts)
+ * e linka os dois em product_groups — é isso que liga o comparador de
+ * preço do site (queryGroupOffers em src/lib/site/catalog.ts), sem
+ * precisar mexer em nada lá. Pedido do Heber (2026-09-21): "quero no
+ * site os produtos da Kabum comparando preços com o MESMO produto na
+ * Shopee, de forma automática".
+ *
+ * Só roda se o produto Awin ainda não tem group_id (evita recriar grupo
+ * toda execução diária pro mesmo produto) e se tem MPN pra buscar.
+ * Sem match: segue sem grupo, não força um par errado.
+ */
+async function matchAndLinkShopee(params: {
+  awinProductId: string;
+  groupId: string | null;
+  mpn: string | null;
+  brand: string | null;
+  referencePrice: number;
+}) {
+  if (params.groupId || !params.mpn) return { linked: false as const };
+
+  const match = await findShopeeMatchByMpn({ mpn: params.mpn, brand: params.brand, referencePrice: params.referencePrice });
+  if (!match) return { linked: false as const };
+
+  const { productId: shopeeProductId } = await persistOfferSnapshot(match);
+
+  const db = getDb();
+  const slug = buildProductSlug(match.productName, match.itemId);
+  const { error: publishError } = await db
+    .from("products")
+    .update({ slug, site_published: true, updated_at: new Date().toISOString() })
+    .eq("id", shopeeProductId);
+  if (publishError) throw new Error(`Falha ao publicar match Shopee ${match.itemId}: ${publishError.message}`);
+
+  await linkProductsToGroup(params.awinProductId, shopeeProductId);
+  return { linked: true as const, shopeeItemId: match.itemId };
+}
+
 async function ingestBatch(params: {
   feed: AwinFeedInfo | null;
   filterRow?: (row: Record<string, string>) => boolean;
   minPrice?: number;
+  matchToShopee?: boolean;
   platform: string;
   category: string;
   categorySlug: string;
   limit: number;
 }) {
   if (!params.feed) {
-    return { publicados: [] as string[], falhas: [`feed não encontrado pra platform=${params.platform}`] };
+    return { publicados: [] as string[], falhas: [`feed não encontrado pra platform=${params.platform}`], comparados: [] as string[] };
   }
 
   const rows = await fetchFeedProducts(params.feed.downloadUrl);
@@ -55,12 +103,13 @@ async function ingestBatch(params: {
   const items = dedupeCheapestVariants(filteredRows, params.minPrice ?? 0).slice(0, params.limit);
 
   const publicados: string[] = [];
+  const comparados: string[] = [];
   const falhas: Array<{ id: string; erro: string }> = [];
 
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
     try {
-      const { productId, snapshotId } = await persistAwinProduct({
+      const { productId, snapshotId, groupId } = await persistAwinProduct({
         item,
         platform: params.platform,
         category: params.category,
@@ -72,12 +121,29 @@ async function ingestBatch(params: {
       const score = Math.max(50, 85 - i * 3);
       await createDealCandidate({ productId, offerSnapshotId: snapshotId, status: "discovered", score });
       publicados.push(item.awProductId);
+
+      if (params.matchToShopee) {
+        try {
+          const result = await matchAndLinkShopee({
+            awinProductId: productId,
+            groupId,
+            mpn: item.mpn,
+            brand: item.brand,
+            referencePrice: item.price,
+          });
+          if (result.linked) comparados.push(item.awProductId);
+        } catch (err) {
+          // Falha em achar par na Shopee não deve derrubar a publicação
+          // do produto Awin em si — só fica sem comparação dessa vez.
+          console.error(`[awin][match-shopee] falhou pra ${item.awProductId}:`, err);
+        }
+      }
     } catch (err) {
       falhas.push({ id: item.awProductId, erro: err instanceof Error ? err.message : String(err) });
     }
   }
 
-  return { publicados, falhas };
+  return { publicados, comparados, falhas };
 }
 
 export async function GET(request: NextRequest) {
@@ -120,6 +186,7 @@ export async function GET(request: NextRequest) {
       feed: pickFeed(feeds, "Kabum BR"),
       filterRow: (row) => !isGiftCard(row),
       minPrice: 40,
+      matchToShopee: true,
       platform: "kabum",
       category: "eletronicos",
       categorySlug: "eletronicos",
