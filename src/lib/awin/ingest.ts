@@ -81,12 +81,24 @@ export function isFootwear(row: Record<string, string>): boolean {
   return SNEAKER_KEYWORDS.some((k) => nameHaystack.includes(k));
 }
 
-/** Agrupa por variante (tamanho/cor), fica só com a mais barata em estoque de cada grupo, ordenado por preço crescente ("mais baratos" primeiro). */
-export function dedupeCheapestVariants(rows: Record<string, string>[]): AwinCatalogItem[] {
+// Kabum: a taxonomia real vem em `merchant_category` ("Periféricos >
+// Teclado Gamer > ..."), não `category_name` (vazio nesse feed —
+// confirmado ao vivo, 2026-09-21). "Gift Card > Cartão Presente > ..." é
+// voucher digital, não achadinho de verdade.
+export function isGiftCard(row: Record<string, string>): boolean {
+  const category = row["merchant_category"] || row["category_name"] || "";
+  return stripAccents(category).toLowerCase().startsWith("gift card");
+}
+
+/** Agrupa por variante (tamanho/cor), fica só com a mais barata em estoque de cada grupo, ordenado por preço crescente ("mais baratos" primeiro). `minPrice` corta lixo barato (ex: acessório de poucos reais que não é achadinho de verdade). */
+export function dedupeCheapestVariants(
+  rows: Record<string, string>[],
+  minPrice = 0
+): AwinCatalogItem[] {
   const groups = new Map<string, AwinCatalogItem>();
   for (const row of rows) {
     const price = toNumber(row["search_price"]);
-    if (price == null || !isInStock(row)) continue;
+    if (price == null || price < minPrice || !isInStock(row)) continue;
     const awProductId = row["aw_product_id"];
     const productName = row["product_name"];
     const imageUrl = row["aw_image_url"] || row["merchant_image_url"] || "";

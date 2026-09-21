@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listAwinFeeds, fetchFeedProducts, AwinFeedInfo } from "../../../../lib/awin/client";
-import { dedupeCheapestVariants, isFootwear, persistAwinProduct } from "../../../../lib/awin/ingest";
+import { dedupeCheapestVariants, isFootwear, isGiftCard, persistAwinProduct } from "../../../../lib/awin/ingest";
 import { createDealCandidate } from "../../../../lib/db/snapshots";
 
 export const runtime = "nodejs";
@@ -17,11 +17,10 @@ export const maxDuration = 120;
  * menciona tênis, ver isFootwear em src/lib/awin/ingest.ts) e ordenam por
  * preço crescente (dedupeCheapestVariants já devolve nessa ordem).
  *
- * Kabum (eletrônicos, aprovado no publisher mas sem sinal de desconto ou
- * categoria confiável no feed) fica FORA por enquanto: testado ao vivo
- * (2026-09-21), os itens mais baratos do feed são gift card e acessório
- * de poucos reais — ordenar só por preço puxa lixo, não achadinho de
- * verdade. Precisa de um filtro de qualidade melhor antes de entrar aqui.
+ * Kabum (eletrônicos): categoria "Gift Card" é voucher digital, não
+ * achadinho de verdade — exclui (ver isGiftCard). Sem piso de preço, os
+ * itens mais baratos do feed eram acessório de poucos reais (testado ao
+ * vivo, 2026-09-21) — por isso minPrice.
  *
  * Cria deal_candidate igual ao pipeline da Shopee — é isso que faz esses
  * produtos entrarem na fila do /api/cron/publish-product (Instagram)
@@ -40,7 +39,8 @@ function pickFeed(feeds: AwinFeedInfo[], advertiserName: string, preferNameInclu
 
 async function ingestBatch(params: {
   feed: AwinFeedInfo | null;
-  footwearOnly: boolean;
+  filterRow?: (row: Record<string, string>) => boolean;
+  minPrice?: number;
   platform: string;
   category: string;
   categorySlug: string;
@@ -51,8 +51,8 @@ async function ingestBatch(params: {
   }
 
   const rows = await fetchFeedProducts(params.feed.downloadUrl);
-  const filteredRows = params.footwearOnly ? rows.filter(isFootwear) : rows;
-  const items = dedupeCheapestVariants(filteredRows).slice(0, params.limit);
+  const filteredRows = params.filterRow ? rows.filter(params.filterRow) : rows;
+  const items = dedupeCheapestVariants(filteredRows, params.minPrice ?? 0).slice(0, params.limit);
 
   const publicados: string[] = [];
   const falhas: Array<{ id: string; erro: string }> = [];
@@ -99,10 +99,10 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const [nike, olympikus] = await Promise.all([
+  const [nike, olympikus, kabum] = await Promise.all([
     ingestBatch({
       feed: pickFeed(feeds, "Nike BR", "2024"),
-      footwearOnly: true,
+      filterRow: isFootwear,
       platform: "nike",
       category: "esporte",
       categorySlug: "esporte",
@@ -110,13 +110,22 @@ export async function GET(request: NextRequest) {
     }),
     ingestBatch({
       feed: pickFeed(feeds, "Olympikus BR"),
-      footwearOnly: true,
+      filterRow: isFootwear,
       platform: "olympikus",
       category: "esporte",
       categorySlug: "esporte",
       limit: 12,
     }),
+    ingestBatch({
+      feed: pickFeed(feeds, "Kabum BR"),
+      filterRow: (row) => !isGiftCard(row),
+      minPrice: 40,
+      platform: "kabum",
+      category: "eletronicos",
+      categorySlug: "eletronicos",
+      limit: 12,
+    }),
   ]);
 
-  return NextResponse.json({ ok: true, nike, olympikus });
+  return NextResponse.json({ ok: true, nike, olympikus, kabum });
 }
