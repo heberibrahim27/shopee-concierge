@@ -4,9 +4,36 @@
 > o que ainda está pendente. Atualize sempre que resolver ou descobrir algo novo.
 > Complementa o [FEITO.md](FEITO.md), que registra o que já está pronto.
 
-**Última atualização:** 2026-09-19
+**Última atualização:** 2026-09-21
 
 ## Pendências ativas
+
+### ✅ Incidente real: site sem post novo por 38h (2026-09-19 19:01 → 2026-09-21 10:05 UTC), resolvido
+Heber reportou "site sem atualizações a um bom tempo" (seção "Ofertas
+de hoje" vazia). Diagnóstico real, não suposição:
+- **Não era o fix de segurança do `CRON_SECRET`** (commit `3203ca4`,
+  20/09) — testado com o secret real de produção, retorna `200 OK`. A
+  parada começou **antes** desse commit.
+- **Causa raiz real**: `pickNextCandidate()` em
+  `src/app/api/cron/publish-product/route.ts` buscava só os 50
+  `deal_candidates` com maior `score` e **só depois** filtrava quem já
+  tinha sido postado, na memória. Com 131 candidatos no total e 54
+  produtos distintos já postados historicamente, os 50 com maior score
+  ficaram 100% já-postados — o loop nunca alcançava os 77 candidatos
+  elegíveis reais mais abaixo no ranking. O cron sempre retornava
+  silenciosamente `{"skipped":true,"reason":"sem candidato novo"}`,
+  sem nenhum erro visível.
+- **Corrigido** (commit `dc5ef1a`, 21/09): filtro de "já postado"
+  movido pra dentro da query SQL (`NOT IN`), antes do `order`/`limit`
+  por score — garante que os 50 retornados são sempre os 50 com maior
+  score **dentre os ainda não postados**.
+- **Confirmado ao vivo em produção**: chamada real ao cron pós-fix
+  postou de verdade (feed + story, media IDs reais
+  `18085070054504834`/`18210194818363355`). `source-deals` também
+  testado, funcionando normal (100 coletados, 25 novos candidatos).
+- 2 falhas antigas e raras (17-18/09, "Media ID is not available" da
+  Windsor) confirmadas como não-relacionadas — hiccup transitório do
+  provider, 2 em 112 posts, não investigado a fundo (baixo volume).
 
 ### 🎬 Máquina de Vídeos — Astra confirma "implementable" pra especificação V1 (2026-09-19)
 Depois de 3 rodadas reais de revisão do GPT-6 Astra sobre bytes de
