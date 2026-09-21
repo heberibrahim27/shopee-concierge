@@ -189,7 +189,30 @@ export async function GET(request: NextRequest) {
     results.feed = { ok: false, error: String(err?.message ?? err) };
   }
 
-  // 2) Story (sem legenda — o QR code + "comente EU QUERO" já vêm na própria imagem)
+  // 2) Comenta um CTA de seguir a página (pedido do Heber, 2026-09-21 —
+  // não é mais o link, que agora já vai na legenda). Algumas variações
+  // pra não postar sempre o texto idêntico.
+  if (feedMediaId) {
+    const followCtas = [
+      "Siga a página pra acompanhar as novidades e promoções! 🔥",
+      "Já segue a gente? Assim você não perde nenhuma promoção! 🛍️",
+      "Segue aqui pra ficar por dentro dos melhores achadinhos! ✨",
+    ];
+    const followComment = followCtas[Math.floor(Math.random() * followCtas.length)];
+    try {
+      await windsorAction("create_comment", { media_id: feedMediaId, message: followComment });
+      await db
+        .from("social_posts")
+        .update({ comment_posted: true })
+        .eq("deal_candidate_id", candidate.dealCandidateId)
+        .eq("post_type", "feed");
+      results.comment = { ok: true, text: followComment };
+    } catch (err: any) {
+      results.comment = { ok: false, error: String(err?.message ?? err) };
+    }
+  }
+
+  // 3) Story (sem legenda — o QR code + "comente EU QUERO" já vêm na própria imagem)
   try {
     const storyResp: any = await windsorAction("create_story", { image_url: storyImageUrl });
     const storyMediaId = extractMediaId(storyResp);
