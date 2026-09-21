@@ -4,6 +4,20 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-21 (noite) — Kabum entra no cron + comparador de preço automático com a Shopee
+
+Kabum (eletrônicos) passou a ser ingerida pelo `/api/cron/source-awin`
+igual Nike/Olympikus, com filtro pra tirar gift card (voucher digital)
+e piso de R$40. Confirmado ao vivo: 12 produtos publicados, zero falha.
+
+Além disso, o cron agora tenta achar o mesmo produto na Shopee pra cada
+Kabum novo (MPN + marca + teto de razão de preço 2,5x — sem código de
+barras em comum entre as duas fontes) e linka via `product_groups` sem
+nenhum passo manual. A seção "Compare em outras lojas" da página de
+produto (já existia no site, nunca tinha dado real) acendeu sozinha —
+confirmado ao vivo em `descontochegando.com.br/produto/...`, 2 pares
+reais criados numa execução real, preço fazendo sentido nos dois.
+
 ## 2026-09-21 — "Comenta QUERO" funcionando de verdade via ReplyRush + cron de tênis Awin ao vivo
 
 Dois fechamentos reais no mesmo dia:

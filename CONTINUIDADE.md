@@ -8,6 +8,38 @@
 
 ## Pendências ativas
 
+### ✅ Kabum no cron da Awin + comparador de preço automático com a Shopee (2026-09-21)
+`/api/cron/source-awin` também ingere Kabum agora (eletrônicos), com
+filtro próprio: exclui categoria "Gift Card" (voucher digital, campo
+real é `merchant_category`, não `category_name` — vem vazio nesse
+feed) e piso de R$40 (sem isso, "mais barato" puxava acessório de
+poucos reais).
+
+**Comparador automático Kabum × Shopee** (pedido do Heber: "quero no
+site os produtos da Kabum comparando preços com o MESMO produto na
+Shopee, de forma automática"): pra cada produto Kabum novo, o próprio
+cron tenta achar o mesmo produto na Shopee e linkar via `product_groups`
+— sem passo manual, roda dentro da mesma execução diária (11:20 UTC).
+
+Não dá pra bater por código de barras — confirmado por introspecção
+ao vivo do schema GraphQL da Shopee, `productOfferV2` não expõe
+GTIN/EAN em nenhum dos 24 campos disponíveis. O sinal usado é MPN
+(código do modelo) + marca aparecendo juntos no título do anúncio da
+Shopee, mais um teto de razão de preço 2,5x. Rigoroso de propósito:
+testado ao vivo, MPN sozinho (principalmente quando é só número, tipo
+"75682") colide por acaso com SKU de produto não relacionado ("Pijama
+Lupo", peça de carro) — com os dois sinais + teto de preço, zero falso
+positivo nos testes reais. Consequência aceita: nem todo produto Kabum
+acha par — é o esperado, não bug, prefere não comparar a comparar
+errado.
+
+**Confirmado ao vivo, ponta a ponta**: 2 pares reais criados numa
+execução real (Mouse Gamer Fortrek Black Hawk: Kabum R$43,99 x Shopee
+R$85,00; Protetor Clamper Front V 19118: Kabum R$42,99 x Shopee
+R$66,99) — e a seção "Compare em outras lojas" já apareceu sozinha na
+página real do produto, sem precisar tocar em nada do site (a UI já
+existia, só faltava dado real em `product_groups`/`products.group_id`).
+
 ### ✅ Awin: cron de tênis Nike/Olympikus, confirmado ao vivo em produção (2026-09-21)
 `/api/cron/source-awin` (commit `d1cfbdd`) lê o datafeed da Awin, filtra
 só tênis de verdade (categoria "Calçados" + nome/tipo menciona tênis —
