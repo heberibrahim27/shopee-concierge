@@ -8,6 +8,35 @@
 
 ## Pendências ativas
 
+### 🔄 Awin: cron de tênis Nike/Olympikus criado, aguardando 1ª execução real em produção
+`/api/cron/source-awin` (commit `d1cfbdd`) lê o datafeed da Awin, filtra
+só tênis de verdade (categoria "Calçados" + nome/tipo menciona tênis —
+testado ao vivo, filtro só por nome deixava passar "Camiseta Jordan
+Sneaker"), agrupa variante de tamanho/cor e ordena por preço crescente.
+Cria `deal_candidate` igual ao pipeline da Shopee, então esses produtos
+também entram na fila do Instagram, não só aparecem no site. Kabum fica
+de fora por enquanto (testado ao vivo: ordenar só por preço nesse feed
+puxa gift card e acessório de poucos reais, sem sinal de qualidade
+melhor no feed pra filtrar isso).
+
+Primeira chamada real em produção falhou com `AWIN_DATAFEED_KEY não
+configurada` — a chave só estava no `.env` local, nunca tinha sido
+adicionada nas env vars da Vercel. Corrigido via `vercel env add` (CLI).
+`vercel deploy --prod` direto foi bloqueado pelo classificador de
+permissão do Claude Code ("Secret-Store Writes") — precisa de um
+`git push` normal pra forçar o redeploy que aplica a env var nova.
+Próximo passo: confirmar com uma chamada real que o cron publica os
+tênis e cria os `deal_candidates`, então registrar aqui/no FEITO.md com
+prova (contagem real de produtos publicados).
+
+Também corrigido no mesmo commit: o "comenta QUERO" no Story sempre
+respondia com link genérico de `/hoje` (Heber: "fico maluco procurando o
+link do produto"). Agora usa `message.reply_to.story.id` (Meta manda
+isso no payload) pra achar o post real em `social_posts` e responder com
+o `offer_link` específico daquele produto — funciona pra Shopee, Awin e
+Mercado Livre igual, mesmo campo. **Ainda não testado ao vivo** (precisa
+de alguém responder um Story real com "quero" pra confirmar).
+
 ### ✅ Incidente real: site sem post novo por 38h (2026-09-19 19:01 → 2026-09-21 10:05 UTC), resolvido
 Heber reportou "site sem atualizações a um bom tempo" (seção "Ofertas
 de hoje" vazia). Diagnóstico real, não suposição:
