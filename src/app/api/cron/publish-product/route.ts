@@ -19,32 +19,45 @@ type Candidate = {
 };
 
 async function pickNextCandidate(db: ReturnType<typeof getDbFresh>): Promise<Candidate | null> {
-  const { data, error } = await db
-    .from("deal_candidates")
-    .select(
-      "id, score, product_id, products(product_name), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
-    )
-    .order("score", { ascending: false, nullsFirst: false })
-    .limit(50);
-
-  if (error || !data) return null;
-
   // Dedupe por PRODUTO, não por candidato: o source-deals pode gerar mais
   // de um deal_candidate pro mesmo produto (achado de novo em outra busca
   // por palavra-chave) — sem isso, o mesmo produto podia ser postado 2x
   // no Instagram (aconteceu na prática em 2026-09-16, Kit Colmeia com 2
   // deal_candidate_id diferentes).
+  //
+  // IMPORTANTE (bug real corrigido em 2026-09-21): o filtro de "já
+  // postado" precisa acontecer ANTES do corte por score, não depois —
+  // antes, a query buscava só os 50 candidatos com maior score e SÓ
+  // ENTÃO filtrava os já postados na memória. Depois de postar produto
+  // suficiente, os 50 com maior score ficam 100% já-postados, e o loop
+  // nunca alcança os candidatos novos que estão mais abaixo no ranking
+  // — o cron passa a "sem candidato novo" pra sempre, mesmo com dezenas
+  // de produtos elegíveis reais esperando. Confirmado ao vivo: parou de
+  // postar em 2026-09-19 (achado pelo Heber, "site sem atualização").
   const { data: alreadyPosted } = await db
     .from("social_posts")
     .select("deal_candidates(product_id)");
-  const postedProductIds = new Set(
-    (alreadyPosted ?? [])
-      .map((r: any) => r.deal_candidates?.product_id)
-      .filter(Boolean)
-  );
+  const postedProductIds = [
+    ...new Set(
+      (alreadyPosted ?? [])
+        .map((r: any) => r.deal_candidates?.product_id)
+        .filter(Boolean)
+    ),
+  ];
+
+  let query = db
+    .from("deal_candidates")
+    .select(
+      "id, score, product_id, products(product_name), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
+    );
+  if (postedProductIds.length > 0) {
+    query = query.not("product_id", "in", `(${postedProductIds.join(",")})`);
+  }
+  const { data, error } = await query.order("score", { ascending: false, nullsFirst: false }).limit(50);
+
+  if (error || !data) return null;
 
   for (const row of data as any[]) {
-    if (postedProductIds.has(row.product_id)) continue;
     const snap = row.offer_snapshots;
     if (!snap?.image_url || !snap?.offer_link || snap.price_min == null) continue;
     return {
