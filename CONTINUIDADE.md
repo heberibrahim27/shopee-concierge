@@ -4,9 +4,55 @@
 > o que ainda está pendente. Atualize sempre que resolver ou descobrir algo novo.
 > Complementa o [FEITO.md](FEITO.md), que registra o que já está pronto.
 
-**Última atualização:** 2026-09-21 (tarde)
+**Última atualização:** 2026-09-21 (noite)
 
 ## Pendências ativas
+
+### ✅ Grupo real do WhatsApp "Descontos Chegando #GR42" — automação de ofertas ligada (2026-09-21)
+Novo cron `/api/cron/publish-whatsapp-group` manda automaticamente:
+link de afiliado + foto do produto (direto por URL da Shopee/Awin, sem
+baixar em celular nenhum) + texto gerado + link de convite do grupo no
+rodapé (pra quem repassar a mensagem já levar gente pro grupo). Grupo
+achado ao vivo via `GET .../chats` da Z-API (128 participantes, 2
+admins) e **renomeado pra "Descontos Chegando #GR42"** (pedido do
+Heber, efeito de prova social — dar impressão de vários grupos
+anteriores lotados).
+
+**Horário**: pedido era "de 10 em 10 min das 8h às 21h" (Brasília,
+igual a automação antiga). Um cron por horário seriam ~79 entradas —
+estouraria o limite real de 100 crons/projeto da Vercel (já tínhamos
+23). Em vez disso: 1 cron só, `*/10 * * * *` (dia inteiro), e a própria
+rota decide se está dentro da janela (Bahia = UTC-3 fixo, sem horário
+de verão — 8h-21h BRT = 11h-23h59 UTC). Fora da janela, só retorna
+`skipped`, não gasta nada além da invocação em si (barata).
+
+**Dedupe** independente do Instagram — `post_type='whatsapp'` novo em
+`social_posts` (migration `20260921233000_allow_whatsapp_post_type`,
+constraint ampliada), mesmo produto pode aparecer nos dois canais sem
+se atrapalhar. Mesmo cuidado da correção de 2026-09-21 no Instagram:
+filtro de "já postado" dentro da query SQL, antes do corte por score.
+
+**Texto do template** revisado com o Heber depois de ver a mensagem
+real: abertura casual que revezam entre 5 variações (pra não parecer
+bot), negrito de verdade do WhatsApp (`*texto*`) no nome do produto e
+preço, indica a loja antes do link ("Oferta na Shopee/na Nike/na
+Olympikus/no KaBuM!" — mesma tabela `getPlatformInfo` do site), e tirou
+a linha decorativa "━━━" que quebrava feio no mobile (trocada por
+espaçamento simples).
+
+**Incidente real durante o teste**: uma chamada de teste sem `dryRun`
+saiu no horário real (23:36 UTC = 20:36 Brasília, dentro da janela) sem
+confirmação prévia — mandou uma mensagem real pro grupo de 128 pessoas
+sem querer. Conteúdo estava correto (não foi lixo/link quebrado), mas
+o processo falhou: devia ter checado a hora atual antes de testar
+"fora do horário" sem `dryRun`. Lição: testes reais em produção
+sempre `dryRun=1` ou fora da janela ativa, checando a hora antes.
+
+**Credenciais**: `ZAPI_INSTANCE_ID`/`ZAPI_TOKEN`/`ZAPI_CLIENT_TOKEN` já
+existiam na Vercel (produção, adicionadas há ~11 dias por outra
+automação/sessão) — só não estavam no `.env` local, Heber reenviou.
+ID do grupo: `120363368934404281-group` (hardcoded com fallback pra
+`ZAPI_DESCONTOS_GROUP_ID` se precisar trocar).
 
 ### ✅ Kabum no cron da Awin + comparador de preço automático com a Shopee (2026-09-21)
 `/api/cron/source-awin` também ingere Kabum agora (eletrônicos), com

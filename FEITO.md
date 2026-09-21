@@ -4,6 +4,19 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-21 (noite) — Automação do grupo real do WhatsApp "Descontos Chegando #GR42"
+
+Grupo achado ao vivo via Z-API (`GET /chats`), renomeado pra "Descontos
+Chegando #GR42" (prova social). Cron novo `/api/cron/publish-whatsapp-group`
+manda oferta automaticamente: link de afiliado + foto por URL (sem
+baixar nada) + texto gerado (abertura casual rotativa, negrito real do
+WhatsApp, indica a loja) + link de convite do grupo no rodapé. Roda a
+cada 10 min o dia inteiro, mas só envia de fato entre 8h-21h Brasília
+(resto do tempo é um `skipped` barato) — resolve o pedido de "de 10 em
+10 min das 8h às 21h" sem estourar o limite de 100 crons/projeto da
+Vercel. Dedupe próprio (`post_type='whatsapp'`), independente do
+Instagram.
+
 ## 2026-09-21 (noite) — Kabum entra no cron + comparador de preço automático com a Shopee
 
 Kabum (eletrônicos) passou a ser ingerida pelo `/api/cron/source-awin`
