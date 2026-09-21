@@ -24,6 +24,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { sendInstagramMessage } from "@/lib/channel/instagramGraph";
 import { isDuplicate } from "@/lib/dedupe";
+import { getDbFresh } from "@/lib/db/client";
 
 // A Meta assina o corpo bruto do POST com o App Secret (HMAC SHA-256) e
 // manda o resultado no header X-Hub-Signature-256. Sem validar isso,
@@ -45,13 +46,51 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 const KEYWORD = "quero";
-const REPLY_TEXT =
+const FALLBACK_REPLY_TEXT =
   "Prontinho! 🎁 Aqui está o link com a oferta e todas as ofertas de hoje: https://descontochegando.com.br/hoje";
 
 interface InstagramMessagingEvent {
   sender?: { id?: string };
   recipient?: { id?: string };
-  message?: { mid?: string; text?: string; is_echo?: boolean };
+  message?: {
+    mid?: string;
+    text?: string;
+    is_echo?: boolean;
+    // Presente quando a mensagem é resposta a um Story nosso — é o media
+    // id do Story, o mesmo valor que a Windsor devolveu quando postamos
+    // (ver extractMediaId em src/app/api/cron/publish-product/route.ts).
+    // É assim que sabemos QUAL produto a pessoa quis dizer "quero", sem
+    // precisar caçar manualmente qual Story ela respondeu.
+    reply_to?: { story?: { id?: string; url?: string } };
+  };
+}
+
+// Acha o produto do Story respondido (via social_posts.media_id) e monta
+// uma resposta com o link de afiliado específico dele. Sem match (Story
+// antigo, apagado, ou resposta fora do nosso fluxo automático), cai pro
+// link genérico de /hoje.
+async function buildReplyText(storyMediaId: string | undefined): Promise<string> {
+  if (!storyMediaId) return FALLBACK_REPLY_TEXT;
+
+  try {
+    const db = getDbFresh();
+    const { data } = await db
+      .from("social_posts")
+      .select("deal_candidates(products(product_name), offer_snapshots(offer_link))")
+      .eq("media_id", storyMediaId)
+      .eq("post_type", "story")
+      .maybeSingle();
+
+    const dc = (data as any)?.deal_candidates;
+    const link = dc?.offer_snapshots?.offer_link;
+    const name = dc?.products?.product_name;
+    if (link) {
+      return `Prontinho! 🎁 Aqui está o link do ${name ?? "produto"}: ${link}`;
+    }
+  } catch (err) {
+    console.error("[webhook/instagram] falha ao buscar produto do story:", err);
+  }
+  return FALLBACK_REPLY_TEXT;
 }
 
 interface InstagramWebhookBody {
@@ -101,7 +140,8 @@ export async function POST(request: NextRequest) {
       if (!text.toLowerCase().includes(KEYWORD)) continue;
 
       try {
-        await sendInstagramMessage({ recipientId: senderId, text: REPLY_TEXT });
+        const replyText = await buildReplyText(event.message?.reply_to?.story?.id);
+        await sendInstagramMessage({ recipientId: senderId, text: replyText });
       } catch (err) {
         console.error("[webhook/instagram] falha ao responder:", err);
       }
