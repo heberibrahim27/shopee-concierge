@@ -61,6 +61,15 @@ const LAYOUT = {
   },
 } as const;
 
+// Selo "ACHADO SHOPEE" (topo-direita) é pixel fixo dentro do PNG da
+// moldura (exportado do Canva) — não dá pra trocar o texto por código,
+// só cobrir. Coordenadas medidas nos dois PNGs (1080 de largura em
+// ambas as variantes; a zona do selo fica na mesma posição vertical
+// independente da altura total do canvas). Usado só quando
+// platform != "shopee" (pedido do Heber, 2026-09-21 — produtos da Awin
+// não podem sair com selo "ACHADO SHOPEE").
+const SHOPEE_BADGE_MASK = { left: 695, top: 55, width: 335, height: 80 };
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const img = searchParams.get("img") || "";
@@ -68,6 +77,7 @@ export async function GET(request: NextRequest) {
   const de = searchParams.get("de");
   const por = searchParams.get("por") || "";
   const variant = searchParams.get("variant") === "story" ? "story" : "feed";
+  const platform = (searchParams.get("platform") || "shopee").toLowerCase();
 
   const title =
     rawTitle.length > 60 ? rawTitle.slice(0, 57).trimEnd() + "..." : rawTitle;
@@ -169,6 +179,20 @@ export async function GET(request: NextRequest) {
           height={L.height}
           style={{ position: "absolute", top: 0, left: 0, width: `${L.width}px`, height: `${L.height}px` }}
         />
+
+        {platform !== "shopee" ? (
+          <div
+            style={{
+              display: "flex",
+              position: "absolute",
+              top: `${SHOPEE_BADGE_MASK.top}px`,
+              left: `${SHOPEE_BADGE_MASK.left}px`,
+              width: `${SHOPEE_BADGE_MASK.width}px`,
+              height: `${SHOPEE_BADGE_MASK.height}px`,
+              background: "#ffffff",
+            }}
+          />
+        ) : null}
 
         <div
           style={{
