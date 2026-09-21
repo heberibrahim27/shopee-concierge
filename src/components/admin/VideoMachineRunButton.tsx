@@ -6,6 +6,7 @@ type ReadyResult = {
   productName: string;
   productPhotoUrl: string | null;
   priceMin: number | null;
+  affiliateLink: string | null;
   script: { hookText: string | null; spokenText: string | null; onScreenText: string | null; ctaText: string | null };
   videoPrompt: string;
   creativeDirection: { archetype: string; hookStrategy: string; narrativeStructure: string; visualApproach: string };
@@ -119,6 +120,18 @@ export function VideoMachineRunButton() {
           ) : (
             <span style={{ fontSize: 12, color: "#999" }}>Sem foto do produto disponível.</span>
           )}
+
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase" }}>Link de afiliado</div>
+            {result.affiliateLink ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "4px 0" }}>
+                <p style={{ margin: 0, fontSize: 13, wordBreak: "break-all" }}>🔗 {result.affiliateLink}</p>
+                <CopyButton text={result.affiliateLink} label="Copiar link" />
+              </div>
+            ) : (
+              <p style={{ margin: "4px 0", fontSize: 12, color: "#999" }}>Sem link de afiliado disponível pra esse produto.</p>
+            )}
+          </div>
 
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase" }}>Direção criativa</div>

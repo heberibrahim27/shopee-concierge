@@ -255,7 +255,7 @@ export async function runVideoMachineOnce(db: SupabaseClient, tenantId: string =
   const { data: promptRow } = await db.from("video_machine_video_prompt_artifact").select("provider_instruction").eq("video_prompt_artifact_id", prompt.resultId).single();
 
   const { data: product } = await db.from("products").select("product_name").eq("id", candidate.productId).maybeSingle();
-  const { data: snapshot } = await db.from("offer_snapshots").select("image_url, price_min").eq("id", candidate.sourceOfferSnapshotId).maybeSingle();
+  const { data: snapshot } = await db.from("offer_snapshots").select("image_url, price_min, offer_link").eq("id", candidate.sourceOfferSnapshotId).maybeSingle();
 
   await recordProductUsageEvidence(db, tenantId, candidate.productId, { productionRunId, scriptResultId: script.resultId });
 
@@ -266,7 +266,11 @@ export async function runVideoMachineOnce(db: SupabaseClient, tenantId: string =
     productName: product?.product_name ?? candidate.productId,
     productPhotoUrl: snapshot?.image_url ?? null,
     priceMin: snapshot?.price_min ?? null,
-    affiliateLink: null, // gerado pela Skill 15 (não implementada — link rastreável não existe pra vídeo ainda); usar o mecanismo real de afiliado já existente pro produto manualmente por enquanto
+    // Link de afiliado real do produto (mesmo offer_link usado no post do
+    // Instagram) — não é o link com tracking específico de vídeo da
+    // Skill 15 (não implementada), mas já é um link de afiliado de
+    // verdade, funcional, pra colar na legenda/descrição do vídeo.
+    affiliateLink: snapshot?.offer_link ?? null,
     script: {
       hookText: beat.purpose === "HOOK" ? (beat.spokenText?.text ?? beat.onScreenText?.text ?? null) : null,
       spokenText: beat.spokenText?.text ?? null,
