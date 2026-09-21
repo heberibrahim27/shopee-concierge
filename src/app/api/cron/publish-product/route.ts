@@ -150,11 +150,15 @@ export async function GET(request: NextRequest) {
 
   const feedImageUrl = buildTemplateUrl(candidate, "feed");
   const storyImageUrl = buildTemplateUrl(candidate, "story");
-  const caption = `${candidate.productName}\n\n#promocao #achadinhos #shopee #achadosdashopee`;
+  // Link na LEGENDA, não mais no comentário (pedido do Heber, 2026-09-21):
+  // sem como marcar o produto automaticamente no feed via Windsor, o link
+  // precisa estar visível de cara na legenda pra ele editar o post manual
+  // (copiar o link, marcar o produto) depois de publicado.
+  const caption = `${candidate.productName}\n\n🔗 Link: ${candidate.offerLink}\n\n#promocao #achadinhos #shopee #achadosdashopee`;
 
   const results: Record<string, unknown> = { candidate: candidate.dealCandidateId };
 
-  // 1) Post no feed (pra poder comentar o link embaixo)
+  // 1) Post no feed (link já vem na legenda — ver comentário acima)
   let feedMediaId: string | null = null;
   try {
     const feedResp: any = await windsorAction("create_image_post", { image_url: feedImageUrl, caption });
@@ -185,25 +189,7 @@ export async function GET(request: NextRequest) {
     results.feed = { ok: false, error: String(err?.message ?? err) };
   }
 
-  // 2) Comenta o link de afiliado no post recém-criado (técnica "link no primeiro comentário")
-  if (feedMediaId) {
-    try {
-      await windsorAction("create_comment", {
-        media_id: feedMediaId,
-        message: `Link: ${candidate.offerLink}`,
-      });
-      await db
-        .from("social_posts")
-        .update({ comment_posted: true })
-        .eq("deal_candidate_id", candidate.dealCandidateId)
-        .eq("post_type", "feed");
-      results.comment = { ok: true };
-    } catch (err: any) {
-      results.comment = { ok: false, error: String(err?.message ?? err) };
-    }
-  }
-
-  // 3) Story (sem legenda — o QR code + "comente EU QUERO" já vêm na própria imagem)
+  // 2) Story (sem legenda — o QR code + "comente EU QUERO" já vêm na própria imagem)
   try {
     const storyResp: any = await windsorAction("create_story", { image_url: storyImageUrl });
     const storyMediaId = extractMediaId(storyResp);
