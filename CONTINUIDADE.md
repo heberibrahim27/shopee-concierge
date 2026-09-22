@@ -8,7 +8,7 @@
 
 ## Pendências ativas
 
-### 🔬 Concierge WhatsApp mudo pra mensagens reais — reforço aplicado, aguardando confirmação (2026-09-22)
+### ✅ Concierge WhatsApp estava mudo — webhook sem token, corrigido e confirmado (2026-09-22)
 Heber: "não reconheceu, ficou mandando que não achou um elegível" (teste
 antigo) e depois, ao vivo: "mandei agora uma foto pra ele de creatina,
 não me respondeu". Investigado com dado real:
@@ -29,9 +29,14 @@ não me respondeu". Investigado com dado real:
   param (`?token=...`) na própria URL do webhook, sem depender de
   header nenhum. Continua fail-closed sem nenhum dos dois válidos.
 
-**Falta o Heber confirmar/ajustar no painel da Z-API**: checar a URL
-configurada em "Ao receber" e adicionar `?token=F91028f688e454e4cacd8f479831708c8S`
-no final. Depois disso, testar mandando mensagem real de novo.
+**Confirmado ao vivo**: acessei o painel da Z-API (instância
+"BancaZAP Prime", compartilhada com o Concierge), a URL em "Ao
+receber" era exatamente `https://shopee-concierge-prod.vercel.app/api/webhook/zapi`
+— sem token nenhum, confirmando a suspeita. Adicionado
+`?token=F91028f688e454e4cacd8f479831708c8S`, salvo, confirmado após
+reload da página. Heber mandou uma foto de teste real logo em
+seguida: **funcionou** — `concierge_sessions` recebeu linha nova
+(chat_id `557193085436`) com 1 candidato encontrado.
 
 Achado bônus, sem investigar ainda: duas sessões reais mais antigas
 (13/09 e 16/09, antes do fix de 18/09) tiveram busca processada com

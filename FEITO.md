@@ -4,6 +4,30 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-22 — Concierge WhatsApp mudo: webhook sem token, corrigido e confirmado
+
+Heber: "não reconheceu, ficou mandando que não achou um elegível" e,
+depois, ao vivo: "mandei agora uma foto pra ele de creatina, não me
+respondeu". Investigado com dado real: o pipeline do Concierge
+funcionava quando chamado direto (script de teste), mas a mensagem
+real do Heber não criava NENHUMA linha em `concierge_sessions` —
+nem "processing", escrito bem cedo no fluxo. Bateu com um risco já
+documentado no código (18/09): o webhook exige header `Client-Token`
+que a Z-API pode não reenviar pra essa conta.
+
+`/api/webhook/zapi` ganhou suporte a token via query param
+(`?token=`) como alternativa ao header. Acessei o painel da Z-API
+(instância "BancaZAP Prime", compartilhada com o Concierge) e
+confirmei: a URL em "Ao receber" não tinha token nenhum. Adicionado
+e salvo. Heber testou com foto real de creatina logo depois:
+**funcionou** — `concierge_sessions` registrou a busca, 1 candidato
+encontrado.
+
+Achado bônus, ainda não investigado: duas sessões reais mais antigas
+(13/09 e 16/09, antes desse bug existir) tiveram busca processada com
+sucesso mas zero candidato encontrado — bug diferente (busca vazia),
+não é o mesmo problema.
+
 ## 2026-09-22 — Brinquedo/novidade entra na descoberta diária + lote sobe pra 20
 
 Dado real do Instagram (Windsor): os 2 Reels com mais views do canal
