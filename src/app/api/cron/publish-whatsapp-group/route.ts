@@ -59,14 +59,24 @@ function candidateFromRow(row: any): Candidate | null {
   };
 }
 
-async function rankedCandidateRows(db: ReturnType<typeof getDbFresh>, postedProductIds: string[]): Promise<any[]> {
+async function rankedCandidateRows(db: ReturnType<typeof getDbFresh>, postedProductIds: string[], excludeShopee = false): Promise<any[]> {
+  // `!inner` é obrigatório aqui — sem ele, filtrar em `products.platform`
+  // não restringe as LINHAS de deal_candidates, só zera o objeto
+  // aninhado quando não bate (achado real testando: sem `!inner`, a
+  // reserva de vaga nunca encontrava nada porque o top 50 por score já
+  // vinha 100% Shopee ANTES do filtro cliente-side rodar em cima).
   let query = db
     .from("deal_candidates")
     .select(
-      "id, score, product_id, products(product_name, platform), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
+      excludeShopee
+        ? "id, score, product_id, products!inner(product_name, platform), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
+        : "id, score, product_id, products(product_name, platform), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
     );
   if (postedProductIds.length > 0) {
     query = query.not("product_id", "in", `(${postedProductIds.join(",")})`);
+  }
+  if (excludeShopee) {
+    query = query.neq("products.platform", "shopee");
   }
   const { data, error } = await query.order("score", { ascending: false, nullsFirst: false }).limit(50);
   return error || !data ? [] : (data as any[]);
@@ -94,16 +104,18 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>): Promise<Can
   const recentPlatforms = (recent ?? []).map((r: any) => r.deal_candidates?.products?.platform);
   const forceNonShopee = recentPlatforms.length === NON_SHOPEE_ROTATION_STREAK && recentPlatforms.every((p) => p === "shopee");
 
-  const rows = await rankedCandidateRows(db, postedProductIds);
-
   if (forceNonShopee) {
-    const reserved = rows.find((row) => row.products?.platform && row.products.platform !== "shopee" && candidateFromRow(row));
-    if (reserved) return candidateFromRow(reserved);
+    const reservedRows = await rankedCandidateRows(db, postedProductIds, true);
+    for (const row of reservedRows) {
+      const candidate = candidateFromRow(row);
+      if (candidate) return candidate;
+    }
     // Reserva não achou nada elegível fora da Shopee (pool vazio/sem
     // candidato válido) — cai pro ranking normal em vez de travar o
     // post daquela execução.
   }
 
+  const rows = await rankedCandidateRows(db, postedProductIds);
   for (const row of rows) {
     const candidate = candidateFromRow(row);
     if (candidate) return candidate;
