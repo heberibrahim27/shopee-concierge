@@ -45,6 +45,22 @@ type Candidate = {
 // de plataforma na query.
 const NON_SHOPEE_ROTATION_STREAK = 4;
 
+// Heber (2026-09-22, urgente): "só mandou quase o dia todo produtos de
+// farmácia uruguai, eu pedi pra divulgar não pra só divulgar ele" — o
+// boost proposital da Farmácia Uruguai (score fixo 95, alguns até
+// 998/999) vence QUALQUER produto comum da Shopee (~85-90) também,
+// não só o Awin. Resultado real medido num dia: 37 de 52 posts (71%)
+// eram Farmácia Uruguai. A rotação do Awin acima não resolve isso —
+// ela só intercala Shopee-vs-outra-loja, e a Farmácia Uruguai é
+// contada como Shopee. Precisa da própria trava, mais curta (a
+// preferência continua real, só não pode virar exclusividade).
+const FARMACIA_ORIGEM = "loja-propria-farmacia-uruguai";
+const FARMACIA_ROTATION_STREAK = 2;
+
+function isFarmaciaRow(row: any): boolean {
+  return row.score_breakdown?.origem === FARMACIA_ORIGEM;
+}
+
 function candidateFromRow(row: any): Candidate | null {
   const snap = row.offer_snapshots;
   if (!snap?.image_url || !snap?.offer_link || snap.price_min == null) return null;
@@ -69,8 +85,8 @@ async function rankedCandidateRows(db: ReturnType<typeof getDbFresh>, postedProd
     .from("deal_candidates")
     .select(
       excludeShopee
-        ? "id, score, product_id, products!inner(product_name, platform), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
-        : "id, score, product_id, products(product_name, platform), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
+        ? "id, score, score_breakdown, product_id, products!inner(product_name, platform), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
+        : "id, score, score_breakdown, product_id, products(product_name, platform), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
     );
   if (postedProductIds.length > 0) {
     query = query.not("product_id", "in", `(${postedProductIds.join(",")})`);
@@ -95,14 +111,18 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>): Promise<Can
     ),
   ];
 
+  const streakWindow = Math.max(NON_SHOPEE_ROTATION_STREAK, FARMACIA_ROTATION_STREAK);
   const { data: recent } = await db
     .from("social_posts")
-    .select("deal_candidates(products(platform))")
+    .select("deal_candidates(products(platform), score_breakdown)")
     .eq("post_type", "whatsapp")
     .order("posted_at", { ascending: false })
-    .limit(NON_SHOPEE_ROTATION_STREAK);
-  const recentPlatforms = (recent ?? []).map((r: any) => r.deal_candidates?.products?.platform);
-  const forceNonShopee = recentPlatforms.length === NON_SHOPEE_ROTATION_STREAK && recentPlatforms.every((p) => p === "shopee");
+    .limit(streakWindow);
+  const recentRows = (recent ?? []).map((r: any) => r.deal_candidates);
+  const lastNShopee = recentRows.slice(0, NON_SHOPEE_ROTATION_STREAK);
+  const forceNonShopee = lastNShopee.length === NON_SHOPEE_ROTATION_STREAK && lastNShopee.every((r) => r?.products?.platform === "shopee");
+  const lastNFarmacia = recentRows.slice(0, FARMACIA_ROTATION_STREAK);
+  const forceNonFarmacia = lastNFarmacia.length === FARMACIA_ROTATION_STREAK && lastNFarmacia.every((r) => r?.score_breakdown?.origem === FARMACIA_ORIGEM);
 
   if (forceNonShopee) {
     const reservedRows = await rankedCandidateRows(db, postedProductIds, true);
@@ -116,6 +136,17 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>): Promise<Can
   }
 
   const rows = await rankedCandidateRows(db, postedProductIds);
+
+  if (forceNonFarmacia) {
+    for (const row of rows) {
+      if (isFarmaciaRow(row)) continue;
+      const candidate = candidateFromRow(row);
+      if (candidate) return candidate;
+    }
+    // Sem candidato elegível fora da Farmácia Uruguai (pool comum
+    // esgotado no momento) — cai pro ranking normal abaixo.
+  }
+
   for (const row of rows) {
     const candidate = candidateFromRow(row);
     if (candidate) return candidate;
