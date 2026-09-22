@@ -103,6 +103,36 @@ confirmado direto no Supabase. Se algum dia a Awin listar um cupom de
 frete grátis pra Kabum/Nike/Olympikus, ele entra automaticamente — não
 precisa de ação manual.
 
+### 🔶 Lomadee — canal verificado, falta achar onde gerar a chave de API (2026-09-22)
+Canal de divulgação `descontochegando.com.br` criado no painel
+(app.lomadee.com.br/channels, id `fc89b7ba-30c3-4ff4-ad37-5ebfea125368`)
+e **verificado com sucesso** (status Ativo) — metatag real
+`<meta name="lomadee" content="2324685" />` publicada em
+[layout.tsx](src/app/layout.tsx) junto com a do Pinterest.
+
+Nota real do processo: a primeira tentativa de validação falhou 3x
+seguidas porque a própria plataforma da Lomadee estava fora do ar
+(app.lomadee.com.br travando com "Application error", certificado
+SSL vencido em docs.lomadee.com.br, help.lomadee.com.br com erro de
+config no Cloudflare) — nada a ver com nosso site (confirmei a
+metatag ao vivo via curl o tempo todo). Validou de primeira assim que
+a plataforma deles voltou.
+
+**Bloqueio atual**: API real documentada em docs.lomadee.com.br (REST,
+`x-api-key`, recursos Brands/Channels/Campaigns/Orders/Products) — mas
+a doc diz que a chave é "provisionada via GraphQL no serviço open-api,
+autenticação com o JWT do dashboard" e não achei nenhum botão de
+"Gerar chave de API" em lugar nenhum da interface (percorri toda a
+sidebar: Início, Carteira, Canais, Pedidos, Insights, Marcas, Ofertas,
+Cupons, Produtos, Suporte, Para Desenvolvedores — nenhum é isso).
+Não vou extrair o token de sessão do navegador pra chamar o GraphQL
+na unha (a ferramenta inclusive bloqueia isso por segurança). Próximo
+passo: ou o Heber acha o botão certo navegando com calma (pode estar
+atrás de algum marco tipo "primeira venda", o painel mostra "67%
+completo" nos próximos passos), ou abre chamado no suporte deles
+(https://socialsoul.atlassian.net/servicedesk/customer/portal/3,
+também fora do ar no momento) quando a plataforma normalizar.
+
 ### 📝 Mais programas de afiliados com API — pesquisa feita, falta o Heber criar a conta (2026-09-22)
 Pedido: "pesquisar mais modelos de afiliados para cadastro que tenha
 API deixando automatizar". Pesquisado ao vivo (WebSearch), resultado:
