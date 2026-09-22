@@ -8,6 +8,64 @@
 
 ## Pendências ativas
 
+### 🔬 Concierge WhatsApp mudo pra mensagens reais — reforço aplicado, aguardando confirmação (2026-09-22)
+Heber: "não reconheceu, ficou mandando que não achou um elegível" (teste
+antigo) e depois, ao vivo: "mandei agora uma foto pra ele de creatina,
+não me respondeu". Investigado com dado real:
+
+- Confirmado ao vivo (script direto, bypassando Z-API) que o pipeline
+  do Concierge FUNCIONA quando chamado diretamente — reconheceu tênis,
+  buscou, comparou, respondeu certo.
+- Mas a mensagem real de creatina que o Heber mandou **não criou
+  NENHUMA linha nova em `concierge_sessions`** — nem "processing",
+  escrito bem cedo no fluxo (`orchestrator.ts:772`, antes de qualquer
+  chamada de IA). Ou seja, o problema não é o Concierge travando — é a
+  mensagem não chegando a processar de verdade.
+- Bate com um risco já documentado no próprio código em 18/09: o
+  webhook (`/api/webhook/zapi`) exige um header `Client-Token` que a
+  Z-API pode não estar reenviando nos webhooks desta conta específica
+  — rejeitaria com 401 antes de tocar em qualquer lógica.
+- **Reforço aplicado**: a rota agora aceita TAMBÉM um token via query
+  param (`?token=...`) na própria URL do webhook, sem depender de
+  header nenhum. Continua fail-closed sem nenhum dos dois válidos.
+
+**Falta o Heber confirmar/ajustar no painel da Z-API**: checar a URL
+configurada em "Ao receber" e adicionar `?token=F91028f688e454e4cacd8f479831708c8S`
+no final. Depois disso, testar mandando mensagem real de novo.
+
+Achado bônus, sem investigar ainda: duas sessões reais mais antigas
+(13/09 e 16/09, antes do fix de 18/09) tiveram busca processada com
+sucesso mas **zero candidato encontrado** ("CONTROLE TV LG" e uma foto
+não identificada) — bug diferente (busca vazia, não timeout/auth),
+ainda não investigado a fundo.
+
+### ✅ Lote de 20 candidatos travava a tela por 30min — corrigido (2026-09-22)
+Heber: "meia hora esperando os 20 candidatos a video". O aumento de
+limite feito mais cedo hoje (8→20) não foi medido contra o tempo real
+— cada candidato leva ~24s (medido ao vivo: 2 candidatos = 47,7s real,
+via curl direto na rota), então 20 precisaria de uns 8 minutos,
+estourando o teto de 300s do servidor. Pior: o botão não tinha nenhum
+timeout no lado do cliente, então quando a conexão caía sem erro
+explícito, a tela ficava "carregando" pra sempre sem nenhum aviso.
+
+Corrigido: `MAX_COUNT` volta pra 10 (cabe com margem real dentro do
+teto), e o botão ganhou `AbortController` de 280s — se passar disso,
+mostra erro claro ("demorou demais, tenta com número menor") em vez
+de travar silenciosamente. Lição: **medir o custo real por unidade
+antes de subir um limite de lote**, não só checar se compila.
+
+### ✅ Painel admin ganhou troca de senha própria (2026-09-22)
+Heber: "construa algo no configurações para que eu possa mudar a
+senha" — depois de eu ter resetado a senha 2x nesta sessão via API do
+Vercel (`ADMIN_PASSWORD` é variável tipo "sensitive", depois de salva
+nem o dono consegue ver de novo, cada reset também exigia aprovação
+explícita por escrever em secret store). Agora a senha vira um hash
+guardado em `admin_settings` (Supabase, migration `20260922090000`),
+com `ADMIN_PASSWORD` (env) como fallback pra nunca travar o acesso se
+a tabela estiver vazia. Nova seção "Configurações" no `/admin` com
+formulário de troca — `/api/admin/change-password`, autenticado pela
+sessão já logada, sem precisar de acesso ao Vercel nunca mais.
+
 ### ✅ Brinquedo/novidade nunca entrava na descoberta diária + lote sobe de 8 pra 20 (2026-09-22)
 Heber: "a maquina de videos só gera sempre os mesmos candidatos,
 produtos fracos... não vem nada viral". Puxei os Reels reais do
