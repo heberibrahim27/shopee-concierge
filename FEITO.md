@@ -4,6 +4,24 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-22 — Grupo WhatsApp para de mandar só Shopee, reserva vaga pra Nike/Olympikus/Kabum
+
+Heber pediu pra verificar se o bot só mandava Shopee. Confirmado com
+dado real via SQL (4-5/5 posts do grupo eram Shopee) — causa: score
+médio da Shopee (92, até 999 pra Farmácia Uruguai) sempre vence o teto
+da Awin (Nike/Olympikus/Kabum, máx 85), sem nenhum filtro de
+plataforma na query em si. `publish-whatsapp-group/route.ts` agora
+reserva vaga pra loja não-Shopee depois de 4 posts seguidos de Shopee
+(`NON_SHOPEE_ROTATION_STREAK`). Achado real durante o teste: a
+primeira versão do fix filtrava dentro de um resultado já truncado ao
+top-50 por score (que já vinha 100% Shopee) e nunca achava nada —
+corrigido pra fazer uma query separada com filtro real no banco. Testado
+ao vivo com `?dryRun=1`: voltou headset da KaBuM! (R$ 41,99).
+
+Achado bônus no caminho: produtos "Lomadee" no catálogo às vezes SÃO
+literalmente Shopee — a Lomadee tem a Shopee como marca participante
+da própria rede (não é bug, é sobreposição real de rede de afiliados).
+
 ## 2026-09-22 — Abertura da mensagem do grupo WhatsApp gerada por IA
 
 `publish-whatsapp-group/route.ts`: `generateOpener(productName)`

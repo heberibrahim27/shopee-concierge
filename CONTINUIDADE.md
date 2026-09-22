@@ -8,6 +8,32 @@
 
 ## Pendências ativas
 
+### ✅ Grupo WhatsApp reserva vaga rotativa pra Nike/Olympikus/Kabum (2026-09-22)
+Heber: "temos que fazer verifique para mim se o bot do WhatsApp está
+mandando só produtos da Shopee ou da Nike, Olympus, a Alwin e outras
+marketplaces". Investigação real via SQL direto no Supabase:
+
+- Confirmado com dado real: até então **4/4 (depois 5/5) posts do
+  grupo eram Shopee**, zero Nike/Olympikus/Kabum — mesmo a query não
+  tendo NENHUM filtro de plataforma.
+- Causa raiz: `deal_candidates` tem 260 Shopee (score médio 92, até
+  999 pra Farmácia Uruguai — boost proposital) contra só 48
+  Nike/48 Olympikus/36 Kabum (teto de score 85, vindos da Awin). Como
+  a escolha é sempre "maior score primeiro", Shopee nunca dá espaço.
+- Achado bônus no caminho: existem produtos "Lomadee" que na verdade
+  SÃO Shopee — a Lomadee tem a própria Shopee como uma das marcas
+  participantes da rede (`GET /affiliate/brands/{id}` devolveu
+  `name: "Shopee", slug: "shopee"` pra um organizationId real) — não é
+  bug, é sobreposição real de rede.
+- Corrigido: depois de 4 posts seguidos de Shopee, a próxima escolha
+  reserva vaga pra uma loja diferente (`NON_SHOPEE_ROTATION_STREAK`).
+  **Duas rodadas de teste ao vivo** — primeira versão do fix não
+  funcionava de verdade (filtrava só dentro do top-50 por score, que
+  já vinha 100% Shopee antes do filtro rodar); corrigido pra fazer uma
+  query separada com filtro real no banco (`products!inner` + `neq`)
+  quando a reserva precisa disparar. Testado com `?dryRun=1`: voltou
+  candidato real da KaBuM! (headset Maxom, R$ 41,99).
+
 ### ✅ Abertura da mensagem do grupo WhatsApp vira frase pensada por IA (2026-09-22)
 Heber: "não tem umas frases pensada para cada produto não? Sempre a
 mesma coisa engessada?" — o pool fixo de 5 aberturas
