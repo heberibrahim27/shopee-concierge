@@ -35,6 +35,15 @@ Também subiu o limite do lote da Máquina de Vídeos de 8 pra 20
 candidatos por chamada (`MAX_COUNT`, `maxDuration` 180→300s) —
 "a máquina só permite até 8 vídeos com prompt".
 
+**Dia das Crianças (12/10) chegando** — Heber pediu foco em brinquedo
+infantil de verdade, não só novidade/antiestresse adulto. Rodada
+2ª busca pontual (`boneca`, `carrinho controle remoto`, `jogo
+infantil`, `brinquedo montessori` etc.) — mais 25 candidatos reais
+publicados na hora. Essas 8 keywords também entraram permanente no
+`KEYWORD_POOL`, pra rotação diária continuar achando brinquedo até a
+data. Total do dia: **50 candidatos novos de brinquedo/novidade**
+(25 novidade/antiestresse geral + 25 infantil).
+
 ### ✅ Mercado Livre: ingestão real via scraping (2026-09-22)
 Heber mandou 18 links de afiliado (`meli.la/...`) e pediu pra "montar
 essa ingestão via scraping mesmo assim", depois de eu confirmar de
