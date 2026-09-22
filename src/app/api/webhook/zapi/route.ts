@@ -51,15 +51,37 @@ import { isDuplicate } from "@/lib/dedupe";
  * de que a Z-API não está reenviando esse header nos webhooks desta conta
  * — nesse caso avise que precisa trocar pra validação por token na URL.
  */
-function hasValidClientToken(req: NextRequest): boolean {
-  const expected = process.env.ZAPI_CLIENT_TOKEN;
-  const received = req.headers.get("client-token");
-  if (!expected || !received) return false;
-
+function constantTimeEquals(expected: string, received: string): boolean {
   const expectedBuf = Buffer.from(expected, "utf8");
   const receivedBuf = Buffer.from(received, "utf8");
   if (expectedBuf.length !== receivedBuf.length) return false;
   return timingSafeEqual(expectedBuf, receivedBuf);
+}
+
+/**
+ * Achado real (2026-09-22, Heber mandou foto de creatina e o bot ficou
+ * mudo — ZERO linha nova em concierge_sessions, nem "processing", que é
+ * escrito bem no início do pipeline): isso bate exatamente com o risco
+ * já anotado aqui em 18/09 — a Z-API pode não estar reenviando o header
+ * "Client-Token" nos webhooks desta conta específica, e a rota rejeita
+ * com 401 antes de tocar em qualquer lógica do Concierge.
+ *
+ * Reforço: aceita TAMBÉM um token na própria URL do webhook
+ * (?token=...), mecanismo que a Z-API com certeza suporta (é só um
+ * query param na URL configurada em "Ao receber"), sem depender de header
+ * nenhum. Continua fail-closed — sem nenhum dos dois válidos, rejeita.
+ */
+function hasValidClientToken(req: NextRequest): boolean {
+  const expected = process.env.ZAPI_CLIENT_TOKEN;
+  if (!expected) return false;
+
+  const receivedHeader = req.headers.get("client-token");
+  if (receivedHeader && constantTimeEquals(expected, receivedHeader)) return true;
+
+  const receivedQuery = req.nextUrl.searchParams.get("token");
+  if (receivedQuery && constantTimeEquals(expected, receivedQuery)) return true;
+
+  return false;
 }
 
 // Sem isso, a function usa o limite padrão da Vercel pro plano do
