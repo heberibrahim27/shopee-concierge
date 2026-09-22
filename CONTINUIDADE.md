@@ -8,6 +8,21 @@
 
 ## Pendências ativas
 
+### 📌 Decisão: Feed do Instagram continua com todas as lojas (2026-09-22)
+Heber levantou a dúvida: já que só produto da Shopee dá pra marcar
+(etiqueta de compra, catálogo oficial da Meta), valeria restringir o
+Feed só pra Shopee e deixar as outras lojas (Kabum/Nike/Olympikus/
+Lomadee) só no Story? Recomendação dada: não — marcação já é manual
+mesmo só pra Shopee hoje, restringir o Feed não resolve esse trabalho
+manual e só reduz alcance (Feed > Story em visibilidade) bem na hora
+que a prioridade é crescer seguidor com mais variedade de produto. O
+Story nunca dependeu de marcação (é link/comentário, não etiqueta),
+então não perde nada mantendo qualquer loja lá. Heber concordou:
+**Feed continua com todas as lojas**, marca manualmente só quando for
+Shopee, sem marcação nas outras (não é regressão, nunca deu pra
+marcar mesmo). Nenhuma mudança de código necessária — já é o
+comportamento atual.
+
 ### ✅ Bug real: posts do Instagram sempre saíam com selo/barra da Shopee, mesmo pra outras lojas (2026-09-22)
 Achado pelo Heber: "o problema agora é o template do instagram que tá
 só da shopee". A moldura (`story-template/route.tsx`) já sabia mascarar
