@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAuthedAdminRequest } from "../../../../middleware";
 import { getDbFresh } from "../../../../lib/db/client";
 import { runVideoMachineOnce } from "../../../../modules/video-machine/orchestrator/runOnce";
+import { computeHotCategory } from "../../../../modules/video-machine/orchestrator/opportunityScorer";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -13,7 +14,8 @@ export async function POST(request: NextRequest) {
 
   const db = getDbFresh();
   try {
-    const result = await runVideoMachineOnce(db);
+    const hotCategory = await computeHotCategory(db).catch(() => null);
+    const result = await runVideoMachineOnce(db, undefined, hotCategory);
     if (result.outcome !== "READY") {
       return NextResponse.json({ ok: false, stage: result.stage, errorCode: result.errorCode }, { status: 200 });
     }

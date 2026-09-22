@@ -10,6 +10,7 @@ type ReadyResult = {
   script: { hookText: string | null; spokenText: string | null; onScreenText: string | null; ctaText: string | null };
   videoPrompt: string;
   creativeDirection: { archetype: string; hookStrategy: string; narrativeStructure: string; visualApproach: string };
+  demandSignal: { categorySlug: string; distinctSearchers: number; sampleProductNames: string[] } | null;
 };
 
 function CopyButton({ text, label }: { text: string; label: string }) {
@@ -104,6 +105,11 @@ export function VideoMachineRunButton() {
 
       {result ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 10, border: "1px solid #eee", borderRadius: 10, padding: 14, maxWidth: 520 }}>
+          {result.demandSignal ? (
+            <div style={{ background: "#e9f5ef", border: "1px solid #0a8a4a", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#0a8a4a", fontWeight: 600 }}>
+              🔥 Escolhido por demanda real: {result.demandSignal.distinctSearchers} pessoas procuraram algo parecido no WhatsApp nas últimas 48h
+            </div>
+          ) : null}
           <strong style={{ fontSize: 14 }}>{result.productName}</strong>
           {result.priceMin != null ? <span style={{ fontSize: 12, color: "#666" }}>Preço: R$ {result.priceMin.toFixed(2)}</span> : null}
           {result.productPhotoUrl ? (

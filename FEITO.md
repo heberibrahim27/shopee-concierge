@@ -4,6 +4,15 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-22 — Opportunity Scorer: Motor 4 fechado de ponta a ponta
+
+`opportunityScorer.ts` agrega buscas reais do Concierge (48h, mínimo 3
+pessoas distintas) e vira filtro de categoria opcional pro
+`discoverProducts` — sem mexer no vocabulário fechado de sinal do
+kernel (SPEC formal). UI mostra aviso quando o produto escolhido veio
+de demanda real. Testado ao vivo (sinais de teste reais inseridos e
+removidos depois): produto certo escolhido, `demandSignal` preenchido.
+
 ## 2026-09-22 — Concierge grava sinal de demanda real (growth_signal)
 
 Nova tabela `concierge_growth_signal`: toda busca do WhatsApp que acha

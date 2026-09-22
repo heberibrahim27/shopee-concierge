@@ -86,6 +86,43 @@ fonte incompatível — mesma razão que o fix original de 2026-09-21 foi
 validado direto em produção, não local) — validado com curl em
 produção.
 
+### ✅ Opportunity Scorer — Motor 4 fechado de ponta a ponta (2026-09-22)
+Segunda metade do Motor 4: `src/modules/video-machine/orchestrator/opportunityScorer.ts`
+agrega `concierge_growth_signal` das últimas 48h por categoria
+(normalizada via `guessCategorySlug`, mesmo classificador extraído do
+cron da Lomadee pra `src/lib/site/categorize.ts` — texto livre da IA
+de visão do Concierge não bate com a taxonomia fechada do site) e
+exige pelo menos 3 pessoas distintas buscando na mesma categoria pra
+virar sinal "quente".
+
+**Decisão de design importante**: não virou um novo peso em
+`rankingWeights` da Skill04 — o vocabulário de sinal da SPEC é fechado
+(`discoveryCommercial`/`freshness`/`novelty`/`categoryPriority`/
+`historicalPerformance`, todos com regra de disponibilidade própria já
+formalmente revisada) e inventar um sinal novo ali mexeria no hash de
+determinismo do kernel sem o mesmo rigor de revisão que o resto do
+SPEC teve. Em vez disso, o Opportunity Scorer vira um filtro OPCIONAL
+de `allowedCategorySlugs` — campo que já existe no contrato de
+`ProductDiscoveryInput` — passado pro `runVideoMachineOnce` antes da
+descoberta. Sem sinal quente: comportamento idêntico ao de hoje
+(zero mudança de risco). Sinal quente mas sem candidato elegível nessa
+categoria: cai automaticamente pro comportamento normal (retry sem
+filtro) em vez de travar a execução.
+
+Retorna `demandSignal` no resultado — a UI do botão "Iniciar Máquina
+de Vídeos" mostra um aviso verde "🔥 Escolhido por demanda real: N
+pessoas procuraram algo parecido no WhatsApp" quando aplicável.
+
+**Testado ao vivo de ponta a ponta**: inseridas 3 buscas de teste reais
+(hash distintos) pra categoria "eletronicos", rodada a Máquina de
+Vídeos — escolheu um produto de eletrônicos de verdade e devolveu
+`demandSignal` preenchido corretamente. Achado real no processo: a
+primeira tentativa de teste falhou porque um dos 3 sinais de teste
+usava a palavra "eletronico" (sem plural) que não bate com nenhuma
+keyword do classificador (caiu no catch-all "casa") — prova que o
+corte de "mínimo 3 buscas" está funcionando de verdade, não só
+decorativo. Dados de teste removidos depois.
+
 ### ✅ Concierge vira sensor de demanda (Motor 4, primeira metade) (2026-09-22)
 Pedido do Heber: focar em crescimento de seguidores. Primeira peça
 automatizável de ponta a ponta do "Motor 4" debatido com o ChatGPT —

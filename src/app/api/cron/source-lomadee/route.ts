@@ -4,6 +4,7 @@ import { fetchLomadeeCampaigns, fetchLomadeeProducts, fetchLomadeeBrandById, Lom
 import { toCatalogItem, persistLomadeeProduct } from "../../../../lib/lomadee/ingest";
 import { createDealCandidate } from "../../../../lib/db/snapshots";
 import { SITE_CATEGORIES } from "../../../../lib/site/categories";
+import { guessCategorySlug } from "../../../../lib/site/categorize";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -25,33 +26,6 @@ export const maxDuration = 120;
  *    de produtos é pequeno (20/execução) — 1 call de listagem + até 20
  *    calls de shortener por execução, bem dentro do limite.
  */
-
-// Heurística leve por palavra-chave — a API de produto não devolve
-// categoria confiável (campo `categories` vem vazio nos exemplos reais
-// testados). "casa" é o catch-all (achadinho genérico), não uma aposta
-// forte.
-const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  eletronicos: ["fone", "celular", "notebook", "tv ", "smart tv", "carregador", "mouse", "teclado", "caixa de som", "câmera", "camera"],
-  esporte: ["tênis", "tenis", "bicicleta", "bike", "academia", "musculação", "esteira", "halter"],
-  beleza: ["maquiagem", "batom", "perfume", "shampoo", "creme", "skincare", "secador"],
-  moda: ["camiseta", "calça", "vestido", "jaqueta", "blusa", "jeans", "bermuda"],
-  infantil: ["infantil", "criança", "bebê conforto"],
-  bebes: ["bebê", "bebe", "fralda", "mamadeira"],
-  pet: ["cachorro", "gato", "pet ", "ração", "coleira"],
-  games: ["controle", "playstation", "xbox", "console", "gamer"],
-  automotivo: ["automotivo", "carro", "pneu", "farol"],
-  saude: ["vitamina", "suplemento", "termômetro", "massageador"],
-  ferramentas: ["furadeira", "parafusadeira", "ferramenta", "chave de fenda"],
-  moveis: ["sofá", "sofa", "mesa", "cadeira", "estante", "cama box"],
-};
-
-function guessCategorySlug(productName: string): string {
-  const name = productName.toLowerCase();
-  for (const [slug, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
-    if (keywords.some((k) => name.includes(k))) return slug;
-  }
-  return "casa";
-}
 
 /**
  * campaigns/products só devolvem `organizationId` (UUID) — o nome real

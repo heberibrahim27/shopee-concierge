@@ -7,6 +7,7 @@ import { decideCreativeDirection } from "../skills/07-direcao-criativa/creativeD
 import { writeScript } from "../skills/08-roteirista/scriptWriting";
 import { generateFrame } from "../skills/09-gerador-de-frame/frameGeneration";
 import { generateVideoPrompt } from "../skills/10-gerador-de-prompt-de-video/videoPromptGeneration";
+import type { HotCategory } from "./opportunityScorer";
 
 /**
  * Orquestrador pragmático "motor manual" — encadeia as Skills 04→05→
@@ -47,6 +48,8 @@ export type VideoMachineReadyPackage = {
   videoPrompt: string;
   creativeDirection: { archetype: string; hookStrategy: string; narrativeStructure: string; visualApproach: string };
   createdAt: string;
+  /** Opportunity Scorer (Motor 4): preenchido quando o produto foi escolhido por causa de demanda real do Concierge, não só desconto/comissão. */
+  demandSignal: HotCategory | null;
 };
 
 export type VideoMachineOutcome = VideoMachineReadyPackage | { outcome: "FATAL_ERROR" | "BLOCKED" | "RETRYABLE_ERROR"; stage: string; errorCode: string };
@@ -195,7 +198,11 @@ async function recordProductUsageEvidence(db: SupabaseClient, tenantId: string, 
   await db.from("video_machine_product_usage_evidence").insert({ tenant_id: tenantId, product_id: productId, usage_kind: "MATERIALIZED", used_at: usedAt, evidence_ref: evidenceRef, product_usage_evidence_hash: hash });
 }
 
-export async function runVideoMachineOnce(db: SupabaseClient, tenantId: string = REAL_TENANT_ID): Promise<VideoMachineOutcome> {
+export async function runVideoMachineOnce(
+  db: SupabaseClient,
+  tenantId: string = REAL_TENANT_ID,
+  hotCategory?: HotCategory | null
+): Promise<VideoMachineOutcome> {
   await db.from("video_machine_tenant_config").upsert({ tenant_id: tenantId, tenant_key: tenantId, status: "ACTIVE", display_name: "Descontos Chegando" });
   await ensurePolicies(db, tenantId);
 
@@ -205,7 +212,26 @@ export async function runVideoMachineOnce(db: SupabaseClient, tenantId: string =
   const stageIterationId = iteration!.stage_iteration_id;
 
   const discJobId = await makeJob(db, tenantId, productionRunId, "PRODUCT_DISCOVERY", "engine");
-  const disc = await discoverProducts(db, { tenantId, runId: productionRunId, requestedCount: 1, alternateCount: 0, selectionPolicyKey: "engine-default" }, { jobId: discJobId, attemptNumber: 1, trustedTenantId: tenantId });
+  let disc = await discoverProducts(
+    db,
+    { tenantId, runId: productionRunId, requestedCount: 1, alternateCount: 0, selectionPolicyKey: "engine-default", allowedCategorySlugs: hotCategory ? [hotCategory.categorySlug] : undefined },
+    { jobId: discJobId, attemptNumber: 1, trustedTenantId: tenantId }
+  );
+  // Sinal de demanda (Opportunity Scorer) restringiu a categoria mas
+  // não achou nenhum candidato elegível nela (ex.: sinal de "tenis" mas
+  // nenhum tênis novo no pool) — cai pro comportamento normal (sem
+  // restrição) em vez de travar a execução por causa de um sinal que
+  // não converteu em candidato real.
+  let usedDemandSignal = Boolean(hotCategory);
+  if (disc.outcome === "SUCCEEDED" && disc.resultStatus === "NO_ELIGIBLE_CANDIDATES" && hotCategory) {
+    const retryJobId = await makeJob(db, tenantId, productionRunId, "PRODUCT_DISCOVERY", "engine-retry-no-category-filter");
+    disc = await discoverProducts(
+      db,
+      { tenantId, runId: productionRunId, requestedCount: 1, alternateCount: 0, selectionPolicyKey: "engine-default" },
+      { jobId: retryJobId, attemptNumber: 1, trustedTenantId: tenantId }
+    );
+    usedDemandSignal = false;
+  }
   if (disc.outcome !== "SUCCEEDED") return { outcome: disc.outcome === "FATAL_ERROR" ? "FATAL_ERROR" : "RETRYABLE_ERROR", stage: "discovery", errorCode: (disc as any).errorCode };
 
   const offerJobId = await makeJob(db, tenantId, productionRunId, "OFFER_ANALYSIS", "engine");
@@ -280,5 +306,6 @@ export async function runVideoMachineOnce(db: SupabaseClient, tenantId: string =
     videoPrompt: (promptRow!.provider_instruction as any).promptText,
     creativeDirection: { archetype: creativeRow!.direction.archetype, hookStrategy: creativeRow!.direction.hookStrategy, narrativeStructure: creativeRow!.direction.narrativeStructure, visualApproach: creativeRow!.direction.visualApproach },
     createdAt: new Date().toISOString(),
+    demandSignal: usedDemandSignal ? hotCategory ?? null : null,
   };
 }
