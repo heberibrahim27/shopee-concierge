@@ -43,10 +43,33 @@ confirmado direto no Supabase. Se algum dia a Awin listar um cupom de
 frete grátis pra Kabum/Nike/Olympikus, ele entra automaticamente — não
 precisa de ação manual.
 
-### 📝 A investigar: mais programas de afiliados com API (pedido do Heber, 2026-09-22)
-"Pesquisar mais modelos de afiliados para cadastro que tenha API
-deixando automatizar" — continuar o mapeamento iniciado com Awin
-(multi-loja) e Windsor (Instagram/Facebook Ads). Ainda não iniciado.
+### 📝 Mais programas de afiliados com API — pesquisa feita, falta o Heber criar a conta (2026-09-22)
+Pedido: "pesquisar mais modelos de afiliados para cadastro que tenha
+API deixando automatizar". Pesquisado ao vivo (WebSearch), resultado:
+
+1. **Lomadee** (recomendado, primeira opção) — rede brasileira,
+   cadastro individual grátis, API real documentada (Offers/Coupons/
+   Reports, `developer.socialsoul.com.vc`, mesmo padrão de app-token
+   que Awin/Shopee). Lojas reais: Americanas, Submarino, Extra, Ponto
+   Frio, Ricardo Eletro, Saraiva, Walmart, Netshoes, Decolar.com.
+   Complementa o Kabum (eletrônicos) com casa/geral/viagem. Nota: Casas
+   Bahia entrou em recuperação judicial em ago/2026, fechou 298 lojas —
+   evitar depender dela especificamente mesmo se aparecer no feed.
+2. **Admitad** (segunda opção) — ~360 marcas, ~250 internacionais
+   (AliExpress, Adidas, Udemy), API real com gerador de deeplink,
+   aceita pessoa física. Principal atrativo é AliExpress (catálogo
+   gigante) — atenção ao prazo de frete longo na hora de divulgar.
+3. **Amazon (PA-API → Creators API)** — descartado por agora. PA-API
+   antiga foi desativada em maio/2026. A substituta (Creators API)
+   exige mínimo 10 vendas de afiliado Amazon qualificadas nos últimos
+   30 dias, contínuo — beco sem saída igual ao CNPJ do Instagram, não
+   dá pra automatizar sem já ter tração manual antes.
+
+**Bloqueio real**: criar conta em rede de afiliado externa (CPF, dados
+bancários pro pagamento) é ação que só o Heber pode fazer — está fora
+do escopo do que a Claude pode executar sozinha. Próximo passo:
+Heber cria a conta de publisher na Lomadee; depois de aprovado, manda
+o `app-token`/`sourceId` pra eu integrar (mesmo padrão do Awin).
 
 ### 📝 Itens resolvidos em sessão anterior (2026-09-21), documentados aqui só agora
 - **Canais de crescimento do grupo do WhatsApp**: resposta automática
