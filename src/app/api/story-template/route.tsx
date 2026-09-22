@@ -70,6 +70,15 @@ const LAYOUT = {
 // não podem sair com selo "ACHADO SHOPEE").
 const SHOPEE_BADGE_MASK = { left: 695, top: 55, width: 335, height: 80 };
 
+// Marquinhas decorativas "⟋⟋" no canto superior direito, acima do selo
+// "ACHADO SHOPEE" — também pixel fixo da moldura. Achado pelo Heber
+// (2026-09-22): "esses 3 tracinhos era efeito do card da shopee em
+// cima, não seria melhor retirar?" — sem o selo ao lado (mascarado
+// acima pra platform != shopee), ficam boiando sem contexto. Cobre
+// generosamente (fundo ali é branco liso, sem risco de "vazar" nada
+// como acontecia na barra de CTA).
+const DECORATIVE_MARKS_MASK = { left: 960, top: 0, width: 120, height: 60 };
+
 // Barra "CORRE PRA SHOPEE" (rodapé do Feed, com ícone da sacola Shopee)
 // também é pixel fixo da moldura — mesmo caso do selo acima. Achado ao
 // vivo pelo Heber num post real de tênis Olympikus (2026-09-21): a
@@ -140,9 +149,11 @@ export async function GET(request: NextRequest) {
           e preço 71,4pt no design do Feed (1122px de largura nativa),
           escalados pra largura do render (1080px) — ver conversa de
           2026-09-16. Story usa a mesma proporção até medir o valor real
-          dele. */}
-      <div style={{ display: "flex", alignItems: "baseline", gap: "14px" }}>
-        <div style={{ display: "flex", fontSize: variant === "story" ? "38px" : "34px", fontWeight: 700, color: BRAND_GREEN_DARK }}>
+          dele.
+          "Por" empilhado ACIMA do preço (não do lado, achado pelo Heber
+          2026-09-22: "esse 'Por' deveria está em cima do 'R$'"). */}
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", fontSize: variant === "story" ? "38px" : "34px", fontWeight: 700, color: BRAND_GREEN_DARK, lineHeight: 1.1 }}>
           Por
         </div>
         <div style={{ display: "flex", fontSize: variant === "story" ? "86px" : "69px", fontWeight: 800, color: BRAND_GREEN_DARK }}>
@@ -199,17 +210,30 @@ export async function GET(request: NextRequest) {
         />
 
         {platform !== "shopee" ? (
-          <div
-            style={{
-              display: "flex",
-              position: "absolute",
-              top: `${SHOPEE_BADGE_MASK.top}px`,
-              left: `${SHOPEE_BADGE_MASK.left}px`,
-              width: `${SHOPEE_BADGE_MASK.width}px`,
-              height: `${SHOPEE_BADGE_MASK.height}px`,
-              background: "#ffffff",
-            }}
-          />
+          <>
+            <div
+              style={{
+                display: "flex",
+                position: "absolute",
+                top: `${SHOPEE_BADGE_MASK.top}px`,
+                left: `${SHOPEE_BADGE_MASK.left}px`,
+                width: `${SHOPEE_BADGE_MASK.width}px`,
+                height: `${SHOPEE_BADGE_MASK.height}px`,
+                background: "#ffffff",
+              }}
+            />
+            <div
+              style={{
+                display: "flex",
+                position: "absolute",
+                top: `${DECORATIVE_MARKS_MASK.top}px`,
+                left: `${DECORATIVE_MARKS_MASK.left}px`,
+                width: `${DECORATIVE_MARKS_MASK.width}px`,
+                height: `${DECORATIVE_MARKS_MASK.height}px`,
+                background: "#ffffff",
+              }}
+            />
+          </>
         ) : null}
 
         {platform !== "shopee" && variant === "feed" ? (
