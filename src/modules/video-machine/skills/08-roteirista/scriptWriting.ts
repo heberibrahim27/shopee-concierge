@@ -235,8 +235,13 @@ export async function writeScript(db: SupabaseClient, input: ScriptWritingInput,
               `EXATAMENTE 1 beat, mesmo que ele precise conter tanto o gancho quanto a chamada pra ação — beat.purpose fica fixo no valor permitido, mas as statements dentro dele podem ter kinds diferentes. ` +
               `Nunca invente fatos fora do factCatalog fornecido. ` +
               `Regra crítica sobre referencedFacts: só use proposedKind="FACTUAL_CLAIM" quando a afirmação vier LITERALMENTE de um campo existente em factCatalog.productFacts (chaves válidas: ${JSON.stringify(Object.keys(factCatalog.productFacts))}) ou factCatalog.offerFacts (chaves válidas: ${JSON.stringify(Object.keys(factCatalog.offerFacts))}). Cada referencedFacts precisa ser {"type":"PRODUCT_FACT","fieldPath":"<chave exata de productFacts>"} ou {"type":"OFFER_FACT","fieldPath":"<chave exata de offerFacts>"} — nunca invente um fieldPath que não esteja nessas listas. Se a frase não puder ser sustentada por um campo exato, use proposedKind="CREATIVE_EXPRESSION" (sem referencedFacts) em vez de arriscar um FACTUAL_CLAIM inválido. ` +
-              (policy.require_cta && creativeConstraints.ctaIntent?.mechanism === "COMMENT_KEYWORD"
+              (policy.require_cta && creativeConstraints.ctaIntent?.mechanism === "COMMENT_KEYWORD" && creativeConstraints.ctaIntent?.followPhrase
+                ? `OBRIGATÓRIO, SEM EXCEÇÃO: "onScreenText" precisa ter proposedKind="CTA" e o campo "text" precisa conter DUAS coisas ao mesmo tempo, na mesma frase: (1) literalmente a palavra "${creativeConstraints.ctaIntent.keyword}" e (2) uma palavra que comece com "${creativeConstraints.ctaIntent.followPhrase}" (ex.: "segue", "seguir", "seguindo") convidando a pessoa a seguir a conta. NÃO é permitido usar só a palavra-chave sem o convite de seguir — a resposta é rejeitada automaticamente se faltar qualquer uma das duas. COPIE este molde e adapte só a parte do produto: "Comenta ${creativeConstraints.ctaIntent.keyword} que eu te mando o link, e já segue aqui que amanhã tem mais achado desses!". "spokenText" fica livre pra ser o gancho/pitch (proposedKind="CREATIVE_EXPRESSION" ou "FACTUAL_CLAIM"). `
+                : policy.require_cta && creativeConstraints.ctaIntent?.mechanism === "COMMENT_KEYWORD"
                 ? `OBRIGATÓRIO: "onScreenText" precisa ter proposedKind="CTA" e o campo "text" precisa conter literalmente a palavra "${creativeConstraints.ctaIntent.keyword}" (ex.: "Comenta ${creativeConstraints.ctaIntent.keyword} que eu te mando o link!") — sem isso a resposta é rejeitada. "spokenText" fica livre pra ser o gancho/pitch (proposedKind="CREATIVE_EXPRESSION" ou "FACTUAL_CLAIM"). `
+                : "") +
+              (policy.require_cta && creativeConstraints.ctaIntent?.followPhrase
+                ? `LEMBRETE FINAL, o mais importante desta mensagem: a resposta SÓ é aceita se o texto do CTA contiver uma palavra começando com "${creativeConstraints.ctaIntent.followPhrase}" convidando a seguir a conta. Releia seu "onScreenText" antes de responder e confirme que essa palavra está lá. `
                 : ""),
           },
           { role: "user", content: JSON.stringify({ creativeConstraints, factCatalog, requireHook: policy.require_hook, requireCta: policy.require_cta }) },
@@ -337,6 +342,7 @@ function validateProposal(
   const materializedBeats: any[] = [];
   const ctaIntent = creativeConstraints.ctaIntent;
   let hasCtaStatementWithKeyword = false;
+  let hasFollowCtaMention = false;
   let hasHookBeat = false;
   let hasCtaBeat = false;
 
@@ -396,6 +402,15 @@ function validateProposal(
       return { valid: false, errorCode: e.errorCode ?? "SCRIPT_PROVIDER_INVALID_OUTPUT" };
     }
 
+    // "Não basta vender" (pedido do Heber 2026-09-22): quando a policy
+    // exige menção de seguir, ela pode aparecer em qualquer statement
+    // do beat (CTA ou não — ex. embutida no spokenText do gancho),
+    // então checa o texto bruto combinado, não só statements kind=CTA.
+    if (ctaIntent?.followPhraseNormalized) {
+      const combined = normalizeKeyword(`${rawBeat.spokenText?.text ?? ""} ${rawBeat.onScreenText?.text ?? ""}`);
+      if (combined.includes(ctaIntent.followPhraseNormalized)) hasFollowCtaMention = true;
+    }
+
     if (!rawBeat.visualIntent?.text) return { valid: false, errorCode: "SCRIPT_PROVIDER_INVALID_OUTPUT" };
     const visualRefs = Array.isArray(rawBeat.visualIntent.referencedFacts) ? rawBeat.visualIntent.referencedFacts : [];
     if (visualRefs.some((r: any) => r.type === "TREND_EVIDENCE")) return { valid: false, errorCode: "SCRIPT_TREND_EVIDENCE_NOT_ALLOWED_BY_DIRECTION" };
@@ -418,6 +433,7 @@ function validateProposal(
 
   if (policyLimits.requireHook && !hasHookBeat) return { valid: false, errorCode: "SCRIPT_PROVIDER_INVALID_OUTPUT" };
   if (policyLimits.requireCta && !hasCtaStatementWithKeyword) return { valid: false, errorCode: "SCRIPT_PROVIDER_INVALID_OUTPUT" };
+  if (policyLimits.requireCta && ctaIntent?.followPhraseNormalized && !hasFollowCtaMention) return { valid: false, errorCode: "SCRIPT_CTA_MISSING_FOLLOW_MENTION" };
   if (ctaIntent?.mechanism && ctaIntent.mechanism !== "NONE" && policyLimits.requireCta && !hasCtaBeat && !materializedBeats.some((b) => b.spokenText?.kind === "CTA" || b.onScreenText?.kind === "CTA")) {
     return { valid: false, errorCode: "SCRIPT_PROVIDER_INVALID_OUTPUT" };
   }

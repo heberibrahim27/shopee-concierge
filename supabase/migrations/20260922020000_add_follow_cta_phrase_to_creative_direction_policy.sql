@@ -1,0 +1,3 @@
+alter table video_machine_creative_direction_policy add column follow_cta_phrase text;
+comment on column video_machine_creative_direction_policy.follow_cta_phrase is 'Quando preenchido, Skill08 (roteirista) exige que a chamada pra acao do video tambem convide a pessoa a seguir a conta, alem do mecanismo de venda normal (comment_keyword/direct_link). Pedido do Heber 2026-09-22: a maquina precisa ter o poder de chamar pra seguir, nao so vender.';
+update video_machine_creative_direction_policy set follow_cta_phrase = 'segu' where policy_key = 'engine-default' and tenant_id = 'descontos-chegando';

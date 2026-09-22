@@ -4,6 +4,17 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-22 — Máquina de Vídeos: CTA agora vende E chama pra seguir
+
+Nova policy field `follow_cta_phrase` (Skill07/Skill08) exige que o
+CTA do roteiro contenha, na mesma frase, o mecanismo de venda
+(`COMMENT_KEYWORD`="QUERO") e um convite de seguir ("segue"/"seguir").
+Prompt precisou de ajuste real (molde único + lembrete final) depois
+que a primeira versão foi ignorada 2x pelo gpt-4o-mini — validação
+(`SCRIPT_CTA_MISSING_FOLLOW_MENTION`) pegou o erro corretamente nas
+duas vezes. Testado ao vivo: `"Comenta QUERO que eu te mando o link, e
+já segue aqui que amanhã tem mais achado desses!"`.
+
 ## 2026-09-22 — Cupons reais da Awin, ingestão automatizada (fim do processo manual)
 
 Investigação real (Shopee GraphQL schema + todo o dashboard de

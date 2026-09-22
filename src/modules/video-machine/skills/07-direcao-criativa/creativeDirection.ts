@@ -145,6 +145,7 @@ export async function decideCreativeDirection(
     allowedVisualApproaches,
     allowedCtaMechanisms,
     commentKeyword: policy.comment_keyword ?? null,
+    followCtaPhrase: policy.follow_cta_phrase ?? null,
     defaultLocale: policy.default_locale,
   })}`;
 
@@ -282,6 +283,19 @@ export async function decideCreativeDirection(
     ctaIntent = { mechanism: "DIRECT_LINK", purpose: "AFFILIATE_LINK_VISIT" };
   } else {
     ctaIntent = { mechanism: "NONE" };
+  }
+
+  // Pedido do Heber (2026-09-22): "a maquina de videos tem que ter o
+  // poder de chamar para seguir tbm, não basta vender" — camada
+  // adicional sobre qualquer mecanismo de venda (não substitui
+  // COMMENT_KEYWORD/DIRECT_LINK, soma a eles). Só se aplica quando já
+  // existe CTA de venda (mechanism !== "NONE"); sem CTA nenhum, não há
+  // onde encaixar o convite de seguir.
+  if (ctaMechanism !== "NONE" && policy.follow_cta_phrase && policy.follow_cta_phrase.trim() !== "") {
+    const followPhrase = policy.follow_cta_phrase.trim();
+    ctaIntent.followPhrase = followPhrase;
+    ctaIntent.followPhraseNormalized = normalizeKeyword(followPhrase);
+    decisions.push({ decisionKey: "CTA_FOLLOW_PHRASE", value: followPhrase, basis: [{ type: "CREATIVE_POLICY", policyId: policy.policy_id, policyVersion: policy.policy_version, fieldPath: "followCtaPhrase" }] });
   }
 
   const creativeCtaIntentHash = canonicalHash("CREATIVE_CTA_INTENT_V1", ctaIntent);

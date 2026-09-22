@@ -8,6 +8,41 @@
 
 ## Pendências ativas
 
+### ✅ Máquina de Vídeos agora exige CTA de seguir, não só de venda (2026-09-22)
+Pedido do Heber: "a maquina de videos tem que ter o poder de chamar para
+seguir tbm, não basta vender" (ele gera os vídeos manualmente hoje —
+Skill11/provedor pago não é o gargalo aqui, o roteiro que faltava a
+chamada pra seguir).
+
+Adicionado `follow_cta_phrase` na policy de direção criativa
+(`video_machine_creative_direction_policy`, migration
+`20260922020000`) — quando preenchida ("segu", cobre segue/seguir/
+seguindo), o roteirista (Skill08) passa a EXIGIR que a mesma frase do
+CTA convide a seguir a conta, além do mecanismo de venda normal
+(hoje `COMMENT_KEYWORD` = "QUERO"). Não é um mecanismo novo que
+substitui o de venda — soma aos dois na mesma statement.
+
+**Achado real ao testar**: a primeira versão do prompt (duas
+instruções separadas, dois exemplos parecidos) fez o gpt-4o-mini
+ignorar a exigência de seguir 2x seguidas e copiar literalmente o
+exemplo antigo ("Comenta QUERO que eu te mando o link!", sem o convite
+de seguir) — a validação nova (`SCRIPT_CTA_MISSING_FOLLOW_MENTION`)
+bloqueou corretamente as duas, provando que o modelo realmente ignorou
+a regra, não que a validação estava com bug. Corrigido fundindo as
+duas instruções num molde único pra copiar + um lembrete final
+repetindo a exigência (recência ajuda modelos pequenos) — terceira
+tentativa validou de primeira: `"Comenta QUERO que eu te mando o link,
+e já segue aqui que amanhã tem mais achado desses!"`. Testado ao vivo
+end-to-end no botão "Iniciar Máquina de Vídeos" do admin.
+
+Contexto: essa mudança é o "Motor 1" debatido com o ChatGPT sobre
+crescimento de seguidores (ver entrada anterior) — trocar o CTA de só
+"compra aqui" pra também dar um motivo de seguir. O Radar DC (Motor 4,
+canal de transmissão do Instagram) foi descartado no mesmo debate por
+depender de postagem 100% manual (API do Instagram não tem esse
+recurso) — o Heber decidiu não construir nada que dependa de toque
+manual recorrente.
+
 ### ✅ Cupons reais via Awin — ingestão automatizada, sem cupom de frete grátis disponível hoje (2026-09-22)
 Pedido do Heber: "foca no cupom de frete grátis" (via Shopee, se
 existir). Investigação real, ao vivo, em duas frentes:
