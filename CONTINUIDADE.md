@@ -8,6 +8,25 @@
 
 ## Pendências ativas
 
+### ✅ Prompt de vídeo parou de pedir texto na tela pro Flow (2026-09-22)
+Heber: "hoje ele manda colocar o texto para pedir o link, mas isso tá
+gerando muito bug no FLOW onde estou gerando manualmente". A Skill10
+(gerador de prompt de vídeo) tinha uma seção "TEXTO NA TELA" mandando
+a IA de vídeo renderizar literalmente a frase de CTA do roteiro —
+IAs de geração de vídeo são conhecidas por travar/gerar glitch quando
+pedem texto preciso na tela.
+
+Achado real: a policy (`video_machine_video_prompt_policy`) já tinha
+um valor `provider_generated_text_policy = 'FORBID'` suportado pelo
+código (SPEC.md), só a policy ativa (`engine-default`) estava em
+`ALLOW_EXACT_SCRIPT_TEXT`. Troquei pra `FORBID` — mudança de dado, sem
+tocar em código. Testado ao vivo: novo prompt gerado sem nenhuma
+seção de texto (nem "TEXTO NA TELA" nem "FALA" — os dois são
+controlados pelo mesmo campo na SPEC, mas "FALA" não fazia diferença
+real já que o áudio gerado já estava desativado). O roteiro (pra
+legenda/comentário) continua gerando normal, só parou de pedir pra a
+IA desenhar o texto dentro do vídeo em si.
+
 ### 📌 Decisão: Feed do Instagram continua com todas as lojas (2026-09-22)
 Heber levantou a dúvida: já que só produto da Shopee dá pra marcar
 (etiqueta de compra, catálogo oficial da Meta), valeria restringir o
