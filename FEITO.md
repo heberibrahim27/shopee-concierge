@@ -4,6 +4,26 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-22 — Mercado Livre: ingestão real via scraping, 18/18 produtos do Heber
+
+Confirmado de novo (sem auth, 403) que a API oficial da Mercado Livre
+não expõe preço de produto de terceiro em nenhum endpoint — mesma
+conclusão do teste com OAuth real de 2026-09-15. Único caminho real:
+os links curtos de afiliado (`meli.la`) do canal do Heber levam a uma
+"página de recomendação" com o produto em destaque embutido no HTML
+(`og:title`/`og:image` + bloco de estado JS da própria Mercado Livre).
+Bloco de preço do destaque identificado pelo marcador `"column":1`
+logo após título+vendedor.
+
+`src/lib/mercadolivre/scrape.ts` + `ingest.ts` + rota admin
+`/api/admin/ingest-mercadolivre` (recebe lista de links — sem API/feed
+pra descoberta automática, então vira ingestão sob demanda, não cron).
+`offer_link` = o próprio link curto do Heber (já rastreado).
+
+Testado ao vivo com os 18 links reais: **18/18 sucesso, zero falha**
+(preço/desconto/foto reais confirmados no banco). Score fixo 68,5,
+mesmo nível do Awin.
+
 ## 2026-09-22 — Grupo WhatsApp para de mandar só Shopee, reserva vaga pra Nike/Olympikus/Kabum
 
 Heber pediu pra verificar se o bot só mandava Shopee. Confirmado com

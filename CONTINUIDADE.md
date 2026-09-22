@@ -8,6 +8,40 @@
 
 ## Pendências ativas
 
+### ✅ Mercado Livre: ingestão real via scraping (2026-09-22)
+Heber mandou 18 links de afiliado (`meli.la/...`) e pediu pra "montar
+essa ingestão via scraping mesmo assim", depois de eu confirmar de
+novo que a API oficial não tem preço de produto de terceiro em nenhum
+endpoint, mesmo autenticado (já tinha sido testado com OAuth real em
+2026-09-15, ver FEITO.md — reconfirmado agora sem auth, 403).
+
+Achado real sobre os links: não são link de produto direto — são
+"páginas de recomendação" do canal de afiliado do Heber
+(`recommendations-landings-fe`, framework próprio da Mercado Livre),
+cada uma destacando 1 produto principal com nome/preço/foto embutidos
+no HTML renderizado (`og:title`/`og:image` + um bloco de estado JS
+`_n.ctx.r={...}`). O bloco de preço do produto em destaque é
+identificável pelo marcador `"column":1` logo após título+vendedor —
+confirmado comparando 2 ocorrências do mesmo produto na mesma página.
+
+Construído: `src/lib/mercadolivre/scrape.ts` (extrai título/foto/preço
+via regex localizado, nunca faz parse do blob inteiro como JSON — não
+é JSON válido) + `src/lib/mercadolivre/ingest.ts` (mesmo padrão de
+Awin/Lomadee) + rota admin `/api/admin/ingest-mercadolivre` (recebe
+lista de links, já que não tem API/feed pra descoberta automática —
+o Heber cola links quando tiver, não roda como cron). `offer_link`
+salvo é o próprio link curto do Heber (já carrega o rastreamento dele).
+
+**Testado ao vivo com os 18 links reais do Heber: 18/18 sucesso, zero
+falha** — preço, desconto, foto e link todos reais (ex.: "Tênis Kappa
+Pulse Rx" R$135,99, 53% off; "Conjunto Panelas Antiaderente 10 Peças"
+R$199,90, 33% off). Score fixo 68,5, mesmo nível do Awin, sem boost.
+
+**De brinde**: a senha do `/admin` estava irrecuperável (tipo
+"sensitive" no Vercel, nem o dono consegue ver de novo depois de
+salva) — resetada com confirmação do Heber, nova senha salva em
+produção e no `.env` local.
+
 ### ✅ Grupo WhatsApp reserva vaga rotativa pra Nike/Olympikus/Kabum (2026-09-22)
 Heber: "temos que fazer verifique para mim se o bot do WhatsApp está
 mandando só produtos da Shopee ou da Nike, Olympus, a Alwin e outras
