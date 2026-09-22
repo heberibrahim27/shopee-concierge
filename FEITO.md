@@ -4,6 +4,15 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-22 — Concierge grava sinal de demanda real (growth_signal)
+
+Nova tabela `concierge_growth_signal`: toda busca do WhatsApp que acha
+candidato grava produto/preço/categoria, anonimizado (hash do chatId).
+Fire-and-forget, nunca afeta a resposta real. Testado ao vivo rodando
+`handleIncomingMessage` de verdade contra um script descartável —
+sinal apareceu no Supabase. Base pro "Opportunity Scorer" que ainda
+falta (próxima sessão) pra isso virar pauta de vídeo de verdade.
+
 ## 2026-09-22 — Máquina de Vídeos: CTA agora vende E chama pra seguir
 
 Nova policy field `follow_cta_phrase` (Skill07/Skill08) exige que o

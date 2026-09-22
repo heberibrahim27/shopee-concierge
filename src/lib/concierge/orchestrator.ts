@@ -44,6 +44,7 @@ import {
 import { decideEscalation } from "./confidenceRouter";
 import { consultExpertVision, ExpertVerdict } from "./expertVision";
 import { CONCIERGE_CONFIG } from "./config";
+import { recordGrowthSignal } from "./growthSignal";
 
 export interface OrchestratorResult {
   chatId: string;
@@ -694,6 +695,15 @@ async function searchAndReply(params: {
   }
 
   const replyParts = await buildReplyMessage({ candidates, chatId });
+
+  if (candidates.length > 0) {
+    recordGrowthSignal({
+      chatId,
+      categorySlug: observation.categoria,
+      searchTerms: terms,
+      topCandidate: candidates[0],
+    }).catch((err) => console.error("[concierge][growth-signal] falha ao gravar (não afeta a resposta):", err));
+  }
 
   console.log(
     "[concierge][observability]",

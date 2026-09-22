@@ -8,6 +8,31 @@
 
 ## Pendências ativas
 
+### ✅ Concierge vira sensor de demanda (Motor 4, primeira metade) (2026-09-22)
+Pedido do Heber: focar em crescimento de seguidores. Primeira peça
+automatizável de ponta a ponta do "Motor 4" debatido com o ChatGPT —
+sem toque manual nenhum (diferente do Radar DC/Shopee Video, que
+foram descartados por depender de postagem manual).
+
+Nova tabela `concierge_growth_signal` (migration `20260922030000`) +
+`src/lib/concierge/growthSignal.ts` — toda busca do Concierge que acha
+um candidato real grava 1 linha (item_id, nome, preço, categoria,
+termos de busca), anonimizada por padrão (`chat_id_hash` = sha256 do
+chatId, nunca o telefone cru). Gravação é fire-and-forget
+(`.catch()`), nunca trava nem quebra a resposta real ao cliente.
+Testado ao vivo (script descartável rodando `handleIncomingMessage`
+de verdade): sinal real gravado no Supabase, linha de teste removida
+depois.
+
+**Falta pra fechar o Motor 4** (próximo passo, ainda não feito): um
+"Opportunity Scorer" que agrega esses sinais (ex.: "7 pessoas
+procuraram X em 48h") e um jeito de isso influenciar a seleção de
+produto da Máquina de Vídeos (`discoverProducts`, Skill04) — hoje ela
+só usa `score_breakdown` (queda histórica, nota, vendas, comissão).
+Integrar como novo peso no `ranking_weights` da policy é mudança maior
+(mexe no hash de determinismo do kernel), decidido deixar pra uma
+sessão própria em vez de apressar.
+
 ### ✅ Máquina de Vídeos agora exige CTA de seguir, não só de venda (2026-09-22)
 Pedido do Heber: "a maquina de videos tem que ter o poder de chamar para
 seguir tbm, não basta vender" (ele gera os vídeos manualmente hoje —
