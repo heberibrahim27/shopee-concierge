@@ -4,6 +4,20 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-22 — Categoria "brinquedos" nunca era salva + filtro manual de categoria no admin
+
+Heber: "eu preciso de brinquedos para fazer reels e só me vem
+umidificador de ar, formas, brinquedos de luz...". Achado: produtos
+vindos da busca diária da Shopee (`persistOfferSnapshot`) nunca
+salvavam `category_slug` — 296 produtos NULL, 81 deles brinquedo real
+(pelúcia, boneca, squishy, blocos de montar), nunca usados, score
+77-86. "brinquedos" também faltava no classificador `guessCategorySlug`.
+
+Corrigido: `persistOfferSnapshot` preenche categoria quando vazia
+(nunca sobrescreve); backfill rodado nos 296 produtos; botão do admin
+ganhou seletor de categoria (reusa `allowedCategorySlugs` do
+Opportunity Scorer como escolha manual).
+
 ## 2026-09-22 — Concierge WhatsApp mudo: webhook sem token, corrigido e confirmado
 
 Heber: "não reconheceu, ficou mandando que não achou um elegível" e,

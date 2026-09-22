@@ -8,6 +8,31 @@
 
 ## Pendências ativas
 
+### ✅ Categoria "brinquedos" nunca era salva + filtro manual de categoria no admin (2026-09-22)
+Heber: "eu preciso de brinquedos para fazer reels e só me vem
+umidificador de ar, formas, brinquedos de luz que pode alucinar o
+Veo...". Achado real: os produtos vindos da busca diária da Shopee
+(`persistOfferSnapshot`, usado por `source-deals`) **nunca salvavam
+`category_slug` nenhum** — 296 produtos ficaram com categoria NULL
+pra sempre. 81 deles eram brinquedo de verdade (pelúcia, boneca,
+squishy, blocos de montar, quebra-cabeça — score 77-86, nunca
+usados). Não faltava brinquedo no banco, faltava categoria pra
+filtrar por ele. "brinquedos" também faltava inteiro no classificador
+`guessCategorySlug` (compartilhado com o Opportunity Scorer).
+
+Corrigido: `persistOfferSnapshot` agora preenche `category_slug`
+quando está vazio (nunca sobrescreve categoria já definida por outra
+fonte); rodado backfill nos 296 produtos existentes; botão "Iniciar
+Máquina de Vídeos" do `/admin` ganhou seletor de categoria (reusa o
+mesmo `allowedCategorySlugs` já existente do Opportunity Scorer, como
+escolha manual em vez de sinal automático de demanda).
+
+**Não resolvido ainda, fica pro Heber decidir manualmente por
+enquanto**: o pedido de excluir brinquedos "de luz" (LED, projetor)
+por risco de alucinação no Veo/Flow — não dá pra filtrar isso de
+forma confiável só por palavra-chave sem gerar falso positivo. Ele
+mesmo pode pular esses ao escolher da lista de candidatos.
+
 ### ✅ Concierge WhatsApp estava mudo — webhook sem token, corrigido e confirmado (2026-09-22)
 Heber: "não reconheceu, ficou mandando que não achou um elegível" (teste
 antigo) e depois, ao vivo: "mandei agora uma foto pra ele de creatina,
