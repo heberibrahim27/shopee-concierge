@@ -37,6 +37,41 @@ type Candidate = {
   offerLink: string;
 };
 
+// Quantos posts seguidos de Shopee (sem intercalar outra loja) disparam
+// a reserva de vaga — achado real (2026-09-22, pergunta do Heber): o
+// score da Shopee (média 92, até 999 pra Farmácia Uruguai) sempre
+// vence o teto do Nike/Olympikus/Kabum (85), então sem essa reserva
+// eles nunca apareciam de verdade no grupo, mesmo sem filtro nenhum
+// de plataforma na query.
+const NON_SHOPEE_ROTATION_STREAK = 4;
+
+function candidateFromRow(row: any): Candidate | null {
+  const snap = row.offer_snapshots;
+  if (!snap?.image_url || !snap?.offer_link || snap.price_min == null) return null;
+  return {
+    dealCandidateId: row.id,
+    productName: row.products?.product_name ?? "Oferta imperdível",
+    platform: row.products?.platform ?? "shopee",
+    imageUrl: snap.image_url,
+    priceMin: Number(snap.price_min),
+    priceDiscountRate: Number(snap.price_discount_rate ?? 0),
+    offerLink: snap.offer_link,
+  };
+}
+
+async function rankedCandidateRows(db: ReturnType<typeof getDbFresh>, postedProductIds: string[]): Promise<any[]> {
+  let query = db
+    .from("deal_candidates")
+    .select(
+      "id, score, product_id, products(product_name, platform), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
+    );
+  if (postedProductIds.length > 0) {
+    query = query.not("product_id", "in", `(${postedProductIds.join(",")})`);
+  }
+  const { data, error } = await query.order("score", { ascending: false, nullsFirst: false }).limit(50);
+  return error || !data ? [] : (data as any[]);
+}
+
 async function pickNextCandidate(db: ReturnType<typeof getDbFresh>): Promise<Candidate | null> {
   const { data: alreadyPosted } = await db
     .from("social_posts")
@@ -50,30 +85,28 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>): Promise<Can
     ),
   ];
 
-  let query = db
-    .from("deal_candidates")
-    .select(
-      "id, score, product_id, products(product_name, platform), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
-    );
-  if (postedProductIds.length > 0) {
-    query = query.not("product_id", "in", `(${postedProductIds.join(",")})`);
+  const { data: recent } = await db
+    .from("social_posts")
+    .select("deal_candidates(products(platform))")
+    .eq("post_type", "whatsapp")
+    .order("posted_at", { ascending: false })
+    .limit(NON_SHOPEE_ROTATION_STREAK);
+  const recentPlatforms = (recent ?? []).map((r: any) => r.deal_candidates?.products?.platform);
+  const forceNonShopee = recentPlatforms.length === NON_SHOPEE_ROTATION_STREAK && recentPlatforms.every((p) => p === "shopee");
+
+  const rows = await rankedCandidateRows(db, postedProductIds);
+
+  if (forceNonShopee) {
+    const reserved = rows.find((row) => row.products?.platform && row.products.platform !== "shopee" && candidateFromRow(row));
+    if (reserved) return candidateFromRow(reserved);
+    // Reserva não achou nada elegível fora da Shopee (pool vazio/sem
+    // candidato válido) — cai pro ranking normal em vez de travar o
+    // post daquela execução.
   }
-  const { data, error } = await query.order("score", { ascending: false, nullsFirst: false }).limit(50);
 
-  if (error || !data) return null;
-
-  for (const row of data as any[]) {
-    const snap = row.offer_snapshots;
-    if (!snap?.image_url || !snap?.offer_link || snap.price_min == null) continue;
-    return {
-      dealCandidateId: row.id,
-      productName: row.products?.product_name ?? "Oferta imperdível",
-      platform: row.products?.platform ?? "shopee",
-      imageUrl: snap.image_url,
-      priceMin: Number(snap.price_min),
-      priceDiscountRate: Number(snap.price_discount_rate ?? 0),
-      offerLink: snap.offer_link,
-    };
+  for (const row of rows) {
+    const candidate = candidateFromRow(row);
+    if (candidate) return candidate;
   }
   return null;
 }
