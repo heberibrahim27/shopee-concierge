@@ -77,7 +77,7 @@ const SHOPEE_BADGE_MASK = { left: 695, top: 55, width: 335, height: 80 };
 // acima pra platform != shopee), ficam boiando sem contexto. Cobre
 // generosamente (fundo ali é branco liso, sem risco de "vazar" nada
 // como acontecia na barra de CTA).
-const DECORATIVE_MARKS_MASK = { left: 960, top: 0, width: 120, height: 60 };
+const DECORATIVE_MARKS_MASK = { left: 900, top: 0, width: 180, height: 160 };
 
 // Barra "CORRE PRA SHOPEE" (rodapé do Feed, com ícone da sacola Shopee)
 // também é pixel fixo da moldura — mesmo caso do selo acima. Achado ao
