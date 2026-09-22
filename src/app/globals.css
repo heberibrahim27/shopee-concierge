@@ -768,6 +768,19 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   height: auto;
 }
 
+.dc-footer-group-cta {
+  display: block;
+  margin-top: 10px;
+  padding: 14px 16px;
+  border-radius: var(--dc-radius);
+  background: #25d366;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  text-align: center;
+  text-decoration: none;
+}
+
 .dc-footer {
   padding: 26px 16px 44px;
   text-align: center;

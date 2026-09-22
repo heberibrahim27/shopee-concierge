@@ -1,4 +1,4 @@
-import { buildWhatsAppLink } from "./constants";
+import { buildWhatsAppLink, WHATSAPP_GROUP_LINK } from "./constants";
 
 export function Footer() {
   return (
@@ -11,6 +11,9 @@ export function Footer() {
           rel="noopener noreferrer"
         >
           <img src="/BANNER-RODAPÉ.png" alt="Não encontrou o que procurava? Manda uma foto no WhatsApp que a gente procura pra você." />
+        </a>
+        <a href={WHATSAPP_GROUP_LINK} target="_blank" rel="noopener noreferrer" className="dc-footer-group-cta">
+          📲 Entre no grupo do WhatsApp e receba as ofertas em primeira mão
         </a>
       </div>
       <footer className="dc-footer">
