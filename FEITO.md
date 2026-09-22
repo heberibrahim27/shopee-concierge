@@ -24,6 +24,17 @@ que a primeira versão foi ignorada 2x pelo gpt-4o-mini — validação
 duas vezes. Testado ao vivo: `"Comenta QUERO que eu te mando o link, e
 já segue aqui que amanhã tem mais achado desses!"`.
 
+## 2026-09-22 — Cron de ingestão da Lomadee (cupons + produtos) no ar
+
+`/api/cron/source-lomadee` — cupons/ofertas via campaigns (link já
+pronto) + produtos via API própria (link exige chamada separada no
+shortener, lote de 20/execução por causa do rate limit). Achados reais
+testando: `option.available` não existe nos dados de verdade (doc
+errada), `pricing[].price` já vem em reais não centavos (doc errada),
+nome de marca precisa de chamada própria em `GET /affiliate/brands/{id}`.
+Testado ao vivo: 15 cupons + 19 produtos publicados, zero falha, dados
+mantidos no ar (reais, não teste).
+
 ## 2026-09-22 — Cupons reais da Awin, ingestão automatizada (fim do processo manual)
 
 Investigação real (Shopee GraphQL schema + todo o dashboard de

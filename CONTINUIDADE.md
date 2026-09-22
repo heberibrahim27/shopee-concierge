@@ -103,6 +103,46 @@ confirmado direto no Supabase. Se algum dia a Awin listar um cupom de
 frete grátis pra Kabum/Nike/Olympikus, ele entra automaticamente — não
 precisa de ação manual.
 
+### ✅ Lomadee — cron de ingestão de cupons e produtos no ar (2026-09-22)
+Novo `/api/cron/source-lomadee` (`vercel.json`, 11:28 UTC diário) —
+duas fontes na mesma execução:
+
+1. **Cupons/ofertas** (`GET /affiliate/campaigns`, tipos GenericCoupon/
+   PersonalCoupon/Offer, status onTime) — já vem com link de afiliado
+   pronto em `channels[].shortUrls`, grava na mesma tabela `coupons`
+   que a Awin usa (`lomadee_campaign_id` como chave, UUID — `promotion_id`
+   é bigint só da Awin, precisou virar nullable + coluna nova).
+2. **Produtos** (`GET /affiliate/products`) — SEM link pronto; cada
+   produto publicado exige 1 chamada própria em `POST /affiliate/shortener/url`
+   (`type:"Custom"`), por isso o lote é pequeno (20/execução, rate limit
+   real é 60 req/60s). Reaproveita a mesma tabela `products`/
+   `offer_snapshots` que Shopee/Awin usam (`shopee_item_id` prefixado
+   `LOMADEE-`, mesmo padrão do prefixo `AWIN-`).
+
+**Dois desvios reais da documentação, achados testando ao vivo (não
+teoria)**: `option.available` não existe nos dados reais (sempre
+`undefined` — filtrar por ele zerava o catálogo inteiro, corrigido pra
+não depender desse campo); `pricing[].price` já vem em **reais**, não
+em centavos como a doc descreve (confirmado com um produto real de
+R$143,42 que a doc faria virar R$1,43).
+
+**advertiser_name/platform corretos**: campaigns/products só trazem
+`organizationId` (UUID) — o nome/slug real da marca exige uma chamada
+própria em `GET /affiliate/brands/{id}` (cache em memória por execução
+pra não repetir por marca). Confirmado ao vivo: badges reais (UVLine,
+Little Duck, Iodice, Morena Rosa...).
+
+**Achado curioso, não é bug**: uma das "marcas" da Lomadee tem
+`platform: "shopee"` — a Lomadee também agrega o catálogo da própria
+Shopee como parceiro (produtos, imagens e links `cf.shopee.com.br`
+reais). É um canal de afiliação separado do nosso acesso direto à API
+da Shopee, não duplicidade de infra — só não confundir na hora de ler
+os dados depois.
+
+Testado ao vivo, dados reais mantidos no ar (mesmo padrão do primeiro
+teste da Awin/Kabum): **15 cupons + 19 produtos** publicados, zero
+falha.
+
 ### ✅ Lomadee — canal verificado e chave de API real funcionando (2026-09-22)
 Canal de divulgação `descontochegando.com.br` criado no painel
 (app.lomadee.com.br/channels, id `fc89b7ba-30c3-4ff4-ad37-5ebfea125368`)
