@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import OpenAI from "openai";
 import { getDbFresh } from "../../../../lib/db/client";
 import { createZApiConnector } from "../../../../lib/channel/zapi";
 import { getPlatformInfo } from "../../../../lib/site/platforms";
@@ -77,10 +78,8 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>): Promise<Can
   return null;
 }
 
-// Abertura casual, variando por mensagem — pedido do Heber (2026-09-21):
-// "poderia ter algum texto pra não parecer IA, parecer alguém
-// realmente mandando". Mesmo padrão de rotação já usado no comentário
-// de "siga a página" do Instagram (publish-product/route.ts).
+// Fallback fixo — só usado se a IA falhar ou a chave não estiver
+// configurada (nunca pode travar o post por causa disso).
 const CASUAL_OPENERS = [
   "Genteee, olha o que achei agora 👀",
   "Passando rapidinho pra deixar essa aqui 🙌",
@@ -89,7 +88,41 @@ const CASUAL_OPENERS = [
   "Oi pessoal! Esse aqui é bom demais:",
 ];
 
-function buildMessage(candidate: Candidate, inviteLink: string): string {
+// Heber (2026-09-22): "não tem umas frases pensada para cada produto
+// não? Sempre a mesma coisa engessada?" — o pool fixo de 5 frases
+// genéricas se repetia pra QUALQUER produto (vitamina, eletrônico,
+// roupa, tudo com a mesma abertura). Trocado por geração real via IA,
+// uma frase pensada pro produto específico a cada post — cai no
+// fallback fixo só se a chamada falhar.
+async function generateOpener(productName: string): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  const fallback = () => CASUAL_OPENERS[Math.floor(Math.random() * CASUAL_OPENERS.length)];
+  if (!apiKey) return fallback();
+
+  try {
+    const client = new OpenAI({ apiKey });
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 1,
+      max_tokens: 40,
+      messages: [
+        {
+          role: "system",
+          content:
+            "Você escreve só a frase de abertura de uma mensagem de WhatsApp avisando um grupo sobre uma promoção. Precisa soar como uma pessoa real mandando pros amigos, nunca como IA, robô ou anúncio formal. Curta (até 12 palavras), casual, no máximo 1 emoji. Varie o tom de acordo com o tipo de produto (vitamina/suplemento soa diferente de eletrônico, que soa diferente de roupa/acessório). Responda só a frase pronta, sem aspas, sem explicação.",
+        },
+        { role: "user", content: `Produto: ${productName}` },
+      ],
+    });
+    const text = completion.choices[0]?.message?.content?.trim();
+    return text || fallback();
+  } catch (err) {
+    console.error("[publish-whatsapp-group] falha ao gerar abertura via IA, usando fallback fixo:", err);
+    return fallback();
+  }
+}
+
+async function buildMessage(candidate: Candidate, inviteLink: string): Promise<string> {
   const por = candidate.priceMin.toFixed(2).replace(".", ",");
   let priceLine = `Por apenas *R$ ${por}* 🔥`;
   if (candidate.priceDiscountRate > 0) {
@@ -100,7 +133,7 @@ function buildMessage(candidate: Candidate, inviteLink: string): string {
     }
   }
 
-  const opener = CASUAL_OPENERS[Math.floor(Math.random() * CASUAL_OPENERS.length)];
+  const opener = await generateOpener(candidate.productName);
   const platformLabel = getPlatformInfo(candidate.platform).ctaPreposition; // ex: "na Shopee", "no KaBuM!"
 
   return [
@@ -170,7 +203,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const caption = buildMessage(candidate, inviteLink);
+  const caption = await buildMessage(candidate, inviteLink);
 
   // Modo de pré-visualização — monta tudo (candidato real, link de
   // convite real) mas não manda a mensagem de verdade. Útil pra
