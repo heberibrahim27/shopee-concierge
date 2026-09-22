@@ -23,6 +23,30 @@ Shopee, sem marcação nas outras (não é regressão, nunca deu pra
 marcar mesmo). Nenhuma mudança de código necessária — já é o
 comportamento atual.
 
+### ✅ Ajustes finos no template não-Shopee, revisados ao vivo pelo Heber (2026-09-22)
+Depois do fix do selo/barra, o Heber revisou o resultado real e pediu
+2 ajustes, ambos testados em produção (cada iteração comparada com
+screenshot real, não só teoria):
+
+1. **Máscara da barra CTA vazava a borda do botão original** ("vc
+   colocou um botão em cima do outro") — a máscara branca tinha
+   exatamente o mesmo tamanho do botão novo, sem margem; a
+   sombra/anti-aliasing do "CORRE PRA SHOPEE" original vazava por
+   baixo. Corrigido com margem generosa em todas as direções + botão
+   centralizado dentro da máscara (não mais ancorado no mesmo canto).
+2. **"Por" ficava do lado do preço, deveria estar em cima** — trocado
+   de `flex-direction: row` (baseline) pra `column`.
+3. **Marquinhas decorativas do canto superior direito** — resquício
+   visual do design da Shopee (ficam boiando sem contexto sem o selo
+   "ACHADO SHOPEE" do lado). Precisou de 2 tentativas: a primeira
+   máscara (120×60) deixou um pedaço visível — aumentada pra 180×160
+   depois de comparar o resultado real.
+
+Lição prática: qualquer máscara nova nesse template merece testar com
+uma foto real e comparar visualmente antes de considerar pronto —
+"parece que cobre" no código não significa que cobre de verdade no
+PNG renderizado.
+
 ### ✅ Bug real: posts do Instagram sempre saíam com selo/barra da Shopee, mesmo pra outras lojas (2026-09-22)
 Achado pelo Heber: "o problema agora é o template do instagram que tá
 só da shopee". A moldura (`story-template/route.tsx`) já sabia mascarar
