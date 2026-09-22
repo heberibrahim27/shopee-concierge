@@ -5,14 +5,16 @@ import { runVideoMachineOnce } from "../../../../modules/video-machine/orchestra
 import { computeHotCategory } from "../../../../modules/video-machine/orchestrator/opportunityScorer";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 180;
+export const maxDuration = 300;
 
 // Heber: "eu quando tô no PC vou fazendo as coisas minhas e criando
 // reels" — um candidato por clique era fricção desnecessária. Gera até
 // MAX_COUNT candidatos numa chamada só; o reuse_policy=COOLDOWN da
 // Skill04 (já existente) garante produto diferente a cada iteração do
-// loop, sem lógica nova de exclusão aqui.
-const MAX_COUNT = 8;
+// loop, sem lógica nova de exclusão aqui. Subiu de 8 pra 20 (2026-09-22,
+// "a maquina só permite até 8 videos") — maxDuration junto de 180→300s
+// pra caber o lote maior (Vercel Pro suporta até 300s).
+const MAX_COUNT = 20;
 
 export async function POST(request: NextRequest) {
   if (!(await isAuthedAdminRequest(request))) {

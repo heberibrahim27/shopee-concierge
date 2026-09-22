@@ -224,9 +224,9 @@ export function VideoMachineRunButton() {
           <input
             type="number"
             min={1}
-            max={8}
+            max={20}
             value={count}
-            onChange={(e) => setCount(Math.max(1, Math.min(8, Number(e.target.value) || 1)))}
+            onChange={(e) => setCount(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
             style={{ width: 50, padding: "3px 6px", borderRadius: 6, border: "1px solid #ccc" }}
           />
         </label>
