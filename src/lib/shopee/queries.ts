@@ -72,6 +72,39 @@ export async function searchProductsByKeyword(params: {
 }
 
 /**
+ * Busca produtos de UMA loja específica (productOfferV2 aceita `shopId`,
+ * confirmado por introspecção ao vivo, 2026-09-21 — não documentado
+ * publicamente, achado testando o schema real). Pedido do Heber: divulgar
+ * como afiliado os produtos da própria loja "Farmácia Uruguai" na Shopee.
+ * `shopId` vai como string na variável — mesma pegadinha do Int64 que já
+ * pegou o conversionReport (a API não aceita number puro nesse campo).
+ */
+export async function searchProductsByShop(params: {
+  shopId: string;
+  page?: number;
+  limit?: number;
+  sortType?: ShopeeSortType;
+}): Promise<ShopeeProductOffer[]> {
+  const { shopId, page = 1, limit = 20, sortType = ShopeeSortType.ITEM_SOLD_DESC } = params;
+
+  const query = `
+    query SearchByShop($shopId: Int64, $page: Int, $limit: Int, $sortType: Int) {
+      productOfferV2(shopId: $shopId, page: $page, limit: $limit, sortType: $sortType) {
+        nodes { ${PRODUCT_FIELDS} }
+        pageInfo { page limit hasNextPage }
+      }
+    }
+  `;
+
+  const data = await shopeeGraphQL<ProductOfferV2Response>({
+    query,
+    variables: { shopId, page, limit, sortType },
+  });
+
+  return data.productOfferV2.nodes.map(normalizeShopeeProductOfferIds);
+}
+
+/**
  * Gera um link curto de afiliado já atribuído à conta configurada.
  * subIds: no máx. 5, tokens curtos/simples (ex: "wa", "s1") — a Shopee
  * rejeita valores longos/compostos (erro [11001] Params Error: invalid sub id).
