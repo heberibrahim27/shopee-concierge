@@ -8,6 +8,57 @@
 
 ## Pendências ativas
 
+### ✅ Abertura da mensagem do grupo WhatsApp vira frase pensada por IA (2026-09-22)
+Heber: "não tem umas frases pensada para cada produto não? Sempre a
+mesma coisa engessada?" — o pool fixo de 5 aberturas
+(`CASUAL_OPENERS`) rodava pra qualquer produto, sem ligação nenhuma
+com o que estava sendo anunciado (vitamina, eletrônico, roupa, tudo
+igual). Trocado por `generateOpener()` — chamada real ao gpt-4o-mini
+por post, considerando o nome do produto, com o pool fixo antigo só
+como fallback se a IA falhar. Testado ao vivo (`?dryRun=1`, monta a
+mensagem real sem enviar): pra um Ômega 3, saiu "E aí, galera! Ômega 3
+Katiguá em promoção, quem vai aproveitar? 🐟" — conectado ao produto,
+nada parecido com o texto fixo de antes.
+
+### 📌 TikTok "Desconto Chegando" rebrandado e com 8 vídeos reais publicados (2026-09-22)
+Heber tinha uma conta TikTok antiga (`@eubianca.moraes`, persona de avatar
+pra vender produto Shopee, "fiz um avatar pra postar conteúdo mas
+desisti") com 6 vídeos reais já publicados e 71 seguidores. Reaproveitada
+em vez de criar do zero:
+
+- **Rebrand completo via browser** (Claude in Chrome, sessão logada do
+  Heber): nome → "Desconto Chegando", @ → `@descontochegando` (verificado
+  disponível antes de trocar), foto de perfil → logo DC
+  (`public/logoperfil-favicon.png`), bio → "Achados e ofertas reais 🔥
+  Segue @descontoschegando no Insta 👇" (handle real do Instagram
+  confirmado direto no perfil antes de usar — é
+  `descontoschegando`, com S, 1.595 seguidores).
+- **Conta Business (pra liberar link clicável na bio) pede CNPJ hoje** —
+  mesma trava que já bloqueou o Instagram. Heber não tem CNPJ pra usar
+  nisso agora (`"sem cnpj"`). Decisão: sem link clicável por enquanto,
+  só o @ como texto na bio pra copiar/procurar manualmente. Reavaliar se
+  algum dia tiver CNPJ disponível ou se a conta crescer o bastante pra
+  outro caminho.
+- **8 vídeos reais publicados** (`D:\Máquina de Videos`, gerados
+  manualmente no Flow pelo Heber): caixa organizadora, suporte de
+  celular pro carro, capa à prova d'água, tênis, luminária (2 vídeos),
+  panela de pressão, bolsa/mochila. Cada um com legenda própria +
+  mesmo CTA de seguir no Instagram (mesmo padrão do Motor 1) +
+  hashtags relevantes — nunca legenda genérica/copiada.
+- **Achados reais no processo**:
+  - 2 arquivos tinham nome de arquivo enganoso (não bate com o
+    conteúdo real do vídeo) — parei e perguntei antes de postar errado.
+    `Creating_video_advertisement_for…` era na verdade um tênis;
+    `Mostrar_ganchos_em_ambientes_domésticos…` era na verdade uma panela
+    de pressão. Confirmado pelo Heber antes de publicar.
+  - Um vídeo (bolsa/mochila, 13MB) passou do limite de 10MB da
+    ferramenta de upload por navegador — o Heber arrastou esse
+    manualmente no TikTok Studio, eu só completei legenda + publicar.
+  - TikTok mostra "Somente eu"/"Conteúdo sob análise" por alguns
+    minutos logo após publicar, mesmo pra vídeo público — é um estado
+    transitório de processamento, sempre virou "Todos" sozinho nos 8
+    casos. Não é bug nosso, não precisa re-agir toda vez.
+
 ### 🔬 Desligado `allow_subject_motion_intent` no prompt de vídeo — aguarda confirmação real do Heber (2026-09-22)
 Heber: "a questão é que o flow buga demais" — especificou que o problema
 é vídeo saindo estranho/produto deformado (não travamento nem cota).

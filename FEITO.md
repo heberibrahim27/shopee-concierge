@@ -4,6 +4,46 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-22 — Abertura da mensagem do grupo WhatsApp gerada por IA
+
+`publish-whatsapp-group/route.ts`: `generateOpener(productName)`
+substitui a escolha aleatória num pool fixo de 5 frases pela geração
+real de uma frase por post via gpt-4o-mini, considerando o produto
+anunciado. Pool fixo antigo vira só fallback se a chamada à IA falhar
+ou a `OPENAI_API_KEY` não estiver configurada — nunca trava o envio.
+Testado ao vivo com `?dryRun=1` (monta a mensagem real sem mandar pro
+grupo): resultado natural e específico do produto.
+
+## 2026-09-22 — TikTok "Desconto Chegando" reativado e rebrandado, 8 vídeos publicados
+
+Heber: "vamos voltar para a maquina de seguidores?" → decisão de abrir
+um canal TikTok pra cross-postar os Reels que já são gerados pro
+Instagram, já que Reel e TikTok são o mesmo formato de conteúdo.
+
+Achamos uma conta TikTok antiga do Heber (`@eubianca.moraes`, avatar
+que ele criou pra vender Shopee mas abandonou) com 6 vídeos reais e 71
+seguidores — reaproveitada em vez de criar do zero. Rebrand feito ao
+vivo via Claude in Chrome (sessão logada do Heber, sem eu nunca ver
+senha): nome "Desconto Chegando", @ trocado pra `@descontochegando`
+(checado disponibilidade antes), foto = logo DC do site, bio com CTA
+pra seguir o Instagram real (`@descontoschegando`, confirmado direto
+no perfil do Instagram antes de escrever, 1.595 seguidores).
+
+Conta Business do TikTok (que libera link clicável na bio sem exigir
+seguidor mínimo) passou a pedir CNPJ — mesma trava que já bloqueou o
+Instagram. Heber não tem CNPJ disponível pra isso agora ("sem cnpj") —
+decisão: bio só com o @ em texto (não clicável) por enquanto.
+
+Publicados os 8 vídeos reais que o Heber já tinha gerado no Flow
+(`D:\Máquina de Videos`), cada um com legenda própria + CTA de seguir
+no Instagram + hashtags — nunca legenda genérica. Dois arquivos tinham
+nome enganoso (não batiam com o produto real do vídeo) — parei e
+perguntei antes de postar errado: um "advertisement" genérico era na
+verdade um tênis, um "ganchos" era na verdade uma panela de pressão.
+Um vídeo passou do limite de 10MB da ferramenta de upload do navegador
+— o Heber completou o upload manualmente, eu só finalizei legenda +
+publicação.
+
 ## 2026-09-22 — Lote de candidatos + preparo automático de foto pro Flow
 
 Heber: "eu quando tô no PC vou fazendo as coisas minhas e criando
