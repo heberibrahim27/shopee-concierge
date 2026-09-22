@@ -4,6 +4,18 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-22 — Brinquedo/novidade entra na descoberta diária + lote sobe pra 20
+
+Dado real do Instagram (Windsor): os 2 Reels com mais views do canal
+são brinquedo/novidade (capivara de pelúcia 460 views, boneco
+antiestresse 362), 2-4x mais que qualquer acessório postado. Causa
+raiz: categoria `brinquedos` tinha 25 produtos no catálogo mas zero
+nunca virou `deal_candidate` — o `KEYWORD_POOL` de 28 keywords do
+`source-deals` nunca buscava brinquedo/novidade. Adicionadas 7
+keywords reais + override manual `?keywords=`. Testado ao vivo: 25
+candidatos novos de brinquedo publicados na hora. Lote da Máquina de
+Vídeos sobe de 8 pra 20 candidatos por chamada.
+
 ## 2026-09-22 — Mercado Livre: ingestão real via scraping, 18/18 produtos do Heber
 
 Confirmado de novo (sem auth, 403) que a API oficial da Mercado Livre

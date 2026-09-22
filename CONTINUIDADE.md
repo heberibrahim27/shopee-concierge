@@ -8,6 +8,33 @@
 
 ## Pendências ativas
 
+### ✅ Brinquedo/novidade nunca entrava na descoberta diária + lote sobe de 8 pra 20 (2026-09-22)
+Heber: "a maquina de videos só gera sempre os mesmos candidatos,
+produtos fracos... não vem nada viral". Puxei os Reels reais do
+Instagram (Windsor) pra confirmar: os 2 Reels com mais views (🦫
+capivara de pelúcia 460, 🦍 boneco antiestresse 362) são brinquedo/
+novidade — 2 a 4x mais que qualquer acessório de celular postado.
+
+Achado real no banco: categoria `brinquedos` tinha 25 produtos no
+catálogo do site, mas **zero nunca virou `deal_candidate`**. Não é
+peso de ranking (`novelty`/`categoryPriority`/`historicalPerformance`
+seguem `UNAVAILABLE` por decisão formal da SPEC — só
+`discoveryCommercial` está implementado hoje) — é que o
+`KEYWORD_POOL` de 28 palavras-chave do `source-deals` (busca diária
+de produto novo na Shopee) nunca teve nenhuma de brinquedo/novidade.
+O comentário antigo dizia até "evita viés só em brinquedo" — decisão
+que zerou a categoria inteira sem querer.
+
+Adicionadas 7 keywords reais de brinquedo/novidade ao pool
+(`pelucia realista`, `boneco antiestresse elastico`, etc.) + suporte
+a override manual (`?keywords=a,b,c`) pra rodar busca pontual sem
+esperar a rotação diária. Testado ao vivo: `?keywords=...` rodou na
+hora, **25 candidatos novos de brinquedo publicados**.
+
+Também subiu o limite do lote da Máquina de Vídeos de 8 pra 20
+candidatos por chamada (`MAX_COUNT`, `maxDuration` 180→300s) —
+"a máquina só permite até 8 vídeos com prompt".
+
 ### ✅ Mercado Livre: ingestão real via scraping (2026-09-22)
 Heber mandou 18 links de afiliado (`meli.la/...`) e pediu pra "montar
 essa ingestão via scraping mesmo assim", depois de eu confirmar de
