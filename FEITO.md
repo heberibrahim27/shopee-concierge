@@ -4,6 +4,19 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-22 — Cupons reais da Awin, ingestão automatizada (fim do processo manual)
+
+Investigação real (Shopee GraphQL schema + todo o dashboard de
+afiliados, seções Oferta e Campanhas) confirmou que a Shopee não tem
+cupom/voucher/frete-grátis em lugar nenhum pra afiliado. Endpoint real
+de Promotions da Awin (`POST api.awin.com/publisher/{id}/promotions`)
+testado ao vivo, retorna cupons reais e ativos dos anunciantes já
+aprovados (17 hoje: 16 Kabum + 1 Olympikus, nenhum de frete grátis).
+Novo cron `/api/cron/source-coupons` substitui o processo manual da
+tabela `coupons` — upsert por `promotion_id`, expira os que saem da
+lista. Confirmado ao vivo em dev: `{"ok":true,"coletados":17,"ativos":17}`,
+conferido direto no Supabase.
+
 ## 2026-09-21 (noite) — Farmácia Uruguai (loja própria) como afiliado, com prioridade nas filas
 
 `productOfferV2` aceita `shopId` (achado por introspecção, não

@@ -4,9 +4,74 @@
 > o que ainda está pendente. Atualize sempre que resolver ou descobrir algo novo.
 > Complementa o [FEITO.md](FEITO.md), que registra o que já está pronto.
 
-**Última atualização:** 2026-09-21 (noite)
+**Última atualização:** 2026-09-22
 
 ## Pendências ativas
+
+### ✅ Cupons reais via Awin — ingestão automatizada, sem cupom de frete grátis disponível hoje (2026-09-22)
+Pedido do Heber: "foca no cupom de frete grátis" (via Shopee, se
+existir). Investigação real, ao vivo, em duas frentes:
+
+1. **API GraphQL de afiliados da Shopee** (`productOfferV2`) — já
+   introspectada em sessão anterior; sem nenhum campo de
+   voucher/coupon/frete/shipping em todo o schema.
+2. **Dashboard de afiliados da Shopee** (`affiliate.shopee.com.br`) —
+   percorrido ao vivo todo o menu "Oferta" (Oferta Shopee = boost de
+   comissão por categoria; Oferta da loja; Oferta de produto = catálogo
+   geral com comissão; Ofertas Exclusivas = produtos individuais com
+   comissão alta, até 47% — anotar como achado bônus pra divulgação,
+   não é cupom) e "Campanhas" (campanhas de incentivo pra afiliado
+   ganhar bônus, tipo "Meta & Shopee"/"Ganhe com a Lovito" — não é
+   cupom pro cliente final). **Conclusão: a Shopee não expõe cupom nem
+   frete grátis pra afiliados, em lugar nenhum.**
+
+**Achado real que resolve o problema de outro jeito**: o endpoint real
+de Promotions da Awin (`POST api.awin.com/publisher/{id}/promotions`,
+doc em `help.awin.com/apidocs/promotions`, testado ao vivo) retorna
+cupons reais e ativos dos anunciantes já aprovados — hoje **17 cupons
+ativos** (16 Kabum + 1 Olympikus, a AQUECE20 que já estava manual no
+site). Nenhum é de frete grátis (todos são % ou R$ fixo off) — Nike não
+tem cupom ativo agora.
+
+Como o processo de cupons no site (`coupons` table / `src/lib/site/coupons.ts`)
+era **manual** desde 15/09 (script de ingestão fora do repo), criado
+novo cron `/api/cron/source-coupons` (25:11 UTC diário) que chama esse
+endpoint real, faz upsert por `promotion_id` (chave única já existia na
+tabela) e marca como `expired` os que saíram da lista ativa da Awin.
+Testado ao vivo em dev: `{"ok":true,"coletados":17,"ativos":17}`,
+confirmado direto no Supabase. Se algum dia a Awin listar um cupom de
+frete grátis pra Kabum/Nike/Olympikus, ele entra automaticamente — não
+precisa de ação manual.
+
+### 📝 A investigar: mais programas de afiliados com API (pedido do Heber, 2026-09-22)
+"Pesquisar mais modelos de afiliados para cadastro que tenha API
+deixando automatizar" — continuar o mapeamento iniciado com Awin
+(multi-loja) e Windsor (Instagram/Facebook Ads). Ainda não iniciado.
+
+### 📝 Itens resolvidos em sessão anterior (2026-09-21), documentados aqui só agora
+- **Canais de crescimento do grupo do WhatsApp**: resposta automática
+  do ReplyRush (ferramenta terceira já configurada) e banner de CTA no
+  rodapé do site (`Footer.tsx`, `.dc-footer-group-cta`) linkando pro
+  grupo real. Bio do Instagram deliberadamente fora de escopo (já
+  aponta pro site, por pedido do Heber).
+- **Correção de crença errada sobre cobrança da Vercel**: o time
+  `babamananger` (Vercel) tem sim o projeto `shopee-concierge-prod`
+  (Desconto Chegando) junto com o BancaZap — não são times separados
+  como uma nota anterior dizia por engano. Fatura real do ciclo
+  22/ago–22/set: **$26,19** ($20 assinatura Pro + $6,19 consumo
+  on-demand) — não os números brutos e mais assustadores do
+  "Consumption Breakdown". Orçamento de "Gestão de Despesas" ($110 cap,
+  ~$105 usado) é da conta toda, criado 16/09 num incidente anterior do
+  BancaZap, não é uma emergência nova; reseta 22/09.
+- **3 becos sem saída confirmados, todos bloqueados no mesmo CNPJ/Business
+  Verification** (não reabrir sem checar se o Heber já tem CNPJ pronto):
+  marcação automática de produto no feed do Instagram (API do Meta
+  suporta via `product_tags`, mas exige `instagram_shopping_tag_products`
+  + acesso ao catálogo da Shopee no Meta, sem API pública de busca);
+  pré-agendamento de posts pra marcar produto antes de publicar
+  (Business Suite tem "Programar" mas só na UI humana, sem API;
+  Windsor.ai — nosso proxy real de publicação — não tem nenhuma
+  capacidade de agendamento, confirmado na lista real de actions).
 
 ### ✅ Farmácia Uruguai (loja própria do Heber) entra como afiliado, com prioridade (2026-09-21)
 Pedido do Heber: divulgar como afiliado o catálogo da própria loja

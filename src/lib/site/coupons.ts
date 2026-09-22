@@ -1,8 +1,7 @@
 /**
  * Cupons/promoções reais vindos da API de promoções da Awin (só anunciantes
- * onde já somos aprovados de verdade — ver script de ingestão da sessão
- * 2026-09-15, ficou fora do repo, e CONTINUIDADE.md pro endpoint exato).
- * Lê de uma tabela própria (`coupons`), atualizada manualmente por ora —
+ * onde já somos aprovados de verdade). Ingestão automática diária via
+ * /api/cron/source-coupons (ver CONTINUIDADE.md pro endpoint exato) —
  * nunca chama a Awin ao vivo na renderização da página.
  */
 import { unstable_cache } from "next/cache";
