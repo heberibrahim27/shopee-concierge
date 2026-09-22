@@ -37,8 +37,11 @@ export const metadata = {
   },
   // Verificação de propriedade do site pro Pinterest (Configurações > Link
   // para o Pinterest > Sites) — sem isso os Pins não creditam a marca.
+  // "lomadee" é a verificação do canal de divulgação cadastrado na Lomadee
+  // (rede de afiliados multi-loja, 2026-09-22, ver CONTINUIDADE.md).
   other: {
     "p:domain_verify": "7c6cd09f937ecd8ab729bd3073dbdd65",
+    lomadee: "2324685",
   },
   icons: {
     icon: "/logoperfil-favicon.png",
