@@ -11,10 +11,18 @@ export const maxDuration = 300;
 // reels" — um candidato por clique era fricção desnecessária. Gera até
 // MAX_COUNT candidatos numa chamada só; o reuse_policy=COOLDOWN da
 // Skill04 (já existente) garante produto diferente a cada iteração do
-// loop, sem lógica nova de exclusão aqui. Subiu de 8 pra 20 (2026-09-22,
-// "a maquina só permite até 8 videos") — maxDuration junto de 180→300s
-// pra caber o lote maior (Vercel Pro suporta até 300s).
-const MAX_COUNT = 20;
+// loop, sem lógica nova de exclusão aqui.
+//
+// Achado real (2026-09-22): subi pra 20 sem medir o custo real por
+// candidato — cada um leva ~24s (medido: 2 candidatos = 47,7s), 20
+// levaria uns 8min, estourando o teto de 300s do servidor. O Heber
+// ficou 30min com a tela travada esperando. Voltei pra um número que
+// cabe de verdade com margem (10 × ~25-30s ≈ 250-300s no pior caso).
+// Rodar em paralelo resolveria o tempo, mas quebraria o dedup do
+// reuse_policy=COOLDOWN (duas chamadas concorrentes podiam escolher o
+// mesmo produto antes de qualquer uma gravar evidência de uso) — não
+// arriscar isso sem resolver a condição de corrida primeiro.
+const MAX_COUNT = 10;
 
 export async function POST(request: NextRequest) {
   if (!(await isAuthedAdminRequest(request))) {

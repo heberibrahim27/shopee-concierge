@@ -200,8 +200,20 @@ export function VideoMachineRunButton() {
     setError(null);
     setResults(null);
     setFailedCount(0);
+    // Achado real (2026-09-22): sem isso, uma conexão que trava/cai sem
+    // erro claro deixava a tela "carregando" pra sempre (o Heber ficou
+    // 30min esperando um lote grande demais pro teto de 300s do
+    // servidor). Aborta um pouco antes do teto do servidor, sempre com
+    // mensagem clara em vez de travar sem aviso.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 280_000);
     try {
-      const res = await fetch("/api/admin/video-machine-run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ count }) });
+      const res = await fetch("/api/admin/video-machine-run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ count }),
+        signal: controller.signal,
+      });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.ok) {
         setError(data?.errorCode ? `Parou na etapa "${data.stage}": ${data.errorCode}` : "Não deu pra rodar agora. Tenta de novo em instantes.");
@@ -209,9 +221,14 @@ export function VideoMachineRunButton() {
       }
       setResults(data.results);
       setFailedCount(data.failedCount ?? 0);
-    } catch {
-      setError("Não deu pra rodar agora. Tenta de novo em instantes.");
+    } catch (err) {
+      setError(
+        err instanceof Error && err.name === "AbortError"
+          ? "Demorou demais e travou (mais de 4,5min). Tenta com um número menor de candidatos."
+          : "Não deu pra rodar agora. Tenta de novo em instantes."
+      );
     } finally {
+      clearTimeout(timeout);
       setLoading(false);
     }
   }
@@ -224,9 +241,9 @@ export function VideoMachineRunButton() {
           <input
             type="number"
             min={1}
-            max={20}
+            max={10}
             value={count}
-            onChange={(e) => setCount(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+            onChange={(e) => setCount(Math.max(1, Math.min(10, Number(e.target.value) || 1)))}
             style={{ width: 50, padding: "3px 6px", borderRadius: 6, border: "1px solid #ccc" }}
           />
         </label>
