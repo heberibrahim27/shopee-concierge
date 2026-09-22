@@ -46,6 +46,11 @@ const KEYWORD_POOL = [
   "kit ferramentas", "capa celular", "mochila feminina", "tenis esportivo", "bolsa termica",
   "pelucia realista", "boneco antiestresse elastico", "brinquedo articulado", "squishy fidget",
   "brinquedo curioso adulto", "gadget engraçado presente", "brinquedo interativo pet",
+  // Dia das Crianças (12/10) chegando (Heber, 2026-09-22) — brinquedo
+  // infantil de verdade, não só novidade/antiestresse adulto.
+  "brinquedo educativo infantil", "boneca brinquedo", "carrinho controle remoto",
+  "brinquedo montessori", "jogo infantil", "kit brinquedo menino", "brinquedo bebe",
+  "pista carrinho brinquedo",
 ];
 
 function keywordsForToday(count = 10): string[] {
