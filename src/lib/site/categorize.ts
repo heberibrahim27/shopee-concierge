@@ -11,6 +11,11 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   esporte: ["tênis", "tenis", "bicicleta", "bike", "academia", "musculação", "esteira", "halter"],
   beleza: ["maquiagem", "batom", "perfume", "shampoo", "creme", "skincare", "secador"],
   moda: ["camiseta", "calça", "vestido", "jaqueta", "blusa", "jeans", "bermuda"],
+  // Achado real (2026-09-22): faltava "brinquedos" nesse mapa inteiro —
+  // produto vindo da busca diária da Shopee (persistOfferSnapshot) nunca
+  // tinha categoria salva, então nenhum filtro por categoria conseguia
+  // achar brinquedo nenhum, mesmo com produto real no banco.
+  brinquedos: ["brinquedo", "boneca", "boneco", "pelúcia", "pelucia", "squishy", "fidget", "antiestresse", "anti-estresse", "carrinho de", "blocos de montar", "quebra-cabeça", "quebra cabeça", "montessori"],
   infantil: ["infantil", "criança", "bebê conforto"],
   bebes: ["bebê", "bebe", "fralda", "mamadeira"],
   pet: ["cachorro", "gato", "pet ", "ração", "coleira"],

@@ -117,9 +117,13 @@ function PrepareImageButton({ imageUrl }: { imageUrl: string }) {
 function CandidateCard({ result }: { result: ReadyResult }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, border: "1px solid #eee", borderRadius: 10, padding: 14, maxWidth: 520 }}>
-      {result.demandSignal ? (
+      {result.demandSignal && result.demandSignal.distinctSearchers > 0 ? (
         <div style={{ background: "#e9f5ef", border: "1px solid #0a8a4a", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#0a8a4a", fontWeight: 600 }}>
           🔥 Escolhido por demanda real: {result.demandSignal.distinctSearchers} pessoas procuraram algo parecido no WhatsApp nas últimas 48h
+        </div>
+      ) : result.demandSignal ? (
+        <div style={{ background: "#f1ebfc", border: "1px solid #7b3fe4", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#7b3fe4", fontWeight: 600 }}>
+          🔎 Filtro manual: categoria &quot;{result.demandSignal.categorySlug}&quot;
         </div>
       ) : null}
       <strong style={{ fontSize: 14 }}>{result.productName}</strong>
@@ -190,6 +194,7 @@ function CandidateCard({ result }: { result: ReadyResult }) {
 
 export function VideoMachineRunButton() {
   const [count, setCount] = useState(5);
+  const [categorySlug, setCategorySlug] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<ReadyResult[] | null>(null);
@@ -211,7 +216,7 @@ export function VideoMachineRunButton() {
       const res = await fetch("/api/admin/video-machine-run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ count }),
+        body: JSON.stringify({ count, categorySlug: categorySlug.trim() || undefined }),
         signal: controller.signal,
       });
       const data = await res.json().catch(() => null);
@@ -246,6 +251,34 @@ export function VideoMachineRunButton() {
             onChange={(e) => setCount(Math.max(1, Math.min(10, Number(e.target.value) || 1)))}
             style={{ width: 50, padding: "3px 6px", borderRadius: 6, border: "1px solid #ccc" }}
           />
+        </label>
+        <label style={{ fontSize: 12, color: "#555" }}>
+          Categoria:{" "}
+          <select
+            value={categorySlug}
+            onChange={(e) => setCategorySlug(e.target.value)}
+            style={{ padding: "4px 6px", borderRadius: 6, border: "1px solid #ccc" }}
+          >
+            <option value="">Qualquer</option>
+            <option value="brinquedos">Brinquedos</option>
+            <option value="casa">Casa</option>
+            <option value="eletronicos">Eletrônicos</option>
+            <option value="ferramentas">Ferramentas</option>
+            <option value="beleza">Beleza</option>
+            <option value="moda">Moda</option>
+            <option value="infantil">Infantil</option>
+            <option value="esporte">Esporte</option>
+            <option value="automotivo">Automotivo</option>
+            <option value="saude">Saúde</option>
+            <option value="pet">Pet</option>
+            <option value="games">Games</option>
+            <option value="papelaria">Papelaria</option>
+            <option value="bebes">Bebês</option>
+            <option value="alimentos">Alimentos</option>
+            <option value="moveis">Móveis</option>
+            <option value="viagem">Viagem</option>
+            <option value="livros">Livros</option>
+          </select>
         </label>
         <button
           onClick={handleClick}

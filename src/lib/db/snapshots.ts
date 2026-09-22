@@ -10,6 +10,8 @@
 import { getDb } from "./client";
 import { ShopeeProductOffer } from "../shopee/types";
 import { notifyCatalogUpdate } from "../site/notifyRevalidate";
+import { guessCategorySlug } from "../site/categorize";
+import { SITE_CATEGORIES } from "../site/categories";
 
 export async function persistOfferSnapshot(
   offer: ShopeeProductOffer
@@ -36,6 +38,19 @@ export async function persistOfferSnapshot(
     throw new Error(
       `Falha ao gravar produto ${offer.itemId}: ${productError?.message}`
     );
+  }
+
+  // Achado real (2026-09-22): esse upsert nunca setava categoria — todo
+  // produto vindo da busca diária da Shopee ficava com category_slug
+  // NULL pra sempre, então nenhum filtro por categoria (nem o manual do
+  // admin, nem o Opportunity Scorer) conseguia achar produto nenhum
+  // dessa fonte, mesmo existindo de verdade no banco. Só preenche
+  // quando ainda está vazio — nunca sobrescreve categoria já definida
+  // por outra fonte (ex: expansão de categoria do site).
+  if (!product.category_slug) {
+    const categorySlug = guessCategorySlug(offer.productName);
+    const category = SITE_CATEGORIES.find((c) => c.slug === categorySlug)?.label ?? "Casa";
+    await db.from("products").update({ category_slug: categorySlug, category }).eq("id", product.id);
   }
 
   const { data: snapshot, error: snapshotError } = await db

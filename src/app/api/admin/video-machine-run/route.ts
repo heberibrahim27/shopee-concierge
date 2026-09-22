@@ -31,19 +31,32 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => null);
   const requestedCount = Math.max(1, Math.min(MAX_COUNT, Number(body?.count) || 1));
+  // Filtro manual de categoria (Heber, 2026-09-22: "eu preciso de
+  // brinquedos para fazer reels e só me vem umidificador..."). Reusa o
+  // mesmo mecanismo `allowedCategorySlugs` já existente pro
+  // Opportunity Scorer — aqui é escolha explícita do Heber, não sinal
+  // de demanda automático, então vale pra TODOS os candidatos do lote
+  // (o hotCategory automático só valia pro 1º, de propósito).
+  const manualCategorySlug = typeof body?.categorySlug === "string" && body.categorySlug.trim() ? body.categorySlug.trim() : null;
 
   const db = getDbFresh();
-  const hotCategory = await computeHotCategory(db).catch(() => null);
+  const hotCategory = manualCategorySlug ? null : await computeHotCategory(db).catch(() => null);
 
   const results: unknown[] = [];
   const failures: Array<{ stage: string; errorCode: string }> = [];
 
   for (let i = 0; i < requestedCount; i++) {
     try {
-      // Sinal de demanda só faz sentido pro primeiro candidato — do
-      // segundo em diante já queremos variedade normal, não repetir a
-      // mesma categoria quente N vezes na mesma leva.
-      const result = await runVideoMachineOnce(db, undefined, i === 0 ? hotCategory : null);
+      const forcedCategory = manualCategorySlug
+        ? { categorySlug: manualCategorySlug, distinctSearchers: 0, sampleProductNames: [] }
+        : // Sinal de demanda automático só faz sentido pro primeiro
+          // candidato — do segundo em diante já queremos variedade
+          // normal, não repetir a mesma categoria quente N vezes na
+          // mesma leva.
+          i === 0
+          ? hotCategory
+          : null;
+      const result = await runVideoMachineOnce(db, undefined, forcedCategory);
       if (result.outcome !== "READY") {
         failures.push({ stage: result.stage, errorCode: result.errorCode });
         continue;
