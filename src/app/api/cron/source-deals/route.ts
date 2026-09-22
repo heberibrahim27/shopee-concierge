@@ -25,9 +25,17 @@ export const maxDuration = 300;
  * slug), fechando o loop sourcing → site → Instagram sem toque humano.
  */
 
-// Pool amplo, diversificado por categoria — evita viés só em brinquedo/
-// eletrônico. Roda um subconjunto por dia (rotação por dia do ano) pra
-// não estourar limite de chamadas à API da Shopee de uma vez.
+// Pool amplo, diversificado por categoria. Até 2026-09-22 o comentário
+// aqui dizia "evita viés só em brinquedo/eletrônico" — decisão que, na
+// prática, zerou brinquedo/novidade da busca inteira (nenhuma das 28
+// keywords originais tocava a categoria). Achado real, com dado de
+// Reels: os 2 vídeos com mais visualização do canal (Reels de
+// brinquedo/novidade — capivara de pelúcia, boneco antiestresse) têm
+// 2-4x mais views que qualquer acessório de celular/eletrônico
+// postado, mas a categoria "brinquedos" tinha 25 produtos no catálogo
+// e ZERO nunca virou deal_candidate — não é peso de ranking, a busca
+// diária nunca ia atrás disso. Adicionadas keywords reais de
+// brinquedo/novidade (Heber, 2026-09-22: "não vem nada viral").
 const KEYWORD_POOL = [
   "fone bluetooth", "carregador rápido", "organizador de armário", "luminária led",
   "mochila notebook", "escova secadora", "umidificador ar led", "suporte celular carro",
@@ -36,6 +44,8 @@ const KEYWORD_POOL = [
   "relogio smartwatch", "camera seguranca wifi", "air fryer", "panela eletrica", "tapete pet",
   "luminaria projetor estrelas", "espremedor eletrico portatil", "sensor movimento led",
   "kit ferramentas", "capa celular", "mochila feminina", "tenis esportivo", "bolsa termica",
+  "pelucia realista", "boneco antiestresse elastico", "brinquedo articulado", "squishy fidget",
+  "brinquedo curioso adulto", "gadget engraçado presente", "brinquedo interativo pet",
 ];
 
 function keywordsForToday(count = 10): string[] {
@@ -73,7 +83,12 @@ export async function GET(request: NextRequest) {
   }
 
   const db = getDb();
-  const keywords = keywordsForToday();
+  // Override manual (?keywords=a,b,c) pra rodar uma busca pontual sem
+  // esperar a rotação diária — ex.: puxar brinquedo/novidade agora
+  // mesmo pro Heber gerar vídeo na hora, em vez de só amanhã quando a
+  // rotação passar por essas keywords.
+  const keywordsParam = request.nextUrl.searchParams.get("keywords");
+  const keywords = keywordsParam ? keywordsParam.split(",").map((k) => k.trim()).filter(Boolean) : keywordsForToday();
   const limitPerKeyword = 10;
 
   const allOffers: Awaited<ReturnType<typeof searchProductsByKeyword>> = [];
