@@ -76,7 +76,17 @@ const SHOPEE_BADGE_MASK = { left: 695, top: 55, width: 335, height: 80 };
 // barra ficava lá mesmo pra platform=awin, mandando gente errado pra
 // Shopee num produto que não é da Shopee. Story não tem essa barra (o
 // "comente EU QUERO" já vem embutido no design do Story todo).
-const SHOPEE_CTA_BAR_MASK = { left: 90, top: 1150, width: 900, height: 120 };
+//
+// Bug real corrigido em 2026-09-22 (achado pelo Heber: "vc colocou um
+// botão em cima do outro"): a máscara branca tinha EXATAMENTE o mesmo
+// left/width do botão preto novo (zero margem lateral/superior) — a
+// sombra/borda arredondada do botão original "CORRE PRA SHOPEE" (com
+// leve anti-aliasing/drop-shadow no PNG) vazava por baixo do botão
+// novo, parecendo dois botões sobrepostos. Máscara agora bem maior que
+// o botão visível em todas as direções (não só embaixo), e o botão
+// fica centralizado dentro da máscara em vez de ancorado no mesmo canto.
+const SHOPEE_CTA_BAR_MASK = { left: 66, top: 1130, width: 948, height: 146 };
+const CTA_BUTTON = { width: 900, height: 86 };
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -221,10 +231,10 @@ export async function GET(request: NextRequest) {
                 alignItems: "center",
                 justifyContent: "center",
                 position: "absolute",
-                top: `${SHOPEE_CTA_BAR_MASK.top}px`,
-                left: `${SHOPEE_CTA_BAR_MASK.left}px`,
-                width: `${SHOPEE_CTA_BAR_MASK.width}px`,
-                height: "86px",
+                top: `${SHOPEE_CTA_BAR_MASK.top + (SHOPEE_CTA_BAR_MASK.height - CTA_BUTTON.height) / 2}px`,
+                left: `${SHOPEE_CTA_BAR_MASK.left + (SHOPEE_CTA_BAR_MASK.width - CTA_BUTTON.width) / 2}px`,
+                width: `${CTA_BUTTON.width}px`,
+                height: `${CTA_BUTTON.height}px`,
                 borderRadius: "999px",
                 background: "#141414",
                 gap: "18px",
