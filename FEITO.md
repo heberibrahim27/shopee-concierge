@@ -4,6 +4,19 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-21 (noite) — Farmácia Uruguai (loja própria) como afiliado, com prioridade nas filas
+
+`productOfferV2` aceita `shopId` (achado por introspecção, não
+documentado) — dá pra puxar só o catálogo de uma loja. `shopId` real da
+Farmácia Uruguai (1738181230) resolvido do link curto do Heber via
+tráfego de rede real da página, confirmado batendo produto de verdade
+na API. Cron novo `/api/cron/source-farmacia` reaproveita o pipeline da
+Shopee (source-deals), score fixo alto (95) pra furar a fila do
+Instagram/WhatsApp por pedido explícito. Confirmado ao vivo: 30
+produtos publicados, zero falha, e 2 posts reais no Instagram ainda na
+mesma noite (Vitamina B12 e Ômega 3 Katiguá) — feed + story + comentário,
+sem falha.
+
 ## 2026-09-21 (noite) — Automação do grupo real do WhatsApp "Descontos Chegando #GR42"
 
 Grupo achado ao vivo via Z-API (`GET /chats`), renomeado pra "Descontos

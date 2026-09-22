@@ -8,6 +8,43 @@
 
 ## Pendências ativas
 
+### ✅ Farmácia Uruguai (loja própria do Heber) entra como afiliado, com prioridade (2026-09-21)
+Pedido do Heber: divulgar como afiliado o catálogo da própria loja
+("Farmácia Uruguai", real, dona dele) na Shopee — "essa farmácia é
+nossa, precisamos vender".
+
+**Achado técnico real**: `productOfferV2` aceita um argumento `shopId`
+não documentado publicamente (achado por introspecção ao vivo do
+schema GraphQL) — dá pra puxar só o catálogo de uma loja específica,
+sem palavra-chave. Nova função `searchProductsByShop` em
+`src/lib/shopee/queries.ts`. `shopId` real da loja (`1738181230`)
+resolvido a partir do link curto que o Heber mandou
+(`s.shopee.com.br/8ply3nmdSs` → `shopee.com.br/farmaciauruguai`),
+achado no tráfego de rede real da página (`shop/is_show?shopid=...`) e
+**confirmado batendo produto real** na API (Vitamina B12, desodorante,
+teste de gravidez apareceram de verdade).
+
+Novo cron `/api/cron/source-farmacia` (10:11 UTC diário, antes do
+source-awin) reaproveita 100% do pipeline de `source-deals` (mesmas
+funções de persistência/link/publicação), só troca busca por keyword
+por busca por `shopId`. Confirmado ao vivo: 30 produtos coletados, 30
+publicados, zero falha.
+
+**Prioridade** (pedido explícito: "dê preferência a essa loja nas
+postagens"): `score: 95` fixo em todo `deal_candidate` dessa origem —
+bem acima da faixa normal da Shopee/Awin, garante que ela sai primeiro
+nas filas do Instagram e WhatsApp (`pickNextCandidate` ordena por score
+desc nos dois canais). `score_breakdown.origem = "loja-propria-farmacia-uruguai"`
+marca a origem pra facilitar relatório/filtro depois.
+
+**Confirmado ao vivo em produção, mesma noite**: 2 posts reais feitos
+manualmente a pedido do Heber ("B12 e outro") — Vitamina B12 Maxinutri
+Metilcobalamina (R$34,90) e Ômega 3 Katiguá Tripla Fonte (R$39,90),
+feed + story + comentário nos dois, sem falha. Consumiram os 2
+horários restantes da noite (22h/22h45 Brasília) — amanhã a fila volta
+ao normal automático, com a Farmácia Uruguai já entrando com
+prioridade todo dia.
+
 ### ✅ Grupo real do WhatsApp "Descontos Chegando #GR42" — automação de ofertas ligada (2026-09-21)
 Novo cron `/api/cron/publish-whatsapp-group` manda automaticamente:
 link de afiliado + foto do produto (direto por URL da Shopee/Awin, sem
