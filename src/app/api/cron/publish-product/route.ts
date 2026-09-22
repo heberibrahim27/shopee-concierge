@@ -12,6 +12,7 @@ const IG_ACCOUNT_ID = process.env.WINDSOR_INSTAGRAM_ACCOUNT_ID || "1784147146986
 type Candidate = {
   dealCandidateId: string;
   productName: string;
+  platform: string;
   imageUrl: string;
   priceMin: number;
   priceDiscountRate: number;
@@ -48,7 +49,7 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>): Promise<Can
   let query = db
     .from("deal_candidates")
     .select(
-      "id, score, product_id, products(product_name), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
+      "id, score, product_id, products(product_name, platform), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
     );
   if (postedProductIds.length > 0) {
     query = query.not("product_id", "in", `(${postedProductIds.join(",")})`);
@@ -63,6 +64,7 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>): Promise<Can
     return {
       dealCandidateId: row.id,
       productName: row.products?.product_name ?? "Oferta imperdível",
+      platform: row.products?.platform ?? "shopee",
       imageUrl: snap.image_url,
       priceMin: Number(snap.price_min),
       priceDiscountRate: Number(snap.price_discount_rate ?? 0),
@@ -79,6 +81,7 @@ function buildTemplateUrl(c: Candidate, variant: "feed" | "story"): string {
     title: c.productName,
     por,
     variant,
+    platform: c.platform,
   });
   // Regra conservadora de/por: só mostra "de" se a razão implícita for < 2.5x.
   if (c.priceDiscountRate > 0) {
@@ -154,7 +157,15 @@ export async function GET(request: NextRequest) {
   // sem como marcar o produto automaticamente no feed via Windsor, o link
   // precisa estar visível de cara na legenda pra ele editar o post manual
   // (copiar o link, marcar o produto) depois de publicado.
-  const caption = `${candidate.productName}\n\n🔗 Link: ${candidate.offerLink}\n\n#promocao #achadinhos #shopee #achadosdashopee`;
+  //
+  // Hashtag de loja (bug real corrigido em 2026-09-22, achado pelo Heber:
+  // "o template do instagram que tá só da shopee"): a legenda tinha
+  // #shopee #achadosdashopee fixo pra QUALQUER plataforma — produto de
+  // Kabum/Nike/Olympikus/Lomadee saía com hashtag errada. Agora deriva
+  // da plataforma real do produto.
+  const platformHashtag = candidate.platform.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const storeHashtags = candidate.platform === "shopee" ? "#shopee #achadosdashopee" : platformHashtag ? `#${platformHashtag}` : "";
+  const caption = `${candidate.productName}\n\n🔗 Link: ${candidate.offerLink}\n\n#promocao #achadinhos${storeHashtags ? " " + storeHashtags : ""}`;
 
   const results: Record<string, unknown> = { candidate: candidate.dealCandidateId };
 

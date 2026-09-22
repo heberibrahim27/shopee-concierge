@@ -8,6 +8,26 @@
 
 ## Pendências ativas
 
+### ✅ Bug real: posts do Instagram sempre saíam com selo/barra da Shopee, mesmo pra outras lojas (2026-09-22)
+Achado pelo Heber: "o problema agora é o template do instagram que tá
+só da shopee". A moldura (`story-template/route.tsx`) já sabia mascarar
+o selo "ACHADO SHOPEE" e a barra "CORRE PRA SHOPEE" quando
+`platform !== "shopee"` (fix de 2026-09-21) — mas o cron que publica
+(`publish-product/route.ts`) **nunca lia nem mandava o `platform` pro
+template**: o `select()` do Supabase não pegava `products.platform`,
+então todo post saía com o padrão da própria rota (`platform || "shopee"`)
+— Kabum, Nike, Olympikus, Lomadee, tudo saía com selo/barra da Shopee.
+A legenda também tinha `#shopee #achadosdashopee` fixo, mesmo bug.
+
+Corrigido: `pickNextCandidate` agora seleciona `products(platform)`,
+`buildTemplateUrl` manda `platform` real pro template, e a hashtag da
+legenda deriva da plataforma real (só usa `#shopee #achadosdashopee`
+quando é Shopee de verdade). Teste visual direto no dev local não deu
+pra fazer (limitação conhecida do Windows com `@vercel/og`, caminho de
+fonte incompatível — mesma razão que o fix original de 2026-09-21 foi
+validado direto em produção, não local) — validado com curl em
+produção.
+
 ### ✅ Concierge vira sensor de demanda (Motor 4, primeira metade) (2026-09-22)
 Pedido do Heber: focar em crescimento de seguidores. Primeira peça
 automatizável de ponta a ponta do "Motor 4" debatido com o ChatGPT —
