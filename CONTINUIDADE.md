@@ -4,7 +4,7 @@
 > o que ainda está pendente. Atualize sempre que resolver ou descobrir algo novo.
 > Complementa o [FEITO.md](FEITO.md), que registra o que já está pronto.
 
-**Última atualização:** 2026-09-22
+**Última atualização:** 2026-09-22 (fix do HEADERS_OVERFLOW no pool de descoberta)
 
 ## Pendências ativas
 
@@ -32,6 +32,23 @@ enquanto**: o pedido de excluir brinquedos "de luz" (LED, projetor)
 por risco de alucinação no Veo/Flow — não dá pra filtrar isso de
 forma confiável só por palavra-chave sem gerar falso positivo. Ele
 mesmo pode pular esses ao escolher da lista de candidatos.
+
+**Segundo bug real achado ao testar o fix acima** (mesmo dia): rodei o
+filtro "brinquedos" de ponta a ponta pra confirmar e ele falhava
+sempre com `POOL_READ_FAILED`, mesmo com os 81 produtos já
+corrigidos no banco. Causa real: `discoverProducts` (Skill04) faz
+`.in("id", ids)` contra `products` e `offer_snapshots` passando TODOS
+os IDs do pool de `deal_candidates` de uma vez — com o pool em 479
+linhas, a URL gerada tinha ~18,8KB e estourava o limite de 16KB de
+headers HTTP do PostgREST/Supabase (`HEADERS_OVERFLOW`). Ou seja, a
+descoberta de produto vinha quebrando pra QUALQUER categoria, não só
+brinquedos, desde que o pool cresceu o suficiente — só não tinha
+aparecido antes porque ninguém tinha testado com o pool nesse
+tamanho. Corrigido: as duas queries agora buscam em lotes de 150 IDs
+por vez (`selectInChunks`, novo helper em `productDiscovery.ts`).
+Confirmado ao vivo rodando o motor 3x com filtro "brinquedos": todos
+os 3 vieram `READY` com produto real (Squishies Manteiga e Queijo
+R$19,99; Boneca Lola Baby R$32,90; Kit Brinquedos para Gatos R$13,90).
 
 ### ✅ Concierge WhatsApp estava mudo — webhook sem token, corrigido e confirmado (2026-09-22)
 Heber: "não reconheceu, ficou mandando que não achou um elegível" (teste

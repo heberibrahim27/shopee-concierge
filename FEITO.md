@@ -18,6 +18,24 @@ Corrigido: `persistOfferSnapshot` preenche categoria quando vazia
 ganhou seletor de categoria (reusa `allowedCategorySlugs` do
 Opportunity Scorer como escolha manual).
 
+## 2026-09-22 — Descoberta de produto quebrava sempre que o pool crescia (HEADERS_OVERFLOW)
+
+Achado ao testar o fix de "brinquedos" acima: o motor falhava sempre
+com `POOL_READ_FAILED`, mesmo com o dado certo no banco (28 produtos
+brinquedo confirmados no pool). Causa real: `discoverProducts`
+(Skill04) faz `.in("id", ids)` contra `products` e `offer_snapshots`
+passando TODOS os IDs do pool de `deal_candidates` numa query só —
+com o pool em 479 linhas, a URL passou de 18,8KB, estourando o limite
+de 16KB de headers do PostgREST (`HEADERS_OVERFLOW`). Afetava
+descoberta de QUALQUER categoria, não só brinquedos — só não tinha
+aparecido antes porque o pool nunca tinha ficado grande o bastante.
+
+Corrigido: novo helper `selectInChunks` em `productDiscovery.ts`
+busca em lotes de 150 IDs por vez em vez de tudo de uma vez.
+Confirmado ao vivo rodando o motor 3x com filtro "brinquedos": 3/3
+`READY` com produto real (Squishies Manteiga e Queijo R$19,99; Boneca
+Lola Baby R$32,90; Kit Brinquedos para Gatos R$13,90).
+
 ## 2026-09-22 — Concierge WhatsApp mudo: webhook sem token, corrigido e confirmado
 
 Heber: "não reconheceu, ficou mandando que não achou um elegível" e,

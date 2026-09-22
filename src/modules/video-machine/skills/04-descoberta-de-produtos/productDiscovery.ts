@@ -77,6 +77,30 @@ type CandidateEval = {
 
 const UNAVAILABLE_SIGNALS = ["novelty", "categoryPriority", "historicalPerformance"] as const;
 
+// Achado real (2026-09-22): com o pool de deal_candidates em 479 linhas,
+// um único `.in("id", snapshotIds)` com todos os UUIDs gerava uma URL de
+// ~18,8KB — estourava o limite de 16KB de headers HTTP do PostgREST
+// (HEADERS_OVERFLOW), quebrando a descoberta de produto inteira (pool
+// read falhava sempre, mesmo com o dado certo no banco). Buscar em lotes
+// de 150 IDs por vez evita isso, com margem (150 UUIDs ≈ 5,6KB de URL).
+const ID_CHUNK_SIZE = 150;
+
+async function selectInChunks<T>(
+  db: SupabaseClient,
+  table: string,
+  columns: string,
+  ids: string[]
+): Promise<{ data: T[] | null; error: { message: string } | null }> {
+  const rows: T[] = [];
+  for (let i = 0; i < ids.length; i += ID_CHUNK_SIZE) {
+    const chunk = ids.slice(i, i + ID_CHUNK_SIZE);
+    const { data, error } = await db.from(table).select(columns).in("id", chunk);
+    if (error) return { data: null, error };
+    rows.push(...((data as T[]) ?? []));
+  }
+  return { data: rows, error: null };
+}
+
 export async function discoverProducts(
   db: SupabaseClient,
   input: ProductDiscoveryInput,
@@ -173,17 +197,21 @@ export async function discoverProducts(
   const productIds = [...new Set(dealCandidates!.map((d) => d.product_id))];
   const snapshotIds = [...new Set(dealCandidates!.map((d) => d.offer_snapshot_id))];
 
-  const { data: products, error: productsErr } = await db
-    .from("products")
-    .select("id, category_slug, group_id")
-    .in("id", productIds);
+  const { data: products, error: productsErr } = await selectInChunks<{ id: string; category_slug: string | null; group_id: string | null }>(
+    db,
+    "products",
+    "id, category_slug, group_id",
+    productIds
+  );
   if (productsErr) return { outcome: "RETRYABLE_ERROR", errorCode: "POOL_READ_FAILED" };
   const productsById = new Map((products ?? []).map((p) => [p.id, p]));
 
-  const { data: snapshots, error: snapshotsErr } = await db
-    .from("offer_snapshots")
-    .select("id, captured_at, image_url")
-    .in("id", snapshotIds);
+  const { data: snapshots, error: snapshotsErr } = await selectInChunks<{ id: string; captured_at: string; image_url: string | null }>(
+    db,
+    "offer_snapshots",
+    "id, captured_at, image_url",
+    snapshotIds
+  );
   if (snapshotsErr) return { outcome: "RETRYABLE_ERROR", errorCode: "POOL_READ_FAILED" };
   const snapshotsById = new Map((snapshots ?? []).map((s) => [s.id, s]));
 
