@@ -5,23 +5,49 @@ import { runVideoMachineOnce } from "../../../../modules/video-machine/orchestra
 import { computeHotCategory } from "../../../../modules/video-machine/orchestrator/opportunityScorer";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 180;
+
+// Heber: "eu quando tô no PC vou fazendo as coisas minhas e criando
+// reels" — um candidato por clique era fricção desnecessária. Gera até
+// MAX_COUNT candidatos numa chamada só; o reuse_policy=COOLDOWN da
+// Skill04 (já existente) garante produto diferente a cada iteração do
+// loop, sem lógica nova de exclusão aqui.
+const MAX_COUNT = 8;
 
 export async function POST(request: NextRequest) {
   if (!(await isAuthedAdminRequest(request))) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
+  const body = await request.json().catch(() => null);
+  const requestedCount = Math.max(1, Math.min(MAX_COUNT, Number(body?.count) || 1));
+
   const db = getDbFresh();
-  try {
-    const hotCategory = await computeHotCategory(db).catch(() => null);
-    const result = await runVideoMachineOnce(db, undefined, hotCategory);
-    if (result.outcome !== "READY") {
-      return NextResponse.json({ ok: false, stage: result.stage, errorCode: result.errorCode }, { status: 200 });
+  const hotCategory = await computeHotCategory(db).catch(() => null);
+
+  const results: unknown[] = [];
+  const failures: Array<{ stage: string; errorCode: string }> = [];
+
+  for (let i = 0; i < requestedCount; i++) {
+    try {
+      // Sinal de demanda só faz sentido pro primeiro candidato — do
+      // segundo em diante já queremos variedade normal, não repetir a
+      // mesma categoria quente N vezes na mesma leva.
+      const result = await runVideoMachineOnce(db, undefined, i === 0 ? hotCategory : null);
+      if (result.outcome !== "READY") {
+        failures.push({ stage: result.stage, errorCode: result.errorCode });
+        continue;
+      }
+      results.push(result);
+    } catch (err) {
+      console.error("[video-machine-run] erro inesperado num candidato do lote:", err);
+      failures.push({ stage: "unknown", errorCode: "UNEXPECTED_ERROR" });
     }
-    return NextResponse.json({ ok: true, result });
-  } catch (err) {
-    console.error("[video-machine-run] erro inesperado:", err);
-    return NextResponse.json({ ok: false, error: "erro inesperado, ver logs" }, { status: 200 });
   }
+
+  if (results.length === 0) {
+    const last = failures[failures.length - 1];
+    return NextResponse.json({ ok: false, stage: last?.stage ?? "unknown", errorCode: last?.errorCode ?? "NO_CANDIDATE" }, { status: 200 });
+  }
+  return NextResponse.json({ ok: true, results, failedCount: failures.length });
 }

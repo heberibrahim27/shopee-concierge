@@ -58,23 +58,157 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   );
 }
 
-export function VideoMachineRunButton() {
+function PrepareImageButton({ imageUrl }: { imageUrl: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<ReadyResult | null>(null);
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
 
   async function handleClick() {
     setLoading(true);
     setError(null);
-    setResult(null);
     try {
-      const res = await fetch("/api/admin/video-machine-run", { method: "POST" });
+      const res = await fetch("/api/admin/prepare-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageUrl }) });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        setError(data?.error ?? "Não deu pra preparar a foto agora.");
+        return;
+      }
+      setDataUrl(data.dataUrl);
+    } catch {
+      setError("Não deu pra preparar a foto agora.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+      <button
+        onClick={handleClick}
+        disabled={loading}
+        style={{
+          padding: "5px 10px",
+          borderRadius: 6,
+          border: "1px solid #7b3fe4",
+          background: loading ? "#f1ebfc" : "#fff",
+          color: "#7b3fe4",
+          fontWeight: 600,
+          fontSize: 11,
+          cursor: loading ? "wait" : "pointer",
+          alignSelf: "flex-start",
+        }}
+      >
+        {loading ? "Limpando foto pro Flow..." : "🧼 Preparar foto pro Flow"}
+      </button>
+      {error ? <p style={{ margin: 0, fontSize: 11, color: "#c0392b" }}>{error}</p> : null}
+      {dataUrl ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={dataUrl} alt="Foto preparada pro Flow" style={{ width: "100%", maxWidth: 280, borderRadius: 8, border: "1px solid #eee" }} />
+          <a href={dataUrl} download="produto-flow.png" style={{ fontSize: 12, color: "#7b3fe4", fontWeight: 600, textDecoration: "none" }}>
+            ⬇️ Baixar foto preparada
+          </a>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function CandidateCard({ result }: { result: ReadyResult }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, border: "1px solid #eee", borderRadius: 10, padding: 14, maxWidth: 520 }}>
+      {result.demandSignal ? (
+        <div style={{ background: "#e9f5ef", border: "1px solid #0a8a4a", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#0a8a4a", fontWeight: 600 }}>
+          🔥 Escolhido por demanda real: {result.demandSignal.distinctSearchers} pessoas procuraram algo parecido no WhatsApp nas últimas 48h
+        </div>
+      ) : null}
+      <strong style={{ fontSize: 14 }}>{result.productName}</strong>
+      {result.priceMin != null ? <span style={{ fontSize: 12, color: "#666" }}>Preço: R$ {result.priceMin.toFixed(2)}</span> : null}
+      {result.productPhotoUrl ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={result.productPhotoUrl} alt={result.productName} style={{ width: "100%", maxWidth: 280, borderRadius: 8 }} />
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <a
+              href={`/api/admin/video-machine-run/photo?url=${encodeURIComponent(result.productPhotoUrl)}`}
+              style={{ fontSize: 12, color: "#0a8a4a", fontWeight: 600, textDecoration: "none" }}
+            >
+              ⬇️ Baixar foto original
+            </a>
+          </div>
+          <PrepareImageButton imageUrl={result.productPhotoUrl} />
+        </>
+      ) : (
+        <span style={{ fontSize: 12, color: "#999" }}>Sem foto do produto disponível.</span>
+      )}
+
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase" }}>Link de afiliado</div>
+        {result.affiliateLink ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "4px 0" }}>
+            <p style={{ margin: 0, fontSize: 13, wordBreak: "break-all" }}>🔗 {result.affiliateLink}</p>
+            <CopyButton text={result.affiliateLink} label="Copiar link" />
+          </div>
+        ) : (
+          <p style={{ margin: "4px 0", fontSize: 12, color: "#999" }}>Sem link de afiliado disponível pra esse produto.</p>
+        )}
+      </div>
+
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase" }}>Direção criativa</div>
+        <div style={{ fontSize: 12 }}>
+          {result.creativeDirection.archetype} · {result.creativeDirection.hookStrategy} · {result.creativeDirection.visualApproach}
+        </div>
+      </div>
+
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase" }}>Roteiro</div>
+        {result.script.spokenText ? <p style={{ margin: "4px 0", fontSize: 13 }}>🗣️ {result.script.spokenText}</p> : null}
+        {result.script.onScreenText ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "4px 0" }}>
+            <p style={{ margin: 0, fontSize: 13 }}>📝 {result.script.onScreenText}</p>
+            <CopyButton text={result.script.onScreenText} label="Copiar texto" />
+          </div>
+        ) : null}
+      </div>
+
+      <div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase" }}>Prompt de vídeo (colar na ferramenta externa)</div>
+          <CopyButton text={result.videoPrompt} label="Copiar prompt" />
+        </div>
+        <textarea
+          readOnly
+          value={result.videoPrompt}
+          style={{ width: "100%", minHeight: 260, fontSize: 13, lineHeight: 1.5, fontFamily: "-apple-system, system-ui, sans-serif", padding: 10, borderRadius: 8, border: "1px solid #ddd", whiteSpace: "pre-wrap", resize: "vertical" }}
+          onFocus={(e) => e.target.select()}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function VideoMachineRunButton() {
+  const [count, setCount] = useState(5);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [results, setResults] = useState<ReadyResult[] | null>(null);
+  const [failedCount, setFailedCount] = useState(0);
+
+  async function handleClick() {
+    setLoading(true);
+    setError(null);
+    setResults(null);
+    setFailedCount(0);
+    try {
+      const res = await fetch("/api/admin/video-machine-run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ count }) });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.ok) {
         setError(data?.errorCode ? `Parou na etapa "${data.stage}": ${data.errorCode}` : "Não deu pra rodar agora. Tenta de novo em instantes.");
         return;
       }
-      setResult(data.result);
+      setResults(data.results);
+      setFailedCount(data.failedCount ?? 0);
     } catch {
       setError("Não deu pra rodar agora. Tenta de novo em instantes.");
     } finally {
@@ -84,90 +218,48 @@ export function VideoMachineRunButton() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "flex-start" }}>
-      <button
-        onClick={handleClick}
-        disabled={loading}
-        style={{
-          padding: "8px 14px",
-          borderRadius: 8,
-          border: "1px solid #0a8a4a",
-          background: loading ? "#e9f5ef" : "#fff",
-          color: "#0a8a4a",
-          fontWeight: 700,
-          fontSize: 13,
-          cursor: loading ? "wait" : "pointer",
-        }}
-      >
-        {loading ? "Gerando roteiro + prompt..." : "Iniciar Máquina de Vídeos"}
-      </button>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <label style={{ fontSize: 12, color: "#555" }}>
+          Quantos candidatos:{" "}
+          <input
+            type="number"
+            min={1}
+            max={8}
+            value={count}
+            onChange={(e) => setCount(Math.max(1, Math.min(8, Number(e.target.value) || 1)))}
+            style={{ width: 50, padding: "3px 6px", borderRadius: 6, border: "1px solid #ccc" }}
+          />
+        </label>
+        <button
+          onClick={handleClick}
+          disabled={loading}
+          style={{
+            padding: "8px 14px",
+            borderRadius: 8,
+            border: "1px solid #0a8a4a",
+            background: loading ? "#e9f5ef" : "#fff",
+            color: "#0a8a4a",
+            fontWeight: 700,
+            fontSize: 13,
+            cursor: loading ? "wait" : "pointer",
+          }}
+        >
+          {loading ? "Gerando candidatos..." : "Iniciar Máquina de Vídeos"}
+        </button>
+      </div>
 
       {error ? <p style={{ margin: 0, fontSize: 12, color: "#c0392b" }}>{error}</p> : null}
 
-      {result ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, border: "1px solid #eee", borderRadius: 10, padding: 14, maxWidth: 520 }}>
-          {result.demandSignal ? (
-            <div style={{ background: "#e9f5ef", border: "1px solid #0a8a4a", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#0a8a4a", fontWeight: 600 }}>
-              🔥 Escolhido por demanda real: {result.demandSignal.distinctSearchers} pessoas procuraram algo parecido no WhatsApp nas últimas 48h
-            </div>
-          ) : null}
-          <strong style={{ fontSize: 14 }}>{result.productName}</strong>
-          {result.priceMin != null ? <span style={{ fontSize: 12, color: "#666" }}>Preço: R$ {result.priceMin.toFixed(2)}</span> : null}
-          {result.productPhotoUrl ? (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={result.productPhotoUrl} alt={result.productName} style={{ width: "100%", maxWidth: 280, borderRadius: 8 }} />
-              <a
-                href={`/api/admin/video-machine-run/photo?url=${encodeURIComponent(result.productPhotoUrl)}`}
-                style={{ fontSize: 12, color: "#0a8a4a", fontWeight: 600, textDecoration: "none" }}
-              >
-                ⬇️ Baixar foto
-              </a>
-            </>
-          ) : (
-            <span style={{ fontSize: 12, color: "#999" }}>Sem foto do produto disponível.</span>
-          )}
-
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase" }}>Link de afiliado</div>
-            {result.affiliateLink ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "4px 0" }}>
-                <p style={{ margin: 0, fontSize: 13, wordBreak: "break-all" }}>🔗 {result.affiliateLink}</p>
-                <CopyButton text={result.affiliateLink} label="Copiar link" />
-              </div>
-            ) : (
-              <p style={{ margin: "4px 0", fontSize: 12, color: "#999" }}>Sem link de afiliado disponível pra esse produto.</p>
-            )}
-          </div>
-
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase" }}>Direção criativa</div>
-            <div style={{ fontSize: 12 }}>
-              {result.creativeDirection.archetype} · {result.creativeDirection.hookStrategy} · {result.creativeDirection.visualApproach}
-            </div>
-          </div>
-
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase" }}>Roteiro</div>
-            {result.script.spokenText ? <p style={{ margin: "4px 0", fontSize: 13 }}>🗣️ {result.script.spokenText}</p> : null}
-            {result.script.onScreenText ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "4px 0" }}>
-                <p style={{ margin: 0, fontSize: 13 }}>📝 {result.script.onScreenText}</p>
-                <CopyButton text={result.script.onScreenText} label="Copiar texto" />
-              </div>
-            ) : null}
-          </div>
-
-          <div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase" }}>Prompt de vídeo (colar na ferramenta externa)</div>
-              <CopyButton text={result.videoPrompt} label="Copiar prompt" />
-            </div>
-            <textarea
-              readOnly
-              value={result.videoPrompt}
-              style={{ width: "100%", minHeight: 260, fontSize: 13, lineHeight: 1.5, fontFamily: "-apple-system, system-ui, sans-serif", padding: 10, borderRadius: 8, border: "1px solid #ddd", whiteSpace: "pre-wrap", resize: "vertical" }}
-              onFocus={(e) => e.target.select()}
-            />
+      {results ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
+          <span style={{ fontSize: 12, color: "#666" }}>
+            {results.length} candidato{results.length === 1 ? "" : "s"} pronto{results.length === 1 ? "" : "s"}
+            {failedCount > 0 ? ` (${failedCount} não deu pra gerar, sem candidato elegível no momento)` : ""}.
+          </span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {results.map((result, i) => (
+              <CandidateCard key={i} result={result} />
+            ))}
           </div>
         </div>
       ) : null}

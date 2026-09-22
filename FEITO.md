@@ -4,6 +4,44 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-22 — Lote de candidatos + preparo automático de foto pro Flow
+
+Heber: "eu quando tô no PC vou fazendo as coisas minhas e criando
+reels... o problema que demora mais é analisar o vídeo que o Flow
+gravou, tô tendo que pegar às vezes a foto que puxa da Shopee e mandar
+o ChatGPT ajustar para o Flow não alucinar".
+
+1. **Lote de candidatos**: `/api/admin/video-machine-run` agora aceita
+   `{ count }` (até 8) e roda `runVideoMachineOnce` em loop, devolvendo
+   `results[]`. O `reuse_policy=COOLDOWN` da Skill04 (já existente) já
+   garante produto diferente a cada iteração — nenhuma lógica nova de
+   exclusão precisou ser criada. `VideoMachineRunButton.tsx` ganhou um
+   campo "quantos candidatos" e renderiza um card por resultado.
+2. **Preparo automático de foto**: nova rota
+   `/api/admin/prepare-image` chama `OpenAI images.edit` (gpt-image-1)
+   pra isolar o produto e remover selo/badge/marca d'água/colagem de
+   variantes da foto crua do catálogo — automatiza exatamente o passo
+   manual que o Heber fazia no ChatGPT. Mesmo invariante de fidelidade
+   já usado no resto do sistema (nunca inventa/altera característica
+   real do produto). Botão "🧼 Preparar foto pro Flow" em cada card.
+   Utilitário de conveniência, fora do pipeline formal da Skill09 (que
+   continua NOT_IMPLEMENTED, aguardando revisão externa) — não
+   persiste nada, não gera hash/artifact.
+3. **Bug real encontrado no caminho**: o proxy de download de foto
+   (`/api/admin/video-machine-run/photo`) só liberava domínio da
+   Shopee (`ALLOWED_HOST_SUFFIXES`) — baixar foto de produto Kabum/
+   Lomadee (`images2.productserve.com`) já estava quebrado
+   silenciosamente. Extraída allowlist compartilhada
+   (`src/lib/admin/allowedImageHosts.ts`) com os hosts reais
+   confirmados via query no Supabase (`cf.shopee.com.br`,
+   `images2.productserve.com`, `http2.mlstatic.com`), usada nas duas
+   rotas agora.
+
+**Não testado ao vivo no /admin** — senha local desatualizada vs.
+produção, Heber optou por pular a verificação. `npx tsc --noEmit`
+limpo; assinatura do `OpenAI.images.edit`/`toFile` conferida contra o
+SDK instalado (`openai@^4.60.0`).
+
 ## 2026-09-22 — Opportunity Scorer: Motor 4 fechado de ponta a ponta
 
 `opportunityScorer.ts` agrega buscas reais do Concierge (48h, mínimo 3

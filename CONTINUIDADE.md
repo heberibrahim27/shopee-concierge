@@ -8,6 +8,54 @@
 
 ## Pendências ativas
 
+### 🔬 Desligado `allow_subject_motion_intent` no prompt de vídeo — aguarda confirmação real do Heber (2026-09-22)
+Heber: "a questão é que o flow buga demais" — especificou que o problema
+é vídeo saindo estranho/produto deformado (não travamento nem cota).
+
+Causa provável identificada na policy `video_machine_video_prompt_policy`
+(`engine-default`): o prompt pedia **câmera se aproximando E o produto
+tendo "movimentos naturais e discretos" ao mesmo tempo**. Pedir
+movimento próprio pra um objeto estático (fone, gadget) é ambíguo pra
+IA de vídeo — gatilho conhecido de deformação/glitch em modelos
+image-to-video. Desliguei só `allow_subject_motion_intent` (mudança de
+dado via migration `20260922080000`, sem tocar em código — mesmo
+padrão do fix de `provider_generated_text_policy` de mais cedo hoje).
+Câmera (`allow_camera_intent`) mantida, é bem mais confiável nesses
+modelos.
+
+**Não testado ao vivo ainda** — o Heber pulou a verificação no /admin
+(senha local do .env estava desatualizada vs. produção). Falta
+confirmar no próximo vídeo real gerado no Flow se a deformação
+melhorou. Se não resolver, o próximo suspeito é a seção "FIDELIDADE DO
+PRODUTO" competir com a "Câmera: aproximação lenta" (zoom também
+obriga o modelo a alucinar geometria nova).
+
+### ✅ Cron não é o gasto do Vercel — confirmado com fatura real (2026-09-22)
+Heber perguntou se os crons (20x/dia do `publish-product` + `/10min`
+do grupo WhatsApp + 5 crons de ingestão) estavam pesando na conta.
+Puxei a fatura real de um dia (19→20/09) via MCP do Vercel: **US$0,66
+no dia, sendo US$0,645 a assinatura Pro fixa** (paga igual, cron
+rodando ou não) — todo o resto (functions, ISR, observability) soma
+US$0,011/dia. Confirmado: não é o cron, é outra causa (ver
+[[project_vercel_billing_dispute]] — pico de build minutes por vários
+pushes seguidos). Cadência do cron mantida como está.
+
+### 📌 Meta provisória: 1 Reel/dia mínimo, sem provedor pago (2026-09-22)
+Contexto real puxado do Windsor (conta Instagram, hoje): 1.595
+seguidores, **+10 novos nos últimos 30 dias** (praticamente parado —
+dado é de ANTES do Motor 1/Motor 4 irem ao ar). Alcance por post nos
+últimos 14 dias: posts de IMAGEM automáticos (cron) ficam em 3-10 de
+alcance; os poucos REELS (gerados manualmente no Flow, sem provedor
+pago) tiveram 80-318. Um Reel sozinho alcança mais que 20-30 posts de
+imagem somados.
+
+Amostra de Reels ainda é pequena demais (4-6) pra calcular uma meta
+numérica confiável de seguidor/mês. Decidido: piso de **1 Reel/dia**
+por enquanto (consistência > volume nessa fase), reavaliar com dado
+real em ~2 semanas agora que o CTA de seguir (Motor 1) está ativo.
+Motores 2 (microcriadores) e 3 (Meta Ads) continuam fora até o
+orgânico provar ~800-1.500 seguidores/mês.
+
 ### ✅ Prompt de vídeo parou de pedir texto na tela pro Flow (2026-09-22)
 Heber: "hoje ele manda colocar o texto para pedir o link, mas isso tá
 gerando muito bug no FLOW onde estou gerando manualmente". A Skill10
