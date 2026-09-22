@@ -4,6 +4,7 @@ import { AlertSummary } from "../../components/admin/AlertSummary";
 import { RevenueSummaryCard } from "../../components/admin/RevenueSummaryCard";
 import { MarketplaceComparisonCard } from "../../components/admin/MarketplaceComparisonCard";
 import { VideoMachineRunButton } from "../../components/admin/VideoMachineRunButton";
+import { ChangePasswordForm } from "../../components/admin/ChangePasswordForm";
 import { EyeIcon, ClickIcon, ChartIcon, PackageIcon } from "../../components/admin/icons";
 import { getAttentionSummary, getComparisonStats, getOverviewStats, getRevenueStats } from "../../lib/admin/stats";
 
@@ -66,6 +67,12 @@ export default async function AdminOverviewPage() {
           fazer o vídeo numa ferramenta externa (a geração automática ainda depende de contratar um provedor pago).
         </p>
         <VideoMachineRunButton />
+      </section>
+
+      <section className="dc-admin-section">
+        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Configurações</div>
+        <p style={{ fontSize: 12, color: "#666", marginTop: 0, marginBottom: 10 }}>Trocar a senha de acesso ao painel.</p>
+        <ChangePasswordForm />
       </section>
     </AdminShell>
   );

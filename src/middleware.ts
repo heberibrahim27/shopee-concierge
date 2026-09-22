@@ -1,27 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getExpectedPasswordHash } from "./lib/admin/password";
 
 /**
  * Protege /admin/* com senha simples (temporária, ver CONTINUIDADE.md).
- * Cookie assinado com HMAC da própria senha — sem biblioteca de sessão,
- * só pra travar acesso não autorizado ao painel interno enquanto não
- * existe autenticação de verdade (login por e-mail, etc).
+ * Cookie = o próprio hash esperado (ver lib/admin/password.ts) — sem
+ * biblioteca de sessão, só pra travar acesso não autorizado ao painel
+ * interno enquanto não existe autenticação de verdade (login por
+ * e-mail, etc).
  */
 export const ADMIN_COOKIE_NAME = "dc_admin_session";
-
-async function expectedCookieValue(password: string): Promise<string> {
-  const enc = new TextEncoder().encode(password + "::dc-admin-salt");
-  const digest = await crypto.subtle.digest("SHA-256", enc);
-  return Buffer.from(digest).toString("hex");
-}
 
 /** Usado por rotas /api/admin/* que não passam pelo matcher do middleware
  * (ele só cobre /admin/*) mas ainda assim fazem ação real e não podem
  * ficar abertas — ver src/app/api/admin/revalidate-links/route.ts. */
 export async function isAuthedAdminRequest(request: NextRequest): Promise<boolean> {
-  const password = process.env.ADMIN_PASSWORD;
-  if (!password) return false;
+  const expected = await getExpectedPasswordHash();
+  if (!expected) return false;
   const cookie = request.cookies.get(ADMIN_COOKIE_NAME)?.value;
-  return cookie === (await expectedCookieValue(password));
+  return cookie === expected;
 }
 
 export async function middleware(request: NextRequest) {
@@ -29,11 +25,10 @@ export async function middleware(request: NextRequest) {
   if (!pathname.startsWith("/admin")) return NextResponse.next();
   if (pathname === "/admin/login") return NextResponse.next();
 
-  const password = process.env.ADMIN_PASSWORD;
-  if (!password) return NextResponse.next(); // sem senha configurada, não bloqueia (evita lockout em dev)
+  const expected = await getExpectedPasswordHash();
+  if (!expected) return NextResponse.next(); // sem senha configurada, não bloqueia (evita lockout em dev)
 
   const cookie = request.cookies.get(ADMIN_COOKIE_NAME)?.value;
-  const expected = await expectedCookieValue(password);
   if (cookie === expected) return NextResponse.next();
 
   const loginUrl = new URL("/admin/login", request.url);
