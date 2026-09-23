@@ -18,6 +18,17 @@ Corrigido: `persistOfferSnapshot` preenche categoria quando vazia
 ganhou seletor de categoria (reusa `allowedCategorySlugs` do
 Opportunity Scorer como escolha manual).
 
+## 2026-09-23 — 6 categorias sem keyword de busca (moda, móveis, papelaria, alimentos, viagem, livros)
+
+Continuação direta do Offer Scorer de ontem — a seleção agora era
+inteligente, mas moda/móveis/papelaria/alimentos/viagem/livros nunca
+tinham keyword própria em `KEYWORD_POOL` (mesmo bug do "brinquedos",
+6 categorias de vez), e 4 delas nem existiam no classificador
+`guessCategorySlug`. Adicionadas 18 keywords novas + 4 categorias no
+classificador (ordem ajustada pra "livro infantil" cair em livros, não
+infantil). Reclassificados os 196 produtos presos em "casa" — 19
+recuperados pras categorias certas (12 móveis, os demais espalhados).
+
 ## 2026-09-22 — Offer Scorer real + copy baseada em evidência no grupo WhatsApp
 
 Heber: "quais os criterios? [...] só manda as mesmas coisas [...] mesmo

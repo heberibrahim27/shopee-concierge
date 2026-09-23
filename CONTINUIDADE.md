@@ -58,6 +58,27 @@ integração com a API do Mercado Livre (`/trends`, `/highlights` — ideia
 real do ChatGPT, mas precisa de access token/app OAuth, dependência
 externa como o Bling).
 
+### ✅ Causa raiz da falta de variedade: 6 categorias com ZERO keyword de busca (2026-09-23)
+Mesmo com o Offer Scorer novo, a variedade real depende do que existe
+no banco — e moda, móveis, papelaria, alimentos, viagem e livros nunca
+tinham keyword própria em `KEYWORD_POOL` (`source-deals/route.ts`),
+mesmo bug do "brinquedos" (2026-09-22), só que em 6 categorias de vez.
+`papelaria`/`alimentos`/`viagem`/`livros` também não existiam em
+`guessCategorySlug` (`categorize.ts`) — mesmo se um produto dessas
+categorias aparecesse por acaso numa busca, ficava mal classificado.
+
+Corrigido: 18 keywords novas no pool (3 por categoria), 4 entradas
+novas no classificador, posicionadas ANTES de "infantil" de propósito
+("livro infantil" precisa cair em livros, não em infantil — a ordem do
+objeto decide qual categoria vence primeiro). Testado com 18 amostras
+reais, zero colisão errada depois do ajuste de ordem.
+
+Rodado um reclassify nos 196 produtos que estavam presos no fallback
+"casa" (nunca bateram em nenhuma keyword antes) — 19 produtos genuínos
+recuperados: 12 móveis, 2 games, 1 cada de viagem/papelaria/beleza/
+alimentos/eletrônicos. Os outros 177 realmente são "casa" mesmo
+(comprovado, não é bug).
+
 ## Pendências ativas
 
 ### ✅ Categoria "brinquedos" nunca era salva + filtro manual de categoria no admin (2026-09-22)

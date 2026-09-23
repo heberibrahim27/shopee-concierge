@@ -51,6 +51,17 @@ const KEYWORD_POOL = [
   "brinquedo educativo infantil", "boneca brinquedo", "carrinho controle remoto",
   "brinquedo montessori", "jogo infantil", "kit brinquedo menino", "brinquedo bebe",
   "pista carrinho brinquedo",
+  // Achado real (2026-09-22, debate com o Heber sobre o grupo WhatsApp
+  // só postar TV/celular/tablet/pet sempre): moda, móveis, papelaria,
+  // alimentos, viagem e livros tinham ZERO keyword própria — mesmo bug
+  // do brinquedos, seis categorias de vez. `guessCategorySlug`
+  // (categorize.ts) também ganhou entrada nova pras que faltavam.
+  "vestido feminino verão", "camiseta masculina básica", "jaqueta corta vento",
+  "mesa de escritorio dobravel", "estante organizadora livros", "sofa retratil 2 lugares",
+  "caderno universitario capa dura", "kit canetas coloridas", "mochila escolar juvenil",
+  "cafe gourmet grãos", "kit tempero gourmet", "snack saudavel fit",
+  "mala de viagem com rodinha", "necessaire viagem organizadora", "travesseiro de pescoco viagem",
+  "livro infantil ilustrado", "livro autoajuda best seller", "livro de colorir adulto",
 ];
 
 function keywordsForToday(count = 10): string[] {
