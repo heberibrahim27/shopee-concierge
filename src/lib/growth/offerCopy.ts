@@ -102,13 +102,43 @@ function fallbackTemplate(reasonCode: OfferReasonCode, input: CopyInput): string
   }
 }
 
+// Achado real (Heber, 2026-09-23, colando uma mensagem real que saiu no
+// grupo): mesmo com evidência real por trás, a IA convergiu numa
+// fórmula fixa ("Galera, vocês não vão acreditar... 😱") pra quase todo
+// LOWEST_TRACKED_PRICE — trocou um texto genérico por outro texto
+// genérico, só que "com dado real colado atrás". Temperatura alta
+// sozinha não resolve isso (o modelo tem um "caminho de menor
+// resistência" pra esse tipo de frase). Duas correções: (1) sorteia um
+// ângulo narrativo diferente a cada chamada, forçando estrutura
+// diferente, não só palavra diferente; (2) recebe as aberturas
+// REALMENTE usadas nos últimos posts do grupo e é proibido de repetir
+// o padrão.
+const STYLE_ANGLES = [
+  "Abra com uma pergunta curta e direta pro leitor, relacionada à função do produto — nada de 'vocês não vão acreditar'.",
+  "Abra direto com o fato, tom seco/quase notícia, sem nenhuma interjeição de abertura (nada de 'gente', 'galera', 'olha só').",
+  "Abra descrevendo uma situação chata do dia a dia que esse produto resolve, só depois conecte com a oferta.",
+  "Abra como se estivesse contando pra um amigo específico algo que você acabou de descobrir — tom de confidência, não de anúncio pro grupo inteiro.",
+  "Abra citando o número/fato bruto sem nenhuma introdução ('caiu 20%', 'vendeu 40 unidades ontem') e só depois explique o porquê importa.",
+  "Abra fazendo uma comparação rápida com o que a pessoa imaginaria que esse tipo de produto custa.",
+];
+
+const BANNED_OPENERS_HINT =
+  "Nunca comece com 'Galera, vocês não vão acreditar', 'Gente, olha isso', 'Pessoal, vocês não vão acreditar' ou qualquer variação dessa fórmula — já foi usada demais e virou clichê. Evite abrir toda mensagem com 'Galera'/'Gente'/'Pessoal' seguido de exclamação.";
+
 /**
  * Gera só o TRECHO NARRATIVO (abertura + contexto) — preço, produto e
  * CTA continuam formatados à parte em buildMessage (publish-whatsapp-
  * group/route.ts), pra manter o formato visual (negrito, linha de
  * preço) consistente mesmo quando a IA falha.
+ *
+ * @param recentOpenings Primeiras linhas dos últimos posts reais do
+ * grupo (buscadas por quem chama, ver publish-whatsapp-group/route.ts)
+ * — mostradas pra IA como exemplo do que NÃO repetir.
  */
-export async function generateEvidenceCopy(input: CopyInput): Promise<{ text: string; reasonCode: OfferReasonCode }> {
+export async function generateEvidenceCopy(
+  input: CopyInput,
+  recentOpenings: string[] = []
+): Promise<{ text: string; reasonCode: OfferReasonCode }> {
   const reasonCode = pickReasonCode(input.demand);
   const evidence = evidenceLine(reasonCode, input);
   const fallback = () => fallbackTemplate(reasonCode, input);
@@ -116,19 +146,24 @@ export async function generateEvidenceCopy(input: CopyInput): Promise<{ text: st
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return { text: enforceClaimFirewall(fallback(), reasonCode), reasonCode };
 
+  const angle = STYLE_ANGLES[Math.floor(Math.random() * STYLE_ANGLES.length)];
+  const recentBlock =
+    recentOpenings.length > 0
+      ? `\n\nAberturas JÁ USADAS nos últimos posts deste grupo — não repita a estrutura nem o tom de nenhuma delas:\n${recentOpenings.map((o) => `- "${o}"`).join("\n")}`
+      : "";
+
   try {
     const client = new OpenAI({ apiKey });
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
-      temperature: 0.9,
+      temperature: 1,
       max_tokens: 140,
       messages: [
         {
           role: "system",
-          content:
-            "Você escreve o trecho de abertura de uma mensagem de WhatsApp pra um grupo de ofertas (Descontos Chegando). Objetivo: gerar curiosidade real e vontade de clicar no link, usando técnica de venda de verdade — mas SÓ pode afirmar o que está no FATO fornecido, nunca invente estoque, prazo, urgência ou popularidade que não foi dita. Soe como uma pessoa real escrevendo pros amigos, 2-4 frases curtas, pode usar 1-2 emoji, sem parecer anúncio formal nem IA. Não inclua preço nem nome do produto (isso já vai formatado à parte). Não use aspas. Responda só o texto.",
+          content: `Você escreve o trecho de abertura de uma mensagem de WhatsApp pra um grupo de ofertas (Descontos Chegando). Objetivo: gerar curiosidade real e vontade de clicar no link, usando técnica de venda de verdade — mas SÓ pode afirmar o que está no FATO fornecido, nunca invente estoque, prazo, urgência ou popularidade que não foi dita. Soe como uma pessoa real escrevendo pros amigos, 2-4 frases curtas, no máximo 1 emoji (nem toda mensagem precisa de emoji), sem parecer anúncio formal nem IA. Não inclua preço nem nome do produto (isso já vai formatado à parte). Não use aspas. Responda só o texto.\n\n${BANNED_OPENERS_HINT}\n\nEstilo desta mensagem específica: ${angle}`,
         },
-        { role: "user", content: `Fato real sobre esta oferta: ${evidence}\n\nProduto: ${input.productName}` },
+        { role: "user", content: `Fato real sobre esta oferta: ${evidence}\n\nProduto: ${input.productName}${recentBlock}` },
       ],
     });
     const text = completion.choices[0]?.message?.content?.trim();

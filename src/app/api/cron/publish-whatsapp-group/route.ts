@@ -223,7 +223,27 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>): Promise<Pic
 // aceleração de venda real, ou menor preço já visto) em vez de "produto
 // + preço -> gera algo persuasivo", que sempre saía genérico demais.
 
-async function buildMessage(candidate: Candidate, demand: DemandSignal, inviteLink: string): Promise<string> {
+// Achado real (Heber, 2026-09-23, colou uma mensagem real do grupo): a
+// IA convergia sempre pra "Galera, vocês não vão acreditar...", mesmo
+// com evidência real diferente por trás cada vez. Além do prompt pedir
+// variedade estrutural (ver offerCopy.ts), mostra pra IA as aberturas
+// REAIS usadas nos últimos posts, pra ela evitar repetir o padrão.
+const RECENT_OPENINGS_WINDOW = 6;
+
+async function fetchRecentOpenings(db: ReturnType<typeof getDbFresh>): Promise<string[]> {
+  const { data } = await db
+    .from("social_posts")
+    .select("caption")
+    .eq("post_type", "whatsapp")
+    .eq("status", "posted")
+    .order("posted_at", { ascending: false })
+    .limit(RECENT_OPENINGS_WINDOW);
+  return (data ?? [])
+    .map((row: any) => String(row.caption ?? "").split("\n")[0]?.trim())
+    .filter(Boolean);
+}
+
+async function buildMessage(candidate: Candidate, demand: DemandSignal, inviteLink: string, recentOpenings: string[]): Promise<string> {
   const por = candidate.priceMin.toFixed(2).replace(".", ",");
   let priceLine = `Por apenas *R$ ${por}* 🔥`;
   if (candidate.priceDiscountRate > 0) {
@@ -235,13 +255,16 @@ async function buildMessage(candidate: Candidate, demand: DemandSignal, inviteLi
   }
 
   const platformLabel = getPlatformInfo(candidate.platform).ctaPreposition; // ex: "na Shopee", "no KaBuM!"
-  const { text: narrative } = await generateEvidenceCopy({
-    productName: candidate.productName,
-    priceMin: candidate.priceMin,
-    priceDiscountRate: candidate.priceDiscountRate,
-    platformLabel,
-    demand,
-  });
+  const { text: narrative } = await generateEvidenceCopy(
+    {
+      productName: candidate.productName,
+      priceMin: candidate.priceMin,
+      priceDiscountRate: candidate.priceDiscountRate,
+      platformLabel,
+      demand,
+    },
+    recentOpenings
+  );
 
   return [
     narrative,
@@ -311,7 +334,8 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const caption = await buildMessage(candidate, demand, inviteLink);
+  const recentOpenings = await fetchRecentOpenings(db);
+  const caption = await buildMessage(candidate, demand, inviteLink, recentOpenings);
 
   // Modo de pré-visualização — monta tudo (candidato real, link de
   // convite real) mas não manda a mensagem de verdade. Útil pra

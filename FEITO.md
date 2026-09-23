@@ -18,6 +18,16 @@ Corrigido: `persistOfferSnapshot` preenche categoria quando vazia
 ganhou seletor de categoria (reusa `allowedCategorySlugs` do
 Opportunity Scorer como escolha manual).
 
+## 2026-09-23 — Copy convergia numa fórmula fixa mesmo com evidência real
+
+Heber colou uma mensagem real: "Galera, vocês não vão acreditar!... 😱"
+saindo pra quase todo produto com reasonCode LOWEST_TRACKED_PRICE —
+trocou texto genérico por OUTRO texto genérico. Corrigido: 6 ângulos
+narrativos sorteados por chamada + as aberturas reais dos últimos 6
+posts mostradas pra IA como o que não repetir + proibição explícita da
+fórmula antiga no prompt. Testado: 5 gerações seguidas, mesmo produto e
+reasonCode, 5 estruturas diferentes.
+
 ## 2026-09-23 — 6 categorias sem keyword de busca (moda, móveis, papelaria, alimentos, viagem, livros)
 
 Continuação direta do Offer Scorer de ontem — a seleção agora era

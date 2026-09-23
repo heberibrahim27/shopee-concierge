@@ -58,6 +58,26 @@ integração com a API do Mercado Livre (`/trends`, `/highlights` — ideia
 real do ChatGPT, mas precisa de access token/app OAuth, dependência
 externa como o Bling).
 
+### ✅ Copy convergia numa fórmula fixa mesmo com evidência real (2026-09-23)
+Heber colou uma mensagem real do grupo: "Galera, vocês não vão
+acreditar!... 😱" — a IA trocou um texto genérico por OUTRO texto
+genérico, só que com dado real colado atrás. Temperatura alta sozinha
+não resolve isso (o modelo tem um "caminho de menor resistência" pra
+esse tipo de abertura).
+
+Corrigido em `offerCopy.ts`: (1) sorteia um de 6 ângulos narrativos
+diferentes a cada chamada (pergunta direta, fato seco, dor do dia a
+dia, confidência, número bruto, comparação) — força estrutura
+diferente, não só palavra diferente; (2) `publish-whatsapp-group/
+route.ts` busca as aberturas REAIS dos últimos 6 posts do grupo
+(`fetchRecentOpenings`) e mostra pra IA como exemplo do que NÃO
+repetir; (3) prompt bane explicitamente "Galera, vocês não vão
+acreditar" e variações.
+
+Testado ao vivo: 5 gerações seguidas do mesmo reasonCode
+(LOWEST_TRACKED_PRICE, mesmo produto) — 5 estruturas de abertura
+diferentes, zero repetição da fórmula antiga.
+
 ### ✅ Causa raiz da falta de variedade: 6 categorias com ZERO keyword de busca (2026-09-23)
 Mesmo com o Offer Scorer novo, a variedade real depende do que existe
 no banco — e moda, móveis, papelaria, alimentos, viagem e livros nunca
