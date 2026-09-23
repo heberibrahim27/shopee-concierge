@@ -18,6 +18,17 @@ Corrigido: `persistOfferSnapshot` preenche categoria quando vazia
 ganhou seletor de categoria (reusa `allowedCategorySlugs` do
 Opportunity Scorer como escolha manual).
 
+## 2026-09-23 — Faltava ferramenta, eletrodoméstico grande, TV e luminária moderna
+
+Heber: "não vi ferramentas, eletrodomésticos como geladeira, tvs...
+microondas, fogão, luminárias modernas". Adicionadas 11 keywords novas
+em `KEYWORD_POOL`. Testado ao vivo contra produção: geladeiras reais
+(Electrolux, Brastemp, Consul, HQ), fogões reais (Atlas, Itatiaia,
+Electrolux, Braslar, Suggar, Fogatti), furadeiras reais, luminárias
+pendentes modernas reais. Bug pego no teste: "mesa" sozinho em
+`moveis` classificava "fogão... mesa de vidro" errado — trocado por
+termos compostos ("mesa de jantar/centro/escritorio/lateral").
+
 ## 2026-09-23 — Copy convergia numa fórmula fixa mesmo com evidência real
 
 Heber colou uma mensagem real: "Galera, vocês não vão acreditar!... 😱"

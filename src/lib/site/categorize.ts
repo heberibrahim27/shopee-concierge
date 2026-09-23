@@ -36,7 +36,11 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   automotivo: ["automotivo", "carro", "pneu", "farol"],
   saude: ["vitamina", "suplemento", "termômetro", "massageador"],
   ferramentas: ["furadeira", "parafusadeira", "ferramenta", "chave de fenda"],
-  moveis: ["sofá", "sofa", "mesa", "cadeira", "estante", "cama box", "rack tv", "guarda roupa"],
+  // "mesa" sozinho é ambíguo demais — acha "fogão de mesa" (é
+  // eletrodoméstico, não móvel). Achado real testando (2026-09-23,
+  // debate sobre keyword de eletrodoméstico nova). Usa termos
+  // compostos específicos de móvel em vez da palavra solta.
+  moveis: ["sofá", "sofa", "mesa de jantar", "mesa de centro", "mesa de escritorio", "mesa lateral", "cadeira", "estante", "cama box", "rack tv", "guarda roupa"],
 };
 
 export function guessCategorySlug(text: string): string {

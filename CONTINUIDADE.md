@@ -78,6 +78,34 @@ Testado ao vivo: 5 gerações seguidas do mesmo reasonCode
 (LOWEST_TRACKED_PRICE, mesmo produto) — 5 estruturas de abertura
 diferentes, zero repetição da fórmula antiga.
 
+### ✅ Faltava ferramenta de verdade, eletrodoméstico grande, TV e luminária moderna (2026-09-23)
+Heber: "não vi ferramentas, eletrodomésticos como geladeira, tvs...
+microondas, fogão, luminárias modernas". `ferramentas` tinha só 1
+keyword na busca (genérica, "kit ferramentas"); geladeira/fogão/
+microondas/TV/luminária moderna nunca tiveram keyword nenhuma.
+
+Adicionadas 11 keywords novas em `KEYWORD_POOL`. Testado ao vivo contra
+produção via override manual (`?keywords=`): geladeiras reais
+(Electrolux 490L, Brastemp 385L, Consul, HQ), fogões reais (Atlas,
+Itatiaia, Electrolux, Braslar, Suggar, Fogatti), furadeiras/
+parafusadeiras reais, suportes de TV reais, luminárias pendentes
+modernas reais — tudo persistido no banco.
+
+**Bug pego no próprio teste**: "mesa" sozinho em `moveis` (categorize.ts)
+é ambíguo — "Fogão... Mesa de Vidro" caía em móveis em vez de casa.
+Corrigido: `moveis` agora usa termos compostos ("mesa de jantar", "mesa
+de centro", "mesa de escritorio", "mesa lateral") em vez da palavra
+solta. Rodado backfill nos produtos que o próprio teste desta sessão
+criou errado antes do fix ir pro ar.
+
+**Achado à parte, não corrigido ainda**: alguns produtos antigos (não
+relacionados a este fix) têm `category_slug` errado herdado de uma
+classificação anterior — ex.: luminárias marcadas como "pet". Como
+`persistOfferSnapshot` nunca sobrescreve categoria já definida (regra
+deliberada, pra não apagar categorização boa de outra fonte), esses
+casos antigos não se autocorrigem. Fica como possível backfill futuro,
+não bloqueia nada do que está no ar.
+
 ### ✅ Causa raiz da falta de variedade: 6 categorias com ZERO keyword de busca (2026-09-23)
 Mesmo com o Offer Scorer novo, a variedade real depende do que existe
 no banco — e moda, móveis, papelaria, alimentos, viagem e livros nunca

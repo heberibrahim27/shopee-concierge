@@ -62,6 +62,16 @@ const KEYWORD_POOL = [
   "cafe gourmet grãos", "kit tempero gourmet", "snack saudavel fit",
   "mala de viagem com rodinha", "necessaire viagem organizadora", "travesseiro de pescoco viagem",
   "livro infantil ilustrado", "livro autoajuda best seller", "livro de colorir adulto",
+  // Heber, 2026-09-23: "não vi ferramentas, eletrodomésticos como
+  // geladeira, tvs, não vi tbm microondas, fogão, luminárias modernas".
+  // "kit ferramentas" já existia mas era a ÚNICA keyword da categoria
+  // inteira; geladeira/fogão/microondas/TV grande nunca tiveram keyword
+  // nenhuma (só gadget pequeno tipo "mini ventilador" e "caixa de som"
+  // apareciam, nunca eletrodoméstico de verdade).
+  "furadeira parafusadeira bateria", "trena a laser digital", "chave de fenda kit profissional",
+  "geladeira frost free", "fogão 4 bocas mesa vidro", "microondas 20 litros", "cooktop 4 bocas",
+  "tv led 32 polegadas smart", "tv 43 polegadas 4k",
+  "luminária pendente moderna", "arandela led parede moderna",
 ];
 
 function keywordsForToday(count = 10): string[] {
