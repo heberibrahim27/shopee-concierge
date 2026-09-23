@@ -4,7 +4,39 @@
 > o que ainda está pendente. Atualize sempre que resolver ou descobrir algo novo.
 > Complementa o [FEITO.md](FEITO.md), que registra o que já está pronto.
 
-**Última atualização:** 2026-09-22 (Offer Scorer real + copy baseada em evidência no grupo WhatsApp)
+**Última atualização:** 2026-09-24 (desconto auto-declarado removido do score — era jogo de ranking do seller)
+
+### ✅ Desconto auto-declarado é jogo de ranking do seller, não sinal de valor (2026-09-24)
+Heber, direto: "não vejo produto que tá vendendo no orgânico ter que
+dar 50% de desconto pra vender... quando eu subo um produto na Shopee
+eu coloco o preço dele cheio e dou o desconto pra aparecer no topo das
+pesquisas, isso é estratégia que sellers usam". Confirmação em primeira
+mão, como seller: o campo `priceDiscountRate` é literalmente manipulado
+de propósito pra ranquear melhor no algoritmo da Shopee — nunca foi
+sinal de valor real, o projeto todo vinha pontuando por um número que o
+próprio vendedor infla.
+
+Removido `quedaHistorica` como dimensão de score em `dealScoring.ts`
+(continua existindo só como corte mínimo leve, `cuts.minPriceDiscountRate`,
+não nota). Substituído por `precoRelativoComparaveis`: preço do item
+contra a MEDIANA dos outros resultados da MESMA busca por palavra-chave
+(ex.: "tv 64 polegadas" já traz ~10 TVs comparáveis na mesma chamada,
+sem custo extra de API) — uma TV a R$3k quando as outras da busca
+custam R$5k é oportunidade real, diferente de "desconto de 50%" que o
+próprio seller decidiu mostrar. Exige mínimo de 4 resultados
+comparáveis pra confiar na mediana (`MIN_COHORT_SIZE` em
+`source-deals/route.ts`); sem isso, fica de fora do denominador (mesma
+lógica de normalização de `confiancaHistorico`, não vira zero
+escondido).
+
+Pesos finais: vendas 30 + nota 25 + preço relativo 25 + confiança
+histórico 15 + comissão 5 = 100. Testado localmente: TV 40%+ mais
+barata que a mediana da busca passa (79,5); TV só 10% mais barata não
+passa (57,5, correto); TV mais cara que a mediana falha (50,1). Também
+corrigido `productDiscovery.ts` (Skill04 do vídeo, consumia
+`quedaHistorica` do `score_breakdown` armazenado — atualizado pro campo
+novo, com fallback seguro pra candidatos antigos que ainda têm o schema
+velho no banco).
 
 ### ✅ Grupo WhatsApp: seleção sem sinal de demanda real + copy genérica (2026-09-22)
 Heber, direto: "quais os criterios? [...] só manda as mesmas coisas [...]

@@ -99,6 +99,21 @@ function contentToken(itemId: string): string {
   return `c${crypto.createHash("sha1").update(itemId).digest("hex").slice(0, 6)}`;
 }
 
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+}
+
+// Mínimo de resultados comparáveis pra confiar na mediana da busca —
+// achado real (Heber, 2026-09-24): "quando eu subo um produto na
+// Shopee eu coloco o preço dele cheio e dou o desconto pra aparecer no
+// topo das pesquisas" — o desconto auto-declarado é jogo de ranking, não
+// sinal de valor. Preço comparado aos OUTROS resultados da MESMA busca
+// (ex.: "tv 64 polegadas" traz ~10 TVs comparáveis) é o sinal honesto.
+// Com poucos resultados a mediana fica instável, então exige um mínimo.
+const MIN_COHORT_SIZE = 4;
+
 export async function GET(request: NextRequest) {
   // Fail-closed (achado real SEC-025-CRON-PRODUCTION-AUTH, ver
   // CONTINUIDADE.md "Security findings rastreados"): CRON_SECRET
@@ -119,12 +134,24 @@ export async function GET(request: NextRequest) {
   const limitPerKeyword = 10;
 
   const allOffers: Awaited<ReturnType<typeof searchProductsByKeyword>> = [];
+  const cohortMedianPriceByItemId = new Map<string, number>();
   const seen = new Set<string>();
   for (const keyword of keywords) {
     try {
       const offers = await searchProductsByKeyword({ keyword, limit: limitPerKeyword, sortType: ShopeeSortType.ITEM_SOLD_DESC });
+
+      // Mediana calculada sobre TODOS os resultados desta busca (mesmo
+      // os que já apareceram numa keyword anterior) — é o preço "dos
+      // concorrentes reais desta pesquisa", não do pool acumulado do
+      // dia inteiro, que misturaria categorias sem relação nenhuma.
+      const prices = offers.map((o) => Number(o.priceMin)).filter((p) => Number.isFinite(p) && p > 0);
+      const cohortMedian = prices.length >= MIN_COHORT_SIZE ? median(prices) : null;
+
       for (const o of offers) {
         const itemId = String(o.itemId);
+        if (cohortMedian !== null && !cohortMedianPriceByItemId.has(itemId)) {
+          cohortMedianPriceByItemId.set(itemId, cohortMedian);
+        }
         if (!seen.has(itemId)) {
           seen.add(itemId);
           allOffers.push({ ...o, itemId, shopId: String(o.shopId) });
@@ -149,7 +176,7 @@ export async function GET(request: NextRequest) {
   // folga, já que nem todo candidato vira post (pode já ter sido usado
   // ou reprovar depois no filtro visual do Windsor/expert).
   const eligibleOffers = allOffers.filter((o) => persisted.has(o.itemId));
-  const topByScore = selectTopCandidates(eligibleOffers, 25);
+  const topByScore = selectTopCandidates(eligibleOffers, 25, DEFAULT_HARD_CUTS, cohortMedianPriceByItemId);
 
   // Achado real (2026-09-23, Heber: "não vi geladeira, tvs... fogão,
   // luminárias modernas"): mesmo depois de expandir as keywords de
@@ -172,7 +199,7 @@ export async function GET(request: NextRequest) {
   const alreadyPicked = new Set(topByScore.map((c) => c.offer.itemId));
   const diversityPicks: ScoredCandidate[] = [];
   const scoredEligible = eligibleOffers
-    .map((o) => scoreOffer(o, DEFAULT_HARD_CUTS))
+    .map((o) => scoreOffer(o, DEFAULT_HARD_CUTS, cohortMedianPriceByItemId.get(o.itemId)))
     .filter((c) => c.passesHardCuts && !alreadyPicked.has(c.offer.itemId))
     .sort((a, b) => b.score.total - a.score.total);
   for (const candidate of scoredEligible) {

@@ -71,7 +71,7 @@ type CandidateEval = {
   diversificationReason?: "SAME_PRODUCT" | "SAME_PRODUCT_GROUP" | "CATEGORY_LIMIT";
   signals: { discoveryCommercial?: number; freshness?: number };
   categorySlug?: string;
-  sourceScoreBreakdown?: { quedaHistorica: number; notaEAvaliacoes: number; vendas: number; comissao: number; confiancaHistorico: number; total: number };
+  sourceScoreBreakdown?: { precoRelativoComparaveis: number | null; notaEAvaliacoes: number; vendas: number; comissao: number; confiancaHistorico: number; total: number };
   sourceScore?: number;
 };
 
@@ -294,8 +294,19 @@ export async function discoverProducts(
       if (!breakdown) {
         reasons.push("RANKING_SIGNAL_UNAVAILABLE");
       } else {
-        const allowedPoints = breakdown.quedaHistorica + breakdown.notaEAvaliacoes + breakdown.vendas;
-        signals.discoveryCommercial = clamp((allowedPoints / 85) * 100, 0, 100);
+        // Achado real (2026-09-24): `quedaHistorica` (desconto
+        // auto-declarado pelo seller) foi removido do score em
+        // dealScoring.ts — é número que o próprio seller infla pra
+        // ranquear melhor na Shopee, não sinal de valor (ver nota lá).
+        // Substituído por `precoRelativoComparaveis` (preço contra a
+        // mediana de resultados comparáveis da mesma busca), que pode
+        // ser `null` quando a busca de origem não teve comparáveis
+        // suficientes — nesse caso o denominador cai pra 55 (só
+        // nota+vendas), não trata null como zero escondido.
+        const hasCohortSignal = typeof breakdown.precoRelativoComparaveis === "number"; // false também pra registros antigos (campo não existia antes de 2026-09-24), não só null
+        const allowedPoints = (breakdown.precoRelativoComparaveis ?? 0) + breakdown.notaEAvaliacoes + breakdown.vendas;
+        const maxPoints = (hasCohortSignal ? 25 : 0) + 25 + 30;
+        signals.discoveryCommercial = clamp((allowedPoints / maxPoints) * 100, 0, 100);
       }
     }
     if ((weights.freshness ?? 0) > 0 && fresh) {

@@ -18,6 +18,20 @@ Corrigido: `persistOfferSnapshot` preenche categoria quando vazia
 ganhou seletor de categoria (reusa `allowedCategorySlugs` do
 Opportunity Scorer como escolha manual).
 
+## 2026-09-24 — Desconto auto-declarado removido do score (jogo de ranking do seller)
+
+Heber, como seller: "quando eu subo um produto na Shopee eu coloco o
+preço dele cheio e dou o desconto pra aparecer no topo das pesquisas,
+isso é estratégia que sellers usam". `priceDiscountRate` nunca foi
+sinal de valor real, é manipulado de propósito. Removido como dimensão
+de score (continua só como corte mínimo leve). Substituído por
+`precoRelativoComparaveis`: preço contra a mediana dos outros
+resultados da MESMA busca (comparáveis reais, sem custo extra de API).
+Pesos finais: vendas 30 + nota 25 + preço relativo 25 + confiança
+histórico 15 + comissão 5. Testado: TV 40%+ abaixo da mediana passa
+(79,5), TV só 10% abaixo não passa (57,5), TV acima da mediana falha
+(50,1). `productDiscovery.ts` (Skill04) atualizado pro campo novo.
+
 ## 2026-09-23 — Geladeira/fogão real nunca virava deal_candidate
 
 Heber verificou o grupo de verdade e não viu geladeira/TV/variedade,
