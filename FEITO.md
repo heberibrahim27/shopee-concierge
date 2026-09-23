@@ -18,6 +18,17 @@ Corrigido: `persistOfferSnapshot` preenche categoria quando vazia
 ganhou seletor de categoria (reusa `allowedCategorySlugs` do
 Opportunity Scorer como escolha manual).
 
+## 2026-09-24 — Produto Awin (Nike/Olympikus/Kabum) repetindo no grupo
+
+Heber: "não aceito tá repetindo produto no mesmo dia, no dia seguinte
+... já mandou uma vez aguarda". Confirmado via SQL: mesmo tênis, 2
+`product_id` diferentes, postado 2x com ~14h de diferença. Causa:
+`persistAwinProduct` usava o ID da VARIANTE (tamanho/cor) escolhida
+como mais barata do dia como identidade do produto — quando o tamanho
+mais barato muda de um dia pro outro, o ID muda junto e cria linha nova
+pro mesmo tênis, burlando o dedupe. Corrigido: usa `variantKey`
+(estável por modelo, já existia no código) em vez do ID da variante.
+
 ## 2026-09-24 — Fluxo semanal de Mercado Livre virou durável (cron Vercel + fila de pendências)
 
 Heber: "então jogue duro". Separado o que é automático do que exige o

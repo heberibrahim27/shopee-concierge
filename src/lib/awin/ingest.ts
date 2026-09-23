@@ -136,7 +136,22 @@ export async function persistAwinProduct(params: {
   categorySlug: string;
 }): Promise<{ productId: string; snapshotId: string; slug: string; groupId: string | null }> {
   const db = getDb();
-  const shopeeItemId = `AWIN-${params.item.awProductId}`;
+  // Achado real (2026-09-24, Heber: "não aceito tá repetindo produto no
+  // mesmo dia, no dia seguinte"): usava `awProductId` (ID da VARIANTE
+  // específica de tamanho/cor que ganhou "mais barata do dia" em
+  // dedupeCheapestVariants) como identidade do produto. Quando a
+  // variante mais barata muda de um dia pro outro (tamanho diferente
+  // entrou em promoção), o `awProductId` muda junto, e o upsert cria
+  // uma linha NOVA em `products` pro mesmo tênis — burlando sozinho
+  // todo dedupe (WhatsApp, Instagram) que depende de `product_id` ser
+  // estável. Confirmado com dado real: "Tênis Nike Flex Runner 4
+  // Infantil" tinha 2 `product_id` distintos, um por `awProductId`
+  // diferente, postado 2x no grupo com ~14h de diferença. Corrigido:
+  // usa `variantKey` (já calculado em dedupeCheapestVariants — o
+  // `parent_product_id` real da Nike, ou nome normalizado pra feeds sem
+  // essa coluna) como identidade, que é estável por MODELO, não por
+  // variante do dia.
+  const shopeeItemId = `AWIN-${params.item.variantKey}`;
   const slug = buildProductSlug(params.item.productName, shopeeItemId);
 
   const { data: product, error: productError } = await db

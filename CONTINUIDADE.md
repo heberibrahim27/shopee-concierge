@@ -4,7 +4,32 @@
 > o que ainda está pendente. Atualize sempre que resolver ou descobrir algo novo.
 > Complementa o [FEITO.md](FEITO.md), que registra o que já está pronto.
 
-**Última atualização:** 2026-09-24 (fila de pendências durável pra Mercado Livre — cron real, sem depender de sessão aberta)
+**Última atualização:** 2026-09-24 (produto Awin repetindo no grupo — ID de variante em vez de ID de modelo)
+
+### ✅ Produto Awin (Nike/Olympikus/Kabum) repetindo no grupo WhatsApp (2026-09-24)
+Heber, direto: "não aceito tá repetindo produto no mesmo dia, no dia
+seguinte... já mandou uma vez aguarda". Confirmado com SQL real: "Tênis
+Nike Flex Runner 4 Infantil" foi postado 2x, com ~14h de diferença —
+mas eram 2 `product_id` DIFERENTES no banco (`AWIN-42107527698` e
+`AWIN-44372729909`).
+
+Causa real: o feed da Awin separa cada tamanho/cor do mesmo tênis numa
+linha própria, com seu próprio `aw_product_id`. `dedupeCheapestVariants`
+já escolhe certo a variante mais barata do dia — mas
+`persistAwinProduct` usava esse `aw_product_id` (da VARIANTE) como
+identidade do produto no banco. Quando o tamanho mais barato muda de um
+dia pro outro (comum), o ID muda junto, e o upsert cria uma linha NOVA
+em `products` pro mesmo tênis — burlando o dedupe do grupo (que
+depende de `product_id` ser estável) sem ninguém perceber.
+
+Corrigido: `persistAwinProduct` agora usa `variantKey` (já existia,
+calculado em `dedupeCheapestVariants` — `parent_product_id` real da
+Nike, ou nome normalizado pra feeds sem essa coluna) como identidade,
+estável por MODELO, não por variante do dia. Vale pros 3 feeds da Awin
+(Nike, Olympikus, Kabum), mesma função compartilhada. Não recomenda a
+seleção do WhatsApp em si — já fazia exatamente o que o Heber pediu
+("já mandou, nunca mais repete"), só que a identidade que ela recebia
+estava errada na origem.
 
 ### ✅ Fluxo semanal de Mercado Livre virou durável (cron Vercel + fila) (2026-09-24)
 Heber: "então jogue duro" — depois de confirmar que gerar link de
