@@ -106,6 +106,27 @@ deliberada, pra não apagar categorização boa de outra fonte), esses
 casos antigos não se autocorrigem. Fica como possível backfill futuro,
 não bloqueia nada do que está no ar.
 
+### ✅ Geladeira/fogão real nunca virava deal_candidate, mesmo com keyword nova (2026-09-23)
+Heber verificou o grupo de verdade: "não vi ainda no grupo geladeira,
+tvs, variedades de produtos". Achado real via SQL: os fogões que a
+keyword nova trouxe (Atlas, Itatiaia, Cooktop Dako, Suggar, Fogatti —
+desconto real 22-37%, nota 4.8-4.9, 87 a 1363 vendas) **nunca tinham
+virado `deal_candidate`**, mesmo persistidos no banco.
+
+Causa: `quedaHistorica` (dealScoring.ts) pesa 40 dos 100 pontos do
+score e só escala pra máximo a partir de 50% de desconto. Eletrodoméstico
+de ticket alto raramente tem desconto percentual gigante mesmo sendo
+oferta real (uma geladeira R$800 com 25% off é uma baita oferta em R$,
+mas pontua baixo nessa fórmula) — então nunca competia com gadget
+pequeno de desconto agressivo pelo corte de 75 pontos. A fórmula em si
+(seção 7.3 do Plano Diretor) não foi mudada — em vez disso,
+`source-deals/route.ts` ganhou uma cota de diversidade: até 5
+candidatos extras por execução, de categorias que não apareceriam de
+jeito nenhum no top por score, desde que passem nos cortes duros
+(desconto/nota/vendas reais) e tenham score ≥55 — mesma lição da
+penalidade de saturação do grupo WhatsApp, só que um passo antes, na
+entrada do funil.
+
 ### ✅ Causa raiz da falta de variedade: 6 categorias com ZERO keyword de busca (2026-09-23)
 Mesmo com o Offer Scorer novo, a variedade real depende do que existe
 no banco — e moda, móveis, papelaria, alimentos, viagem e livros nunca

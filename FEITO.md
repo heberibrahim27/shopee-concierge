@@ -18,6 +18,19 @@ Corrigido: `persistOfferSnapshot` preenche categoria quando vazia
 ganhou seletor de categoria (reusa `allowedCategorySlugs` do
 Opportunity Scorer como escolha manual).
 
+## 2026-09-23 — Geladeira/fogão real nunca virava deal_candidate
+
+Heber verificou o grupo de verdade e não viu geladeira/TV/variedade,
+mesmo com a keyword nova no ar. Achado via SQL: fogões reais (Atlas,
+Itatiaia, Suggar, Fogatti — 22-37% desconto real, nota 4.8-4.9, até
+1363 vendas) persistiam no banco mas nunca viravam `deal_candidate`.
+Causa: `quedaHistorica` pesa 40/100 pontos e só escala pra máximo a
+partir de 50% de desconto — eletrodoméstico caro raramente desconta
+tanto em %, mesmo sendo oferta real, então nunca batia o corte de 75.
+Fórmula original não mudou; `source-deals` ganhou cota de diversidade
+(até 5 candidatos extras/execução, categorias sem representação no
+top, score≥55, ainda passando nos cortes duros).
+
 ## 2026-09-23 — Faltava ferramenta, eletrodoméstico grande, TV e luminária moderna
 
 Heber: "não vi ferramentas, eletrodomésticos como geladeira, tvs...

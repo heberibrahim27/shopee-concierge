@@ -3,7 +3,8 @@ import { getDb } from "../../../../lib/db/client";
 import { searchProductsByKeyword, generateAffiliateShortLink } from "../../../../lib/shopee/queries";
 import { ShopeeSortType } from "../../../../lib/shopee/types";
 import { persistOfferSnapshot, createDealCandidate, saveAffiliateLink } from "../../../../lib/db/snapshots";
-import { selectTopCandidates } from "../../../../lib/growth/dealScoring";
+import { selectTopCandidates, scoreOffer, DEFAULT_HARD_CUTS, type ScoredCandidate } from "../../../../lib/growth/dealScoring";
+import { guessCategorySlug } from "../../../../lib/site/categorize";
 import { buildProductSlug } from "../../../../lib/site/slug";
 import { notifyCatalogUpdate } from "../../../../lib/site/notifyRevalidate";
 import crypto from "node:crypto";
@@ -147,7 +148,42 @@ export async function GET(request: NextRequest) {
   // Instagram (src/app/api/cron/publish-product, ver vercel.json) com
   // folga, já que nem todo candidato vira post (pode já ter sido usado
   // ou reprovar depois no filtro visual do Windsor/expert).
-  const top = selectTopCandidates(allOffers.filter((o) => persisted.has(o.itemId)), 25);
+  const eligibleOffers = allOffers.filter((o) => persisted.has(o.itemId));
+  const topByScore = selectTopCandidates(eligibleOffers, 25);
+
+  // Achado real (2026-09-23, Heber: "não vi geladeira, tvs... fogão,
+  // luminárias modernas"): mesmo depois de expandir as keywords de
+  // busca, geladeira/fogão real (desconto 22-37%, nota 4.8-4.9, 100+
+  // vendas) NUNCA virava deal_candidate. Causa: `quedaHistorica` pesa
+  // 40 dos 100 pontos do score e escala pra máximo só a partir de 50%
+  // de desconto — eletrodoméstico de ticket alto raramente tem desconto
+  // percentual gigante mesmo sendo oferta real, então fica sempre
+  // abaixo do corte de 75, perdendo pra gadget pequeno com desconto
+  // agressivo. Mesma lição da penalidade de saturação do grupo WhatsApp
+  // (publish-whatsapp-group/route.ts), só que um passo antes, na
+  // ENTRADA do funil: garante até MAX_DIVERSITY_PICKS candidatos de
+  // categorias que não apareceriam de jeito nenhum no top por score,
+  // desde que passem nos cortes duros (desconto/nota/vendas reais) e
+  // tenham score minimamente decente — não é "forçar qualquer coisa",
+  // é dar uma chance real pra categoria que a fórmula despreza.
+  const MAX_DIVERSITY_PICKS = 5;
+  const MIN_DIVERSITY_SCORE = 55;
+  const coveredCategories = new Set(topByScore.map((c) => guessCategorySlug(c.offer.productName)));
+  const alreadyPicked = new Set(topByScore.map((c) => c.offer.itemId));
+  const diversityPicks: ScoredCandidate[] = [];
+  const scoredEligible = eligibleOffers
+    .map((o) => scoreOffer(o, DEFAULT_HARD_CUTS))
+    .filter((c) => c.passesHardCuts && !alreadyPicked.has(c.offer.itemId))
+    .sort((a, b) => b.score.total - a.score.total);
+  for (const candidate of scoredEligible) {
+    if (diversityPicks.length >= MAX_DIVERSITY_PICKS) break;
+    if (candidate.score.total < MIN_DIVERSITY_SCORE) continue;
+    const slug = guessCategorySlug(candidate.offer.productName);
+    if (coveredCategories.has(slug)) continue;
+    coveredCategories.add(slug);
+    diversityPicks.push(candidate);
+  }
+  const top = [...topByScore, ...diversityPicks];
   const weekToken = isoWeekToken();
   const published: string[] = [];
   const failed: Array<{ itemId: string; erro: string }> = [];
