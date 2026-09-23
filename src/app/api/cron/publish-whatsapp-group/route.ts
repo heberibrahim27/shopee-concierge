@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
 import { getDbFresh } from "../../../../lib/db/client";
 import { createZApiConnector } from "../../../../lib/channel/zapi";
 import { getPlatformInfo } from "../../../../lib/site/platforms";
+import { computeDemandSignal, type DemandSignal } from "../../../../lib/growth/demandSignal";
+import { generateEvidenceCopy } from "../../../../lib/growth/offerCopy";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -29,12 +30,15 @@ const WHATSAPP_GROUP_ID = process.env.ZAPI_DESCONTOS_GROUP_ID || "12036336893440
 
 type Candidate = {
   dealCandidateId: string;
+  productId: string;
   productName: string;
   platform: string;
+  categorySlug: string | null;
   imageUrl: string;
   priceMin: number;
   priceDiscountRate: number;
   offerLink: string;
+  baseScore: number;
 };
 
 // Quantos posts seguidos de Shopee (sem intercalar outra loja) disparam
@@ -66,12 +70,15 @@ function candidateFromRow(row: any): Candidate | null {
   if (!snap?.image_url || !snap?.offer_link || snap.price_min == null) return null;
   return {
     dealCandidateId: row.id,
+    productId: row.product_id,
     productName: row.products?.product_name ?? "Oferta imperdível",
     platform: row.products?.platform ?? "shopee",
+    categorySlug: row.products?.category_slug ?? null,
     imageUrl: snap.image_url,
     priceMin: Number(snap.price_min),
     priceDiscountRate: Number(snap.price_discount_rate ?? 0),
     offerLink: snap.offer_link,
+    baseScore: Number(row.score ?? 0),
   };
 }
 
@@ -85,8 +92,8 @@ async function rankedCandidateRows(db: ReturnType<typeof getDbFresh>, postedProd
     .from("deal_candidates")
     .select(
       excludeShopee
-        ? "id, score, score_breakdown, product_id, products!inner(product_name, platform), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
-        : "id, score, score_breakdown, product_id, products(product_name, platform), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
+        ? "id, score, score_breakdown, product_id, products!inner(product_name, platform, category_slug), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
+        : "id, score, score_breakdown, product_id, products(product_name, platform, category_slug), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
     );
   if (postedProductIds.length > 0) {
     query = query.not("product_id", "in", `(${postedProductIds.join(",")})`);
@@ -98,7 +105,64 @@ async function rankedCandidateRows(db: ReturnType<typeof getDbFresh>, postedProd
   return error || !data ? [] : (data as any[]);
 }
 
-async function pickNextCandidate(db: ReturnType<typeof getDbFresh>): Promise<Candidate | null> {
+// Achado real (2026-09-22, debate com o Heber): a seleção era puro
+// `score DESC`, sem NENHUM fator de categoria — por isso o grupo
+// repetia sempre TV/celular/tablet, mesmo com o catálogo tendo 18
+// categorias. O Heber corrigiu minha primeira ideia (limitar frequência
+// de post): "vc tem que pensar em achar o produto bom, não em diminuir
+// os envios". A solução não é round-robin forçado (isso também é
+// artificial) — é uma PENALIDADE que cresce com a exposição recente da
+// categoria, deixando uma categoria saturada perder pra uma categoria
+// descansada mesmo com score um pouco menor, sem nunca travar uma
+// categoria realmente excepcional.
+const SATURATION_WINDOW = 12;
+const SATURATION_PENALTY_PER_RECENT_POST = 6;
+
+async function categorySaturationPenalties(db: ReturnType<typeof getDbFresh>): Promise<Map<string, number>> {
+  const { data } = await db
+    .from("social_posts")
+    .select("deal_candidates(products(category_slug))")
+    .eq("post_type", "whatsapp")
+    .order("posted_at", { ascending: false })
+    .limit(SATURATION_WINDOW);
+  const counts = new Map<string, number>();
+  for (const row of data ?? []) {
+    const slug = (row as any).deal_candidates?.products?.category_slug;
+    if (!slug) continue;
+    counts.set(slug, (counts.get(slug) ?? 0) + 1);
+  }
+  const penalties = new Map<string, number>();
+  for (const [slug, count] of counts) penalties.set(slug, count * SATURATION_PENALTY_PER_RECENT_POST);
+  return penalties;
+}
+
+/**
+ * Re-ranqueia os candidatos pré-filtrados (top 50 por score bruto)
+ * somando o sinal de demanda real (demandSignal.ts — preço/venda
+ * comparado ao longo do tempo, não só o desconto que a Shopee informa)
+ * e subtraindo a penalidade de saturação de categoria. Só calcula
+ * demanda pros primeiros CANDIDATE_EVAL_LIMIT (custo de 1 query extra
+ * por candidato) — são os que já têm chance real de vencer mesmo assim.
+ */
+const CANDIDATE_EVAL_LIMIT = 20;
+
+async function rerankWithDemand(db: ReturnType<typeof getDbFresh>, rows: any[]): Promise<Array<{ row: any; candidate: Candidate; demand: DemandSignal; effectiveScore: number }>> {
+  const penalties = await categorySaturationPenalties(db);
+  const evaluated: Array<{ row: any; candidate: Candidate; demand: DemandSignal; effectiveScore: number }> = [];
+  for (const row of rows.slice(0, CANDIDATE_EVAL_LIMIT)) {
+    const candidate = candidateFromRow(row);
+    if (!candidate) continue;
+    const demand = await computeDemandSignal(db, candidate.productId);
+    const penalty = candidate.categorySlug ? penalties.get(candidate.categorySlug) ?? 0 : 0;
+    evaluated.push({ row, candidate, demand, effectiveScore: candidate.baseScore + demand.demandBonus - penalty });
+  }
+  evaluated.sort((a, b) => b.effectiveScore - a.effectiveScore);
+  return evaluated;
+}
+
+type Pick = { candidate: Candidate; demand: DemandSignal };
+
+async function pickNextCandidate(db: ReturnType<typeof getDbFresh>): Promise<Pick | null> {
   const { data: alreadyPosted } = await db
     .from("social_posts")
     .select("deal_candidates(product_id)")
@@ -128,7 +192,7 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>): Promise<Can
     const reservedRows = await rankedCandidateRows(db, postedProductIds, true);
     for (const row of reservedRows) {
       const candidate = candidateFromRow(row);
-      if (candidate) return candidate;
+      if (candidate) return { candidate, demand: await computeDemandSignal(db, candidate.productId) };
     }
     // Reserva não achou nada elegível fora da Shopee (pool vazio/sem
     // candidato válido) — cai pro ranking normal em vez de travar o
@@ -138,67 +202,28 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>): Promise<Can
   const rows = await rankedCandidateRows(db, postedProductIds);
 
   if (forceNonFarmacia) {
-    for (const row of rows) {
-      if (isFarmaciaRow(row)) continue;
-      const candidate = candidateFromRow(row);
-      if (candidate) return candidate;
-    }
+    const nonFarmaciaRows = rows.filter((row) => !isFarmaciaRow(row));
+    const ranked = await rerankWithDemand(db, nonFarmaciaRows);
+    if (ranked.length > 0) return { candidate: ranked[0].candidate, demand: ranked[0].demand };
     // Sem candidato elegível fora da Farmácia Uruguai (pool comum
     // esgotado no momento) — cai pro ranking normal abaixo.
   }
 
-  for (const row of rows) {
-    const candidate = candidateFromRow(row);
-    if (candidate) return candidate;
-  }
+  const ranked = await rerankWithDemand(db, rows);
+  if (ranked.length > 0) return { candidate: ranked[0].candidate, demand: ranked[0].demand };
   return null;
 }
 
-// Fallback fixo — só usado se a IA falhar ou a chave não estiver
-// configurada (nunca pode travar o post por causa disso).
-const CASUAL_OPENERS = [
-  "Genteee, olha o que achei agora 👀",
-  "Passando rapidinho pra deixar essa aqui 🙌",
-  "Separei esse achadinho especial pra vocês:",
-  "Essa tá valendo muito a pena, corre 🏃",
-  "Oi pessoal! Esse aqui é bom demais:",
-];
+// Substituído em 2026-09-22 pelo motor de copy baseado em evidência
+// (src/lib/growth/offerCopy.ts) — debate real com o Heber: ele quer
+// técnica de venda de verdade (curiosidade, "sair ganhando"), texto
+// maior com narrativa, fechando com CTA forte, mas "nem eu quero
+// enganar ninguem". O texto de abertura agora nasce de um reasonCode +
+// evidência real (queda de preço medida nos nossos próprios snapshots,
+// aceleração de venda real, ou menor preço já visto) em vez de "produto
+// + preço -> gera algo persuasivo", que sempre saía genérico demais.
 
-// Heber (2026-09-22): "não tem umas frases pensada para cada produto
-// não? Sempre a mesma coisa engessada?" — o pool fixo de 5 frases
-// genéricas se repetia pra QUALQUER produto (vitamina, eletrônico,
-// roupa, tudo com a mesma abertura). Trocado por geração real via IA,
-// uma frase pensada pro produto específico a cada post — cai no
-// fallback fixo só se a chamada falhar.
-async function generateOpener(productName: string): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  const fallback = () => CASUAL_OPENERS[Math.floor(Math.random() * CASUAL_OPENERS.length)];
-  if (!apiKey) return fallback();
-
-  try {
-    const client = new OpenAI({ apiKey });
-    const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      temperature: 1,
-      max_tokens: 40,
-      messages: [
-        {
-          role: "system",
-          content:
-            "Você escreve só a frase de abertura de uma mensagem de WhatsApp avisando um grupo sobre uma promoção. Precisa soar como uma pessoa real mandando pros amigos, nunca como IA, robô ou anúncio formal. Curta (até 12 palavras), casual, no máximo 1 emoji. Varie o tom de acordo com o tipo de produto (vitamina/suplemento soa diferente de eletrônico, que soa diferente de roupa/acessório). Responda só a frase pronta, sem aspas, sem explicação.",
-        },
-        { role: "user", content: `Produto: ${productName}` },
-      ],
-    });
-    const text = completion.choices[0]?.message?.content?.trim();
-    return text || fallback();
-  } catch (err) {
-    console.error("[publish-whatsapp-group] falha ao gerar abertura via IA, usando fallback fixo:", err);
-    return fallback();
-  }
-}
-
-async function buildMessage(candidate: Candidate, inviteLink: string): Promise<string> {
+async function buildMessage(candidate: Candidate, demand: DemandSignal, inviteLink: string): Promise<string> {
   const por = candidate.priceMin.toFixed(2).replace(".", ",");
   let priceLine = `Por apenas *R$ ${por}* 🔥`;
   if (candidate.priceDiscountRate > 0) {
@@ -209,11 +234,17 @@ async function buildMessage(candidate: Candidate, inviteLink: string): Promise<s
     }
   }
 
-  const opener = await generateOpener(candidate.productName);
   const platformLabel = getPlatformInfo(candidate.platform).ctaPreposition; // ex: "na Shopee", "no KaBuM!"
+  const { text: narrative } = await generateEvidenceCopy({
+    productName: candidate.productName,
+    priceMin: candidate.priceMin,
+    priceDiscountRate: candidate.priceDiscountRate,
+    platformLabel,
+    demand,
+  });
 
   return [
-    opener,
+    narrative,
     "",
     `*${candidate.productName}*`,
     priceLine,
@@ -251,10 +282,11 @@ export async function GET(request: NextRequest) {
   }
 
   const db = getDbFresh();
-  const candidate = await pickNextCandidate(db);
-  if (!candidate) {
+  const picked = await pickNextCandidate(db);
+  if (!picked) {
     return NextResponse.json({ ok: true, skipped: true, reason: "sem candidato novo" });
   }
+  const { candidate, demand } = picked;
 
   const zapi = createZApiConnector();
 
@@ -279,13 +311,23 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const caption = await buildMessage(candidate, inviteLink);
+  const caption = await buildMessage(candidate, demand, inviteLink);
 
   // Modo de pré-visualização — monta tudo (candidato real, link de
   // convite real) mas não manda a mensagem de verdade. Útil pra
   // conferir o texto antes de soltar pro grupo real (128 pessoas).
   if (request.nextUrl.searchParams.get("dryRun") === "1") {
-    return NextResponse.json({ ok: true, dryRun: true, candidate: candidate.dealCandidateId, productName: candidate.productName, imageUrl: candidate.imageUrl, caption });
+    return NextResponse.json({
+      ok: true,
+      dryRun: true,
+      candidate: candidate.dealCandidateId,
+      productName: candidate.productName,
+      categorySlug: candidate.categorySlug,
+      reasonCode: demand.reasonCode,
+      demandEvidence: demand.evidence,
+      imageUrl: candidate.imageUrl,
+      caption,
+    });
   }
 
   try {

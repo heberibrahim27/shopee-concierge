@@ -4,7 +4,59 @@
 > o que ainda está pendente. Atualize sempre que resolver ou descobrir algo novo.
 > Complementa o [FEITO.md](FEITO.md), que registra o que já está pronto.
 
-**Última atualização:** 2026-09-22 (fix do HEADERS_OVERFLOW no pool de descoberta)
+**Última atualização:** 2026-09-22 (Offer Scorer real + copy baseada em evidência no grupo WhatsApp)
+
+### ✅ Grupo WhatsApp: seleção sem sinal de demanda real + copy genérica (2026-09-22)
+Heber, direto: "quais os criterios? [...] só manda as mesmas coisas [...]
+mesmo texto generico de novo [...] preciso vender urgente". Debate longo
+com ChatGPT (thread "Crescimento acelerado no Instagram") antes de
+mexer em código — resumo do que foi implementado:
+
+**Achado real**: `quedaHistorica` (score de "queda histórica") nunca foi
+histórico de verdade — é só o desconto que a própria Shopee informa
+NUM INSTANTE só. Nunca comparamos snapshot de hoje com snapshot de
+dias atrás do mesmo produto, apesar de já coletarmos isso todo dia
+(`offer_snapshots`). Confirmado com SQL real: 374 produtos já tinham
+2+ snapshots no banco (suficiente pra sinal real).
+
+**Construído**: `src/lib/growth/demandSignal.ts` — `computeDemandSignal`
+compara o snapshot mais novo de um produto contra os mais antigos do
+MESMO produto e calcula: queda de preço real (`REAL_PRICE_DROP`),
+aceleração de venda real (`SALES_ACCELERATION`, delta de vendas vs
+velocidade média histórica) e menor preço já visto
+(`LOWEST_TRACKED_PRICE`). Com só 1 snapshot, devolve "sem sinal" —
+nunca inventa.
+
+**Seleção do grupo reescrita** (`publish-whatsapp-group/route.ts`):
+antes era puro `score DESC`, sem nenhum fator de categoria — por isso
+sempre TV/celular/tablet. O Heber corrigiu minha primeira ideia (limitar
+frequência de post): "vc tem que pensar em achar o produto bom, não em
+diminuir os envios" — E foi além: o KPI real não é vender o produto
+anunciado, é o CLIQUE (Shopee paga comissão em qualquer compra dentro
+de 7 dias do clique). Implementado: `rerankWithDemand` soma o bônus de
+demanda real e subtrai uma penalidade de saturação por categoria
+(cresce com exposição recente, não é round-robin forçado — uma
+categoria excepcional ainda pode vencer). Sem teto de quantidade por
+dia — o "corte" já existe estruturalmente (só produto com score≥75 vira
+deal_candidate), frequência é consequência da qualidade disponível, não
+um limite artificial.
+
+**Copy reescrita** (`src/lib/growth/offerCopy.ts`): a IA não decide mais
+sozinha o que alegar — recebe um `reasonCode` + evidência real (número
+calculado, nunca inventado) e só escreve COMO apresentar. Um "Claim
+Firewall" (`enforceClaimFirewall`) barra frases de escassez/urgência
+("últimas unidades", "só hoje", "vai acabar" etc.) que não tenham o
+reasonCode correspondente — mesmo que a IA tente colar uma por conta
+própria. Testado ao vivo contra produto real: reasonCode
+`LOWEST_TRACKED_PRICE`, copy gerada "Pessoal, vocês não vão acreditar,
+mas encontramos o menor preço que já registramos para esse tênis Nike
+Flex Runner 4 Infantil! 🤯 [...]" — sem nenhuma alegação falsa.
+
+**Não construído ainda, fica pra próxima fase**: tracking de clique
+único por oferta (precisa de endpoint de redirect + tabela nova) e
+integração com a API do Mercado Livre (`/trends`, `/highlights` — ideia
+real do ChatGPT, mas precisa de access token/app OAuth, dependência
+externa como o Bling).
 
 ## Pendências ativas
 

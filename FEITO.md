@@ -18,6 +18,28 @@ Corrigido: `persistOfferSnapshot` preenche categoria quando vazia
 ganhou seletor de categoria (reusa `allowedCategorySlugs` do
 Opportunity Scorer como escolha manual).
 
+## 2026-09-22 — Offer Scorer real + copy baseada em evidência no grupo WhatsApp
+
+Heber: "quais os criterios? [...] só manda as mesmas coisas [...] mesmo
+texto generico de novo [...] preciso vender urgente". Debate com
+ChatGPT antes de mexer em código. Construído:
+
+- `src/lib/growth/demandSignal.ts`: compara snapshot atual vs snapshots
+  antigos do MESMO produto (dado que já coletamos todo dia mas nunca
+  comparamos) — calcula queda de preço real, aceleração de venda real e
+  menor preço já visto. Sem histórico suficiente, devolve "sem sinal".
+- Seleção do grupo (`publish-whatsapp-group/route.ts`) agora soma esse
+  sinal de demanda e subtrai penalidade de saturação por categoria
+  (cresce com exposição recente, não é rotação forçada) — resolve a
+  repetição de categoria sem travar uma categoria realmente excepcional.
+- `src/lib/growth/offerCopy.ts`: copy nasce de um `reasonCode` +
+  evidência real, nunca de "produto + preço -> gera algo persuasivo".
+  Claim Firewall bloqueia frases de escassez/urgência sem reasonCode
+  correspondente.
+
+Testado ao vivo: 5 produtos reais, todos com evidência real por trás
+(ex: "menor preço que já registramos", com número real de snapshots).
+
 ## 2026-09-22 — Descoberta de produto quebrava sempre que o pool crescia (HEADERS_OVERFLOW)
 
 Achado ao testar o fix de "brinquedos" acima: o motor falhava sempre
