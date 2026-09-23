@@ -40,6 +40,7 @@
     { "path": "/api/cron/publish-product", "schedule": "15 0 * * *" },
     { "path": "/api/cron/publish-product", "schedule": "0 1 * * *" },
     { "path": "/api/cron/publish-product", "schedule": "45 1 * * *" },
-    { "path": "/api/cron/publish-whatsapp-group", "schedule": "*/10 * * * *" }
+    { "path": "/api/cron/publish-whatsapp-group", "schedule": "*/10 * * * *" },
+    { "path": "/api/cron/mercadolivre-discovery", "schedule": "0 12 * * 1" }
   ]
 }

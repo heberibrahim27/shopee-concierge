@@ -5,6 +5,7 @@ import { RevenueSummaryCard } from "../../components/admin/RevenueSummaryCard";
 import { MarketplaceComparisonCard } from "../../components/admin/MarketplaceComparisonCard";
 import { VideoMachineRunButton } from "../../components/admin/VideoMachineRunButton";
 import { ChangePasswordForm } from "../../components/admin/ChangePasswordForm";
+import { MercadoLivrePendingPanel } from "../../components/admin/MercadoLivrePendingPanel";
 import { EyeIcon, ClickIcon, ChartIcon, PackageIcon } from "../../components/admin/icons";
 import { getAttentionSummary, getComparisonStats, getOverviewStats, getRevenueStats } from "../../lib/admin/stats";
 
@@ -67,6 +68,14 @@ export default async function AdminOverviewPage() {
           fazer o vídeo numa ferramenta externa (a geração automática ainda depende de contratar um provedor pago).
         </p>
         <VideoMachineRunButton />
+      </section>
+
+      <section className="dc-admin-section">
+        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Mercado Livre — pendências da varredura semanal</div>
+        <p style={{ fontSize: 12, color: "#666", marginTop: 0, marginBottom: 10 }}>
+          O cron acha produto novo sozinho toda semana — só falta gerar o link de afiliado (a Mercado Livre não tem API pra isso), leva uns 2 minutos.
+        </p>
+        <MercadoLivrePendingPanel />
       </section>
 
       <section className="dc-admin-section">

@@ -4,7 +4,35 @@
 > o que ainda está pendente. Atualize sempre que resolver ou descobrir algo novo.
 > Complementa o [FEITO.md](FEITO.md), que registra o que já está pronto.
 
-**Última atualização:** 2026-09-24 (descoberta real na Mercado Livre — página `/ofertas` + gerador de link do afiliado)
+**Última atualização:** 2026-09-24 (fila de pendências durável pra Mercado Livre — cron real, sem depender de sessão aberta)
+
+### ✅ Fluxo semanal de Mercado Livre virou durável (cron Vercel + fila) (2026-09-24)
+Heber: "então jogue duro" — depois de confirmar que gerar link de
+afiliado não tem API (token opaco, só o formulário na conta), a
+alternativa de curto prazo (agendamento session-only via CronCreate,
+expira em 7 dias, morre se a sessão do Claude Code fechar) virou
+solução de verdade: separar a metade automática da metade manual.
+
+**`src/app/api/cron/mercadolivre-discovery/route.ts`** (novo cron
+semanal, `vercel.json`, segunda-feira meio-dia UTC): roda
+`discoverWeeklyPicks` sozinho (sem login nenhum, é só scraping de
+`/ofertas`), salva os achados novos em `mercadolivre_pending_picks`
+(nova tabela, dedupe duplo: contra `products` já existentes E contra
+pendência ainda não resolvida), e manda um WhatsApp pro Heber
+(`HEBER_WHATSAPP_NUMBER`, env var ainda não configurada — **preciso que
+o Heber me passe o número** pra notificação funcionar; sem ela o cron
+roda normal, só não avisa).
+
+**`/admin`** ganhou painel novo (`MercadoLivrePendingPanel.tsx` +
+`api/admin/mercadolivre-pending`): mostra a fila, um botão copia todas
+as URLs pendentes pro gerador da própria ML, o Heber cola lá, gera, e
+cola os `meli.la` resultantes de volta — a rota casa por POSIÇÃO (list
+pareada, já que o gerador da ML não devolve ID nenhum pra casar) e
+ingere pelo mesmo pipeline já comprovado hoje.
+
+Não depende mais de sessão do Claude Code ficar aberta nem expira
+sozinho — só a etapa de gerar link continua manual (confirmado hoje:
+estrutural, não dá pra automatizar sem token/API que a ML não oferece).
 
 ### ✅ Descoberta de produto real na Mercado Livre (2026-09-24)
 Heber viu outro grupo de WhatsApp ("PROMOS DO DIA") com muito mais

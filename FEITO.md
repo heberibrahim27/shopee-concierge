@@ -18,6 +18,17 @@ Corrigido: `persistOfferSnapshot` preenche categoria quando vazia
 ganhou seletor de categoria (reusa `allowedCategorySlugs` do
 Opportunity Scorer como escolha manual).
 
+## 2026-09-24 — Fluxo semanal de Mercado Livre virou durável (cron Vercel + fila de pendências)
+
+Heber: "então jogue duro". Separado o que é automático do que exige o
+Heber: `cron/mercadolivre-discovery` roda sozinho toda segunda (sem
+login), acha produto novo, salva em `mercadolivre_pending_picks` e
+avisa por WhatsApp (falta configurar `HEBER_WHATSAPP_NUMBER`). Painel
+novo em `/admin` resolve a pendência em ~2 min (copia URLs → cola no
+gerador da ML → cola os links de volta → ingere sozinho). Não depende
+mais de sessão do Claude Code aberta nem expira em 7 dias como a
+solução de hoje mais cedo (cancelada).
+
 ## 2026-09-24 — Descoberta real na Mercado Livre (/ofertas) + re-checagem de disponibilidade
 
 Heber viu outro grupo com muito mais variedade usando links `meli.la`
