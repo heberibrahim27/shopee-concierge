@@ -4,7 +4,55 @@
 > o que ainda está pendente. Atualize sempre que resolver ou descobrir algo novo.
 > Complementa o [FEITO.md](FEITO.md), que registra o que já está pronto.
 
-**Última atualização:** 2026-09-24 (desconto auto-declarado removido do score — era jogo de ranking do seller)
+**Última atualização:** 2026-09-24 (descoberta real na Mercado Livre — página `/ofertas` + gerador de link do afiliado)
+
+### ✅ Descoberta de produto real na Mercado Livre (2026-09-24)
+Heber viu outro grupo de WhatsApp ("PROMOS DO DIA") com muito mais
+variedade que o nosso, usando links `meli.la` — perguntou "não entendi
+ainda pq a divulgalinks consegue fazer isso e nós não". Investigado ao
+vivo: a Mercado Livre tem uma página pública `/ofertas` com milhares de
+produtos reais, filtrável por categoria oficial da própria plataforma
+(`?category=MLB1500` = Construção, testado: 540 produtos reais), sem
+precisar de OAuth nem chave nenhuma — bem diferente do beco sem saída
+da API privada (403 mesmo autenticado, ver `scrape.ts`). A página
+renderiza um blob de estado (`_n.ctx.r=...`) que É JSON válido de
+verdade (diferente do blob da página de produto individual, que é
+object literal solto) — título/preço/nota/vendas extraídos de forma
+estruturada.
+
+**Construído**: `src/lib/mercadolivre/ofertas.ts` —
+`scrapeOfertas({categoryId, offset})` lê a página real; `rankOfertasByRelativeValue`
+aplica a MESMA filosofia de hoje mais cedo (preço contra a mediana da
+própria página/categoria, não contra "de/por" auto-declarado).
+
+**Geração de link**: perguntei "existe padrão fixo de URL de afiliado
+pra automatizar?" — não existe (confirmado testando na conta real:
+"link completo" é um token opaco/criptografado, não um parâmetro
+simples). MAS o gerador aceita várias URLs de uma vez (`Insira 1 ou
+mais URLs separados por 1 linha`) — testado ao vivo na conta real
+(`DescontosChegando`), colei 2 URLs reais achadas via
+`rankOfertasByRelativeValue`, gerou 2 `meli.la` reais em lote
+(`meli.la/2M99UNB`, `meli.la/278qRDV`). **Limitação honesta**: isso não
+roda sozinho de 10 em 10 min como o cron da Shopee — depende da sessão
+logada do Heber no Chrome (Claude in Chrome), é processo em lote
+disparado quando peço, não automação invisível 24/7.
+
+Confirmado ingestão completa: os 2 links gerados foram processados pelo
+pipeline já existente (`scrapeFeaturedProduct` + `persistMercadoLivreProduct`
++ `createDealCandidate`) e viraram `deal_candidates` reais (Filtro De
+Linha R$64,51, Fechadura Externa R$67,18).
+
+### ✅ Re-checagem de disponibilidade antes de postar (2026-09-24)
+Heber perguntou direto: "vai saber quando o produto não tá mais
+disponivel?". Produto de Mercado Livre pode sair de estoque ou ser
+removido entre a descoberta e o momento de ser escolhido pra postar —
+pode levar dias. `publish-whatsapp-group/route.ts` agora re-verifica ao
+vivo (mesma raspagem da ingestão) candidato de Mercado Livre antes de
+mandar pro grupo; se não achar mais produto válido, marca
+`status='unavailable'` (nunca mais reconsiderado — filtro novo em
+`rankedCandidateRows`) e tenta o próximo da fila, até 3 tentativas.
+Shopee não passa por essa checagem (candidato nasce e é usado no mesmo
+ciclo, risco de defasagem bem menor).
 
 ### ✅ Desconto auto-declarado é jogo de ranking do seller, não sinal de valor (2026-09-24)
 Heber, direto: "não vejo produto que tá vendendo no orgânico ter que

@@ -4,6 +4,7 @@ import { createZApiConnector } from "../../../../lib/channel/zapi";
 import { getPlatformInfo } from "../../../../lib/site/platforms";
 import { computeDemandSignal, type DemandSignal } from "../../../../lib/growth/demandSignal";
 import { generateEvidenceCopy } from "../../../../lib/growth/offerCopy";
+import { scrapeFeaturedProduct } from "../../../../lib/mercadolivre/scrape";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -94,7 +95,11 @@ async function rankedCandidateRows(db: ReturnType<typeof getDbFresh>, postedProd
       excludeShopee
         ? "id, score, score_breakdown, product_id, products!inner(product_name, platform, category_slug), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
         : "id, score, score_breakdown, product_id, products(product_name, platform, category_slug), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
-    );
+    )
+    // Nunca reconsidera um candidato marcado "unavailable" (re-checagem
+    // de disponibilidade real, ver GET abaixo) — sem isso o candidato
+    // indisponível voltaria a competir de novo a cada execução do cron.
+    .neq("status", "unavailable");
   if (postedProductIds.length > 0) {
     query = query.not("product_id", "in", `(${postedProductIds.join(",")})`);
   }
@@ -162,17 +167,18 @@ async function rerankWithDemand(db: ReturnType<typeof getDbFresh>, rows: any[]):
 
 type Pick = { candidate: Candidate; demand: DemandSignal };
 
-async function pickNextCandidate(db: ReturnType<typeof getDbFresh>): Promise<Pick | null> {
+async function pickNextCandidate(db: ReturnType<typeof getDbFresh>, excludeProductIds: string[] = []): Promise<Pick | null> {
   const { data: alreadyPosted } = await db
     .from("social_posts")
     .select("deal_candidates(product_id)")
     .eq("post_type", "whatsapp");
   const postedProductIds = [
-    ...new Set(
-      (alreadyPosted ?? [])
+    ...new Set([
+      ...(alreadyPosted ?? [])
         .map((r: any) => r.deal_candidates?.product_id)
-        .filter(Boolean)
-    ),
+        .filter(Boolean),
+      ...excludeProductIds,
+    ]),
   ];
 
   const streakWindow = Math.max(NON_SHOPEE_ROTATION_STREAK, FARMACIA_ROTATION_STREAK);
@@ -305,11 +311,44 @@ export async function GET(request: NextRequest) {
   }
 
   const db = getDbFresh();
-  const picked = await pickNextCandidate(db);
-  if (!picked) {
-    return NextResponse.json({ ok: true, skipped: true, reason: "sem candidato novo" });
+
+  // Achado real (Heber, 2026-09-24: "vai saber quando o produto não tá
+  // mais disponivel?"): produto de Mercado Livre pode sair de estoque
+  // ou ser removido entre o momento da descoberta (scraping de /ofertas
+  // ou lote colado manualmente) e o momento de ser escolhido pra
+  // postar — pode levar dias. Antes de mandar pro grupo, re-verifica ao
+  // vivo (mesma raspagem usada na ingestão, scrapeFeaturedProduct) —
+  // se não achar mais preço/produto válido na página, marca o
+  // deal_candidate como indisponível (não aparece mais pra ninguém) e
+  // tenta o próximo da fila, até 3 tentativas. Shopee não passa por
+  // essa checagem — o link de afiliado é gerado na hora da descoberta e
+  // o candidato já nasce com todos os cortes de qualidade aplicados no
+  // mesmo dia, risco de defasagem bem menor.
+  const MAX_AVAILABILITY_RETRIES = 3;
+  const excludeProductIds: string[] = [];
+  let candidate: Candidate | null = null;
+  let demand: DemandSignal | null = null;
+  for (let attempt = 0; attempt < MAX_AVAILABILITY_RETRIES; attempt++) {
+    const picked = await pickNextCandidate(db, excludeProductIds);
+    if (!picked) break;
+    if (picked.candidate.platform !== "mercadolivre") {
+      candidate = picked.candidate;
+      demand = picked.demand;
+      break;
+    }
+    const stillAvailable = await scrapeFeaturedProduct(picked.candidate.offerLink).then((r) => r !== null).catch(() => false);
+    if (stillAvailable) {
+      candidate = picked.candidate;
+      demand = picked.demand;
+      break;
+    }
+    console.warn(`[publish-whatsapp-group] produto ML indisponível, pulando: ${picked.candidate.productName} (${picked.candidate.offerLink})`);
+    await db.from("deal_candidates").update({ status: "unavailable" }).eq("id", picked.candidate.dealCandidateId);
+    excludeProductIds.push(picked.candidate.productId);
   }
-  const { candidate, demand } = picked;
+  if (!candidate || !demand) {
+    return NextResponse.json({ ok: true, skipped: true, reason: "sem candidato novo (ou todos indisponíveis)" });
+  }
 
   const zapi = createZApiConnector();
 

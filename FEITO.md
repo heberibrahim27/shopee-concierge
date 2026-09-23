@@ -18,6 +18,25 @@ Corrigido: `persistOfferSnapshot` preenche categoria quando vazia
 ganhou seletor de categoria (reusa `allowedCategorySlugs` do
 Opportunity Scorer como escolha manual).
 
+## 2026-09-24 — Descoberta real na Mercado Livre (/ofertas) + re-checagem de disponibilidade
+
+Heber viu outro grupo com muito mais variedade usando links `meli.la`
+("não entendi ainda pq a divulgalinks consegue fazer isso e nós não").
+Achado: ML tem página pública `/ofertas` com milhares de produtos reais
+por categoria oficial, JSON estruturado embutido, sem OAuth. Construído
+`src/lib/mercadolivre/ofertas.ts` (scraper + ranking por preço relativo
+à mediana da categoria). Gerador de link do afiliado não tem padrão
+fixo (token opaco), mas aceita lote de URLs — testado ao vivo na conta
+real, 2 links gerados e ingeridos com sucesso pelo pipeline existente
+(Filtro De Linha R$64,51, Fechadura R$67,18, ambos viraram
+deal_candidate real). Limitação honesta: depende da sessão logada do
+Heber, não é cron 24/7 como a Shopee.
+
+Também: "vai saber quando o produto não tá mais disponivel?" —
+`publish-whatsapp-group` agora re-verifica candidato de ML ao vivo
+antes de postar, marca `unavailable` se sumiu e tenta o próximo (até 3
+tentativas).
+
 ## 2026-09-24 — Desconto auto-declarado removido do score (jogo de ranking do seller)
 
 Heber, como seller: "quando eu subo um produto na Shopee eu coloco o
