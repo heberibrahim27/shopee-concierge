@@ -269,16 +269,33 @@ async function fetchRecentOpenings(db: ReturnType<typeof getDbFresh>): Promise<s
     .filter(Boolean);
 }
 
-async function buildMessage(candidate: Candidate, demand: DemandSignal, inviteLink: string, recentOpenings: string[]): Promise<string> {
+function buildPriceLines(candidate: Candidate): { formatted: string; plain: string } {
   const por = candidate.priceMin.toFixed(2).replace(".", ",");
-  let priceLine = `Por apenas *R$ ${por}* 🔥`;
+  let formatted = `Por apenas *R$ ${por}* 🔥`;
+  let plain = `Por apenas R$ ${por}`;
   if (candidate.priceDiscountRate > 0) {
     const original = candidate.priceMin / (1 - candidate.priceDiscountRate / 100);
     if (original / candidate.priceMin < 2.5) {
       const de = original.toFixed(2).replace(".", ",");
-      priceLine = `De ~R$ ${de}~ por *R$ ${por}* 🔥 (${Math.round(candidate.priceDiscountRate)}% OFF)`;
+      const off = Math.round(candidate.priceDiscountRate);
+      formatted = `De ~R$ ${de}~ por *R$ ${por}* 🔥 (${off}% OFF)`;
+      plain = `De R$ ${de} por R$ ${por} (${off}% OFF)`;
     }
   }
+  return { formatted, plain };
+}
+
+// Card de prévia (send-link, ver GET abaixo) exige que o `message` termine
+// com o mesmo `linkUrl` enviado -- por isso o link de convite do grupo
+// (que também queremos manter) sobe pra antes do bloco final da oferta,
+// que fecha a mensagem com o link do produto sozinho.
+async function buildMessage(
+  candidate: Candidate,
+  demand: DemandSignal,
+  inviteLink: string,
+  recentOpenings: string[]
+): Promise<{ message: string; linkDescription: string }> {
+  const { formatted: priceLine, plain: priceLinePlain } = buildPriceLines(candidate);
 
   const platformLabel = getPlatformInfo(candidate.platform).ctaPreposition; // ex: "na Shopee", "no KaBuM!"
   const { text: narrative } = await generateEvidenceCopy(
@@ -292,18 +309,20 @@ async function buildMessage(candidate: Candidate, demand: DemandSignal, inviteLi
     recentOpenings
   );
 
-  return [
+  const message = [
     narrative,
     "",
     `*${candidate.productName}*`,
     priceLine,
     "",
-    `🛒 Oferta ${platformLabel} — clica aqui:`,
-    candidate.offerLink,
-    "",
     "📲 Bora convidar a galera? É só clicar:",
     inviteLink,
+    "",
+    `🛒 Oferta ${platformLabel} — clica aqui:`,
+    candidate.offerLink,
   ].join("\n");
+
+  return { message, linkDescription: priceLinePlain };
 }
 
 // Pedido do Heber (2026-09-21): "mandava de 10 em 10 min das 8 até as 21
@@ -394,7 +413,7 @@ export async function GET(request: NextRequest) {
   }
 
   const recentOpenings = await fetchRecentOpenings(db);
-  const caption = await buildMessage(candidate, demand, inviteLink, recentOpenings);
+  const { message: caption, linkDescription } = await buildMessage(candidate, demand, inviteLink, recentOpenings);
 
   // Modo de pré-visualização — monta tudo (candidato real, link de
   // convite real) mas não manda a mensagem de verdade. Útil pra
@@ -409,20 +428,31 @@ export async function GET(request: NextRequest) {
       reasonCode: demand.reasonCode,
       demandEvidence: demand.evidence,
       imageUrl: candidate.imageUrl,
+      linkDescription,
       caption,
     });
   }
 
   try {
-    // Pedido do Heber (2026-09-24): "as imagens do grupo pra o usuário
-    // ver tem que baixar, quero a prévia do link mesmo pra não pesar o
-    // celular do pessoal" — trocado de sendImage (mídia anexada, que o
-    // WhatsApp obriga o destinatário a baixar pra ver em qualidade real)
-    // pra sendText simples: o link do produto já vem primeiro no corpo
-    // da mensagem (buildMessage), então o próprio WhatsApp gera o card
-    // de prévia (thumbnail leve buscado pelo cliente) a partir da URL,
-    // sem precisar enviar a foto como anexo.
-    await zapi.sendText({ chatId: WHATSAPP_GROUP_ID, text: caption });
+    // Pedido do Heber (2026-09-24, 1a tentativa): tirar a imagem anexada
+    // do grupo porque obrigava o pessoal a baixar pra ver. Troquei pra
+    // sendText puro primeiro, mas a Z-API send-text NÃO gera prévia de
+    // link nenhuma (confirmado: Heber mandou print do grupo real sem
+    // nenhum card, só o link sublinhado cru) — o endpoint não tem
+    // nenhum parâmetro de preview. A Z-API tem um endpoint dedicado pra
+    // isso, send-link, que monta o card de prévia de verdade (imagem
+    // pequena + título + descrição, com controle de tamanho via
+    // linkType) sem anexar a foto como mídia — é o que realmente resolve
+    // o pedido dele.
+    await zapi.sendLink({
+      chatId: WHATSAPP_GROUP_ID,
+      message: caption,
+      imageUrl: candidate.imageUrl,
+      linkUrl: candidate.offerLink,
+      title: candidate.productName,
+      linkDescription,
+      linkSize: "small",
+    });
     await db.from("social_posts").insert({
       deal_candidate_id: candidate.dealCandidateId,
       post_type: "whatsapp",

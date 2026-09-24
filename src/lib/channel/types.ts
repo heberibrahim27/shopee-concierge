@@ -33,6 +33,25 @@ export interface OutgoingImageMessage {
   caption?: string;
 }
 
+/**
+ * Mensagem de texto + card de prévia de link nativo do WhatsApp (o mesmo
+ * card que aparece quando você cola um link manualmente) — bem mais leve
+ * que mandar a foto como mídia anexada, que obriga o destinatário a
+ * baixar pra ver em qualidade real.
+ */
+export interface OutgoingLinkMessage {
+  chatId: string;
+  /** Texto da mensagem — precisa terminar com o mesmo valor de linkUrl */
+  message: string;
+  /** URL da imagem usada como thumbnail do card (compactada pelo canal) */
+  imageUrl: string;
+  linkUrl: string;
+  title: string;
+  linkDescription: string;
+  /** Tamanho do card de prévia. Default do canal: o menor disponível. */
+  linkSize?: "small" | "medium" | "large";
+}
+
 export interface ChannelConnector {
   readonly name: string;
   /** Converte o payload bruto do webhook do canal em IncomingMessage normalizado */
@@ -41,4 +60,6 @@ export interface ChannelConnector {
   sendText(msg: OutgoingMessage): Promise<void>;
   /** Envia uma imagem (com legenda opcional) — usado pra mandar a foto do produto */
   sendImage(msg: OutgoingImageMessage): Promise<void>;
+  /** Envia texto com card de prévia de link nativo (thumbnail leve, sem anexar mídia) */
+  sendLink(msg: OutgoingLinkMessage): Promise<void>;
 }
