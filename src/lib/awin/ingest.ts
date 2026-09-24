@@ -14,7 +14,7 @@
  */
 import { getDb } from "../db/client";
 import { notifyCatalogUpdate } from "../site/notifyRevalidate";
-import { buildProductSlug } from "../site/slug";
+import { buildProductSlug, buildProductSlugFallback } from "../site/slug";
 
 export interface AwinCatalogItem {
   awProductId: string;
@@ -152,9 +152,9 @@ export async function persistAwinProduct(params: {
   // essa coluna) como identidade, que é estável por MODELO, não por
   // variante do dia.
   const shopeeItemId = `AWIN-${params.item.variantKey}`;
-  const slug = buildProductSlug(params.item.productName, shopeeItemId);
+  let slug = buildProductSlug(params.item.productName, shopeeItemId);
 
-  const { data: product, error: productError } = await db
+  let { data: product, error: productError } = await db
     .from("products")
     .upsert(
       {
@@ -172,6 +172,32 @@ export async function persistAwinProduct(params: {
     )
     .select("id, group_id")
     .single();
+
+  // Colisão real de slug entre 2 produtos DIFERENTES (ver buildProductSlugFallback) —
+  // achado ao vivo 2026-09-24, "Tênis Nike Flex Runner 4 Infantil" cor A (IF2895, já
+  // publicado) x cor B (IF2894, novo). Retry com hash sem corte, determinístico por
+  // shopeeItemId — não afeta o slug de nenhum produto já publicado.
+  if (productError?.code === "23505" && productError.message.includes("products_slug_key")) {
+    slug = buildProductSlugFallback(params.item.productName, shopeeItemId);
+    ({ data: product, error: productError } = await db
+      .from("products")
+      .upsert(
+        {
+          shopee_item_id: shopeeItemId,
+          product_name: params.item.productName,
+          platform: params.platform,
+          category: params.category,
+          category_slug: params.categorySlug,
+          slug,
+          site_published: true,
+          last_seen_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "shopee_item_id" }
+      )
+      .select("id, group_id")
+      .single());
+  }
 
   if (productError || !product) {
     throw new Error(`Falha ao gravar produto Awin ${shopeeItemId}: ${productError?.message}`);

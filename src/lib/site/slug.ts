@@ -27,3 +27,23 @@ export function shortIdFromSeed(seed: string): string {
 export function buildProductSlug(productName: string, shopeeItemId: string): string {
   return `${slugify(productName)}-${shortIdFromSeed(shopeeItemId)}`;
 }
+
+/**
+ * Hash de reserva pra colisão real de slug (ver persistAwinProduct) —
+ * usa o hash INTEIRO (sem cortar pros 5 primeiros dígitos). Achado real
+ * (2026-09-24): dois IDs que só diferem no ÚLTIMO caractere (comum em
+ * código de estilo Nike por cor, ex. "IF2894" vs "IF2895") colidem 100%
+ * das vezes com shortIdFromSeed, porque o djb2 só espalha essa diferença
+ * nos bits BAIXOS do hash, e slice(0,5) pega os dígitos ALTOS. Confirmado:
+ * shortIdFromSeed("AWIN-IF2894") === shortIdFromSeed("AWIN-IF2895") === "t52ra".
+ * Não dá pra trocar o hash de shortIdFromSeed direto: mudaria o slug (a
+ * URL) de todo produto já publicado no próximo reprocessamento. Esse hash
+ * de reserva só entra quando o insert normal já bateu de fato numa colisão.
+ */
+export function buildProductSlugFallback(productName: string, shopeeItemId: string): string {
+  let hash = 5381;
+  for (let i = 0; i < shopeeItemId.length; i++) {
+    hash = (hash * 33) ^ shopeeItemId.charCodeAt(i);
+  }
+  return `${slugify(productName)}-${(hash >>> 0).toString(36)}`;
+}
