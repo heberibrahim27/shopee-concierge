@@ -451,7 +451,11 @@ export async function GET(request: NextRequest) {
       linkUrl: candidate.offerLink,
       title: candidate.productName,
       linkDescription,
-      linkSize: "small",
+      // Heber (2026-09-24, depois de ver o card real no grupo): pediu
+      // foto maior. "large" ainda é a prévia nativa do WhatsApp (thumbnail
+      // buscado pelo próprio canal, sem anexar mídia) -- não é o mesmo
+      // peso do sendImage antigo, só exibe o card maior no chat.
+      linkSize: "large",
     });
     await db.from("social_posts").insert({
       deal_candidate_id: candidate.dealCandidateId,
