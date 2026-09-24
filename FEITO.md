@@ -52,6 +52,25 @@ link". Só Shopee tem a integração oficial de marcação de produto no IG
 Olympikus) fica só com link na legenda. Registrado em
 `feedback_reels_prefer_shopee_products.md`.
 
+**Preferência Shopee validada na prática: mais 4 Reels reais postados**
+seguindo o gate refinado + priorizando Shopee — Mochila Escolar
+Reforçada Metalizada (165 vendas), Pulseira de Silicone Universal p/
+Smartwatch (325 vendas, gerada VAZIA pra não alucinar um relógio
+encaixado), Porta Talheres Escorredor de Aço Inox (2.076 vendas — maior
+demanda real da noite, gerado VAZIO e sem a etiqueta de texto da foto
+original), Bolsa Térmica Portátil Marmita (286 vendas). Todos com foto
+real cortada/limpa (removendo selos, texto, itens extras da foto de
+catálogo) antes de gerar a cena no ChatGPT — vira um passo padrão do
+pipeline sempre que a foto de origem tem colagem/marca d'água/múltiplos
+itens.
+
+**Instagram Broadcast Channel — pesquisado a pedido do Heber.** Ele é
+elegível. Recurso de mensagem 1-pra-muitos dentro do Direct, notificação
+ativa por padrão (ao contrário de Stories/Reels que dependem do
+algoritmo), sem exigência de seguidores mínimos em 2026. Uso sugerido:
+canal de "achadinhos do dia" pra distribuir link direto pra quem entrar,
+complementar aos Reels. Ainda não implementado, só pesquisado.
+
 **Suporte magnético de celular — 3 gerações falhadas, descartado.**
 Candidato validado com dados fortes (3.786 vendas reais na Shopee,
 afiliado real rodando anúncio há 14+ meses no Meta Ads Library — a
