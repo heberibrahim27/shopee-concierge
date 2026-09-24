@@ -4,6 +4,52 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-24 (tarde) — Prévia de link no grupo + pipeline Kairogen→Windsor de Reels + rotação real por categoria/marketplace
+
+**Grupo do WhatsApp: card de prévia de verdade** — Heber: "as imagens do
+grupo pra o usuário ver tem que baixar, quero a prévia do link mesmo
+pra não pesar o celular do pessoal". `sendImage` (mídia anexada) →
+tentativa 1 com `sendText` (sem preview nenhum, a Z-API não gera —
+confirmado com print real dele) → correção final: endpoint dedicado
+`send-link` da Z-API (`ChannelConnector.sendLink`, novo em
+`src/lib/channel/{types,zapi}.ts`), card nativo com thumbnail + título +
+descrição, `linkType: LARGE` a pedido dele depois de ver o resultado.
+`buildMessage` reordenado pra terminar no link do produto (exigência do
+endpoint).
+
+**Pipeline real de Reels gerados por IA, postados de verdade** —
+pesquisa de produto com anúncio pago de AFILIADO ativo há meses no Meta
+Ads Library → link de afiliado nosso (`generateAffiliateShortLink`) →
+vídeo Kairogen/Seedance V1.5 Pro (imagem real do produto como
+referência, áudio/música sempre, tema da trilha de acordo com o
+produto) → publicado direto no Instagram via Windsor
+(`execute_action(connector:"instagram", action:"create_video_post")`,
+confirmado como capacidade real e já disponível, ao contrário do que eu
+tinha avisado errado no início) → aviso automático no WhatsApp pessoal
+do Heber pra ele marcar o produto manualmente (única etapa que
+realmente não dá pra automatizar — tagging exige Business Verification
+que não temos). Ver `project_instagram_windsor_autopublish_pipeline.md`
+na memória. Achado técnico importante: o Kairogen copia a proporção da
+imagem de referência no modo imagem-pra-vídeo e ignora o parâmetro
+`aspect_ratio` — foto quadrada (padrão Shopee) vira Reels quadrado
+mesmo pedindo 9:16; correção: montar a cena em formato vertical (via
+ChatGPT) antes de mandar pro Kairogen.
+
+**Rotação real por categoria + marketplace no grupo** — Heber notou que
+Mercado Livre/Nike/Kabum/Olympikus tinham parado de aparecer desde a
+madrugada. Causa raiz: o dedupe por nome (commit da madrugada) comparava
+candidato de qualquer plataforma contra o histórico de qualquer
+plataforma — "Tênis Nike Flex Runner" batia >=0.6 de similaridade
+contra os tênis Shopee genéricos já postados (mesma categoria) e ficava
+bloqueado pra sempre; confirmado ao vivo que os 50 melhores candidatos
+não-Shopee vinham 100% duplicados. Corrigido escopando o dedupe por
+"bucket" de marketplace (shopee / mercadolivre / awin), e a seleção
+trocada do streak frágil (parava de disparar sem avisar) pra rotação
+real por par (categoria, marketplace): cada execução escolhe o par mais
+desatualizado — reproduz a sequência que o Heber pediu ("Shopee tv, ML
+tv, Shopee geladeira, ML geladeira, Shopee tênis, ML tênis, Awin
+tênis...").
+
 ## 2026-09-24 — Pipeline de vídeo Remotion + dedupe por nome no WhatsApp + colisão de slug no Awin
 
 Três achados reais na mesma madrugada, cada um corrigido e testado ao vivo:
