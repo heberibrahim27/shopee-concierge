@@ -414,7 +414,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    await zapi.sendImage({ chatId: WHATSAPP_GROUP_ID, imageUrl: candidate.imageUrl, caption });
+    // Pedido do Heber (2026-09-24): "as imagens do grupo pra o usuário
+    // ver tem que baixar, quero a prévia do link mesmo pra não pesar o
+    // celular do pessoal" — trocado de sendImage (mídia anexada, que o
+    // WhatsApp obriga o destinatário a baixar pra ver em qualidade real)
+    // pra sendText simples: o link do produto já vem primeiro no corpo
+    // da mensagem (buildMessage), então o próprio WhatsApp gera o card
+    // de prévia (thumbnail leve buscado pelo cliente) a partir da URL,
+    // sem precisar enviar a foto como anexo.
+    await zapi.sendText({ chatId: WHATSAPP_GROUP_ID, text: caption });
     await db.from("social_posts").insert({
       deal_candidate_id: candidate.dealCandidateId,
       post_type: "whatsapp",
