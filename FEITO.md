@@ -4,6 +4,69 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-24 (noite) — 2 Reels novos + debate com ChatGPT + gate de seleção de produto refinado
+
+**Reel: Organizador de Geladeira** — primeiro produto rodando o pipeline
+completo com cena-vertical-via-ChatGPT (correção do bug de aspect
+ratio) + Seedance V1.5 Pro câmera-only. Postado, sem alucinação.
+
+**Debate real com o ChatGPT do Heber** — ele pediu pra eu entrar na
+conversa paralela dele (`https://chatgpt.com/c/6ab57b5d-...`) e
+debater estratégia. Contribuí com dados que o ChatGPT não tinha acesso
+(janela de atribuição de 7 dias da Shopee, Meta Ads Library ao vivo) e
+recebi de volta um gate formalizado SAFE/CAUTION/BLOCK e um "Product
+Opportunity Score" (35% demanda validada no Meta + 25% capacidade de
+clique + 20% segurança de vídeo IA + 10% qualidade de imagem + 10%
+preço/impulso) — registrado em
+`feedback_video_product_selection_criteria.md` na memória.
+
+**Fruteira descartada** — era o 2º candidato do ranking do ChatGPT
+(anúncio de afiliado real rodando 7+ meses), mas ao checar o catálogo
+real da Shopee: praticamente zero vendas nos modelos à venda hoje (0-11,
+vs. 523 da geladeira) e todo modelo real é um carrinho/cesto de vários
+andares empilhados com rodinhas — multi-peça, mesma categoria BLOCK da
+escova de pelos. Lição formalizada: anúncio de afiliado rodando há
+meses valida a CATEGORIA, não necessariamente o SKU exato à venda —
+checar volume de vendas real do SKU antes de gerar.
+
+**Reel: Tênis Olympikus Casual Feminino Oly 001 Branco** (R$129,99, via
+Awin) — Heber pediu efeito de "alguém calçando ou o tênis girando";
+optei por rotação de câmera tipo turntable (mais seguro que simular pé
+humano calçando, risco de deformação). Confirmado nos frames extraídos
+(ângulo lateral → frontal → lateral oposto, sem deformação). Postado.
+
+**Teste "AI Storyboard for brand shoot" (Krea) — descartado.** Heber
+viu esse prompt-truque num Reels de terceiro: colar a foto do produto
+no ChatGPT com esse texto gera um storyboard 3x3 (stills + cenas de
+uso), e "gera um vídeo UGC de acordo com esse storyboard" aciona um
+conector Krea. Resultado real: o Krea não gerou movimento nenhum, só um
+zoom lento (Ken Burns) em cima de UMA imagem do grid — Heber identificou
+na hora ("pegou uma foto e repetiu a imagem"). Confirmado via frames
+extraídos (frame 1 e frame no segundo 5.4 idênticos). Kairogen/Seedance
+continua superior pra esse tipo de produto.
+
+**Preferência nova: Reels priorizam produtos Shopee** — Heber: "de
+preferência para reels de produtos da shopee que temos como marcar o
+link". Só Shopee tem a integração oficial de marcação de produto no IG
+(`project_shopee_meta_affiliate_program.md`); Awin (Nike/Kabum/
+Olympikus) fica só com link na legenda. Registrado em
+`feedback_reels_prefer_shopee_products.md`.
+
+**Suporte magnético de celular — 3 gerações falhadas, descartado.**
+Candidato validado com dados fortes (3.786 vendas reais na Shopee,
+afiliado real rodando anúncio há 14+ meses no Meta Ads Library — a
+melhor evidência de demanda da sessão), mas o Seedance falhou 3x
+seguidas com 3 tipos de alucinação diferentes: (1) inventou um celular
+inteiro encaixado no suporte vazio, (2) mesmo pedindo explicitamente
+"sem celular", pintou um brilho arco-íris/holográfico que o produto
+real não tem, (3) manteve o arco-íris E inventou um braço mecânico
+articulado que não existe (o produto real é uma base oval lisa).
+Hipótese: o modelo lê a superfície pequena, preta e reflexiva como
+"tela de celular" e alucina uma estrutura de suporte-de-celular ao
+redor, não importa o quanto o prompt negue isso. Novo critério de
+descarte registrado em `feedback_video_product_selection_criteria.md`
+(critério 4) — não insistir mais de 1 tentativa nesse padrão de falha.
+
 ## 2026-09-24 (tarde) — Prévia de link no grupo + pipeline Kairogen→Windsor de Reels + rotação real por categoria/marketplace
 
 **Grupo do WhatsApp: card de prévia de verdade** — Heber: "as imagens do
