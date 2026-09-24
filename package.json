@@ -10,20 +10,25 @@
     "test:router": "tsx scripts/test-confidence-router.ts",
     "test:expert-fallback": "tsx scripts/test-expert-candidate-fallback.ts",
     "test:deals": "tsx scripts/test-deal-scoring.ts",
-    "source:deals": "tsx scripts/source-deals.ts"
+    "source:deals": "tsx scripts/source-deals.ts",
+    "remotion:studio": "remotion studio remotion/index.ts",
+    "remotion:render": "remotion render remotion/index.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.116.0",
     "next": "^14.2.0",
-    "react": "^18.3.0",
-    "react-dom": "^18.3.0",
     "openai": "^4.60.0",
-    "@supabase/supabase-js": "2.116.0"
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0"
   },
   "devDependencies": {
-    "typescript": "^5.5.0",
+    "@remotion/cli": "^4.0.527",
+    "@remotion/renderer": "^4.0.527",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.0",
+    "dotenv": "^16.4.0",
+    "remotion": "^4.0.527",
     "tsx": "^4.16.0",
-    "dotenv": "^16.4.0"
+    "typescript": "^5.5.0"
   }
 }

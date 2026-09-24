@@ -4,6 +4,37 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-24 — Pipeline de vídeo Remotion + dedupe por nome no WhatsApp + colisão de slug no Awin
+
+Três achados reais na mesma madrugada, cada um corrigido e testado ao vivo:
+
+**Repetição no grupo era "mesmo produto, vendedor diferente"** — Heber
+confirmou que a repetição que via não era bug de ID, era a Shopee não
+ter GTIN/modelo estruturado: dois vendedores do mesmo produto físico
+geram `product_id` diferentes. `pickNextCandidate` (publish-whatsapp-
+group) agora compara também por similaridade de nome (Jaccard, limiar
+0.6, mesma categoria — ver `src/lib/growth/productDedupe.ts`),
+calibrado contra 400 produtos reais do catálogo antes de subir.
+
+**Colisão real de slug no Awin** — `shortIdFromSeed` corta os 5 dígitos
+MAIS significativos do hash djb2; dois IDs que só diferem no último
+caractere (comum em código de estilo Nike por cor) colidiam 100% das
+vezes. `persistAwinProduct` agora detecta a colisão (unique violation
+23505) e refaz com hash completo só pro item que colidiu — sem mudar
+slug de produto já publicado.
+
+**Máquina de vídeo com Remotion (React) + ChatGPT pra imagem/capa** —
+novo diretório `remotion/` (kernel próprio, fora do Next.js): componente
+`FogaoVideo.tsx` genérico (produto + preço + desconto sobre foto,
+zoom leve, texto dentro da faixa que sobrevive ao corte quadrado da
+grade do Instagram — achado real testando no celular) e `Cover.tsx`
+(capa/thumbnail padronizada). Fluxo real usado: pede pro ChatGPT gerar
+a foto "cinema" do produto (sem alucinar o produto) + a capa (mesmo
+prompt travado, mastigado com posição em pixel), baixa, roda o Remotion
+por cima. Lote de 11 produtos (validados contra anúncio real de afiliado
+de sucesso na Biblioteca de Anúncios da Meta, não por métrica interna)
+gerado e entregue: 8 com vídeo+capa novos, 3 já postados antes do lote.
+
 ## 2026-09-22 — Categoria "brinquedos" nunca era salva + filtro manual de categoria no admin
 
 Heber: "eu preciso de brinquedos para fazer reels e só me vem

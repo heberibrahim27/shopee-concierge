@@ -4,7 +4,13 @@
 > o que ainda está pendente. Atualize sempre que resolver ou descobrir algo novo.
 > Complementa o [FEITO.md](FEITO.md), que registra o que já está pronto.
 
-**Última atualização:** 2026-09-24 (produto Awin repetindo no grupo — ID de variante em vez de ID de modelo)
+**Última atualização:** 2026-09-24 (lote de 11 produtos com vídeo Remotion + capa, dedupe por nome no WhatsApp)
+
+### 🔲 Pendências abertas da madrugada de 2026-09-24
+- **Buboflow** (sistema de automação de mensagem em grupo de WhatsApp) — Heber pediu pra pesquisar o que dá pra copiar dele, ainda não pesquisado.
+- **Capa nova (padrão ChatGPT + Remotion) só nos 8 produtos do lote** — fogão e tablet já tinham vídeo/post antes desse padrão existir; se Heber quiser, dá pra gerar a capa deles também depois (Instagram deixa trocar a capa de um Reels já postado).
+- **Faixa "segura" da grade do Instagram (y=420 a y=1500 num canvas 1080x1920)** é um cálculo geométrico (corte central), não 100% confirmado pixel a pixel contra o app mobile real — Heber mandou print mas a maioria dos posts ali eram do pipeline antigo (card estático), não dá pra calibrar com certeza total ainda.
+- **Bebê Reborn** (produto 4 do lote de 11) não tem vídeo/capa novo — já tinha sido postado e testado com anúncio pago antes do lote começar, ficou só o link registrado no `LEGENDAS-E-LINKS.txt`.
 
 ### ✅ Produto Awin (Nike/Olympikus/Kabum) repetindo no grupo WhatsApp (2026-09-24)
 Heber, direto: "não aceito tá repetindo produto no mesmo dia, no dia
