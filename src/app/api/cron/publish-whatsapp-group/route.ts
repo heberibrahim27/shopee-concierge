@@ -43,28 +43,85 @@ type Candidate = {
   baseScore: number;
 };
 
-// Quantos posts seguidos de Shopee (sem intercalar outra loja) disparam
-// a reserva de vaga — achado real (2026-09-22, pergunta do Heber): o
-// score da Shopee (média 92, até 999 pra Farmácia Uruguai) sempre
-// vence o teto do Nike/Olympikus/Kabum (85), então sem essa reserva
-// eles nunca apareciam de verdade no grupo, mesmo sem filtro nenhum
-// de plataforma na query.
-const NON_SHOPEE_ROTATION_STREAK = 4;
-
 // Heber (2026-09-22, urgente): "só mandou quase o dia todo produtos de
 // farmácia uruguai, eu pedi pra divulgar não pra só divulgar ele" — o
 // boost proposital da Farmácia Uruguai (score fixo 95, alguns até
 // 998/999) vence QUALQUER produto comum da Shopee (~85-90) também,
 // não só o Awin. Resultado real medido num dia: 37 de 52 posts (71%)
-// eram Farmácia Uruguai. A rotação do Awin acima não resolve isso —
-// ela só intercala Shopee-vs-outra-loja, e a Farmácia Uruguai é
-// contada como Shopee. Precisa da própria trava, mais curta (a
-// preferência continua real, só não pode virar exclusividade).
+// eram Farmácia Uruguai. A rotação por categoria abaixo já limita muito
+// a frequência de qualquer origem sozinha, mas a trava dedicada continua
+// como rede de segurança (a preferência continua real, só não pode virar
+// exclusividade).
 const FARMACIA_ORIGEM = "loja-propria-farmacia-uruguai";
 const FARMACIA_ROTATION_STREAK = 2;
 
 function isFarmaciaRow(row: any): boolean {
   return row.score_breakdown?.origem === FARMACIA_ORIGEM;
+}
+
+// Achado real (2026-09-24, investigando com o Heber "Mercado livre não
+// tem mais postagens?"): Nike/Kabum/Olympikus (feed Awin) e Mercado
+// Livre estavam realmente travados desde a madrugada — a reserva de
+// vaga antiga (streak de 4 Shopee seguidos) até disparava certo, mas o
+// dedupe por nome (isDuplicateOfPosted, commit e911bd7) comparava
+// candidatos de QUALQUER plataforma contra o histórico de QUALQUER
+// plataforma. "Tênis Nike Flex Runner" e "Tênis Olympikus Angel" batiam
+// >=0.6 de similaridade contra os dezenas de tênis Shopee genéricos já
+// postados (mesma categoria "esporte", tokens genéricos como
+// "tenis"/"feminino"/"infantil") e ficavam permanentemente bloqueados —
+// confirmado ao vivo: os 50 candidatos Awin de maior score vinham 100%
+// DUP, zero elegível, toda vez. O dedupe nasceu pra pegar "mesmo produto
+// físico, vendedor diferente" DENTRO da Shopee — nunca deveria comparar
+// Nike com Shopee, são catálogos diferentes. Correção: escopar dedupe
+// por "bucket" de marketplace (nike/kabum/olympikus juntos, já que
+// dividem o mesmo feed Awin e podem ter duplicata real entre si).
+const AWIN_PLATFORMS = new Set(["nike", "kabum", "olympikus"]);
+function platformBucket(platform: string): string {
+  return AWIN_PLATFORMS.has(platform) ? "awin" : platform;
+}
+
+// Pedido explícito do Heber (2026-09-24), com exemplo dado por ele:
+// "Shopee tv / ML tv / Shopee geladeira / ML geladeira / Shopee tênis /
+// ML tênis / Awin tênis / Shopee eletroportáteis / ML eletroportáteis /
+// Shopee cozinha / ML cozinha... vai rodando por categoria que tem
+// demais" — em vez de correr score global (Shopee sempre vence) ou
+// depender de streak, cada (categoria, marketplace) tem seu próprio
+// "último postado em", e a cada execução escolhe o par mais
+// desatualizado entre os que têm candidato disponível de verdade. Isso
+// reproduz a sequência que ele descreveu organicamente, sem hardcode de
+// ordem fixa de categoria.
+const MARKETPLACE_ROTATION_ORDER = ["shopee", "mercadolivre", "awin"];
+const CANDIDATE_POOL_LIMIT = 400;
+
+type PostedRecord = {
+  productId: string;
+  productName: string;
+  categorySlug: string | null;
+  platform: string;
+  postedAt: string;
+};
+
+async function fetchPostedHistory(db: ReturnType<typeof getDbFresh>): Promise<PostedRecord[]> {
+  const { data } = await db
+    .from("social_posts")
+    .select("posted_at, deal_candidates(product_id, products(product_name, platform, category_slug))")
+    .eq("post_type", "whatsapp")
+    .eq("status", "posted")
+    .order("posted_at", { ascending: false });
+  return (data ?? [])
+    .map((r: any) => {
+      const p = r.deal_candidates?.products;
+      const productId = r.deal_candidates?.product_id;
+      if (!p || !productId) return null;
+      return {
+        productId,
+        productName: p.product_name,
+        categorySlug: p.category_slug ?? null,
+        platform: p.platform ?? "shopee",
+        postedAt: r.posted_at,
+      };
+    })
+    .filter((r): r is PostedRecord => r !== null);
 }
 
 function candidateFromRow(row: any): Candidate | null {
@@ -84,18 +141,13 @@ function candidateFromRow(row: any): Candidate | null {
   };
 }
 
-async function rankedCandidateRows(db: ReturnType<typeof getDbFresh>, postedProductIds: string[], excludeShopee = false): Promise<any[]> {
-  // `!inner` é obrigatório aqui — sem ele, filtrar em `products.platform`
-  // não restringe as LINHAS de deal_candidates, só zera o objeto
-  // aninhado quando não bate (achado real testando: sem `!inner`, a
-  // reserva de vaga nunca encontrava nada porque o top 50 por score já
-  // vinha 100% Shopee ANTES do filtro cliente-side rodar em cima).
+async function fetchAvailableCandidateRows(db: ReturnType<typeof getDbFresh>, postedProductIds: string[]): Promise<any[]> {
+  // `!inner` garante que products vem sempre presente (nunca null) —
+  // necessário pro agrupamento por categoria/plataforma abaixo.
   let query = db
     .from("deal_candidates")
     .select(
-      excludeShopee
-        ? "id, score, score_breakdown, product_id, products!inner(product_name, platform, category_slug), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
-        : "id, score, score_breakdown, product_id, products(product_name, platform, category_slug), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
+      "id, score, score_breakdown, product_id, products!inner(product_name, platform, category_slug), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
     )
     // Nunca reconsidera um candidato marcado "unavailable" (re-checagem
     // de disponibilidade real, ver GET abaixo) — sem isso o candidato
@@ -104,11 +156,42 @@ async function rankedCandidateRows(db: ReturnType<typeof getDbFresh>, postedProd
   if (postedProductIds.length > 0) {
     query = query.not("product_id", "in", `(${postedProductIds.join(",")})`);
   }
-  if (excludeShopee) {
-    query = query.neq("products.platform", "shopee");
-  }
-  const { data, error } = await query.order("score", { ascending: false, nullsFirst: false }).limit(50);
+  const { data, error } = await query
+    .order("score", { ascending: false, nullsFirst: false })
+    .limit(CANDIDATE_POOL_LIMIT);
   return error || !data ? [] : (data as any[]);
+}
+
+/**
+ * Agrupa o pool (já ordenado por score desc) por par (categoria, bucket
+ * de marketplace) — cada grupo mantém a ordem de score, então o primeiro
+ * de cada grupo já é o melhor candidato daquele par.
+ */
+function groupByCategoryAndBucket(rows: any[]): Map<string, any[]> {
+  const groups = new Map<string, any[]>();
+  for (const row of rows) {
+    const categorySlug = row.products?.category_slug;
+    if (!categorySlug) continue;
+    const platform = row.products?.platform ?? "shopee";
+    const key = `${categorySlug}::${platformBucket(platform)}`;
+    const list = groups.get(key);
+    if (list) list.push(row);
+    else groups.set(key, [row]);
+  }
+  return groups;
+}
+
+/** Epoch ms da última vez que cada par (categoria, bucket) foi postado — ausente = nunca. */
+function lastPostedAtByCategoryBucket(history: PostedRecord[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const record of history) {
+    if (!record.categorySlug) continue;
+    const key = `${record.categorySlug}::${platformBucket(record.platform)}`;
+    const ts = new Date(record.postedAt).getTime();
+    const existing = map.get(key);
+    if (existing === undefined || ts > existing) map.set(key, ts);
+  }
+  return map;
 }
 
 // Achado real (2026-09-22, debate com o Heber): a seleção era puro
@@ -177,64 +260,70 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>, excludeProdu
   // Achado real (Heber, 2026-09-24: a repetição que ele via no grupo era
   // "mesmo produto, de vendedor diferente") -- product_id sozinho não
   // pega isso, porque na Shopee cada vendedor do MESMO produto físico tem
-  // seu próprio product_id. `postedHistory` (nome + categoria de tudo já
-  // postado, sem janela de tempo -- exclusão permanente, pedido dele: "já
-  // mandou uma vez aguarda... não tem pq tá repetindo") alimenta
-  // isDuplicateOfPosted em todo ponto de decisão abaixo.
-  const { data: alreadyPosted } = await db
-    .from("social_posts")
-    .select("deal_candidates(product_id, products(product_name, category_slug))")
-    .eq("post_type", "whatsapp")
-    .eq("status", "posted");
+  // seu próprio product_id. `postedHistory` (nome + categoria + PLATAFORMA
+  // de tudo já postado, sem janela de tempo -- exclusão permanente,
+  // pedido dele: "já mandou uma vez aguarda... não tem pq tá repetindo")
+  // alimenta isDuplicateOfPosted SEMPRE escopado por bucket de
+  // marketplace (ver platformBucket acima) -- nunca compara Nike com
+  // Shopee, só dentro do mesmo catálogo.
+  const postedHistory = await fetchPostedHistory(db);
   const postedProductIds = [
-    ...new Set([
-      ...(alreadyPosted ?? [])
-        .map((r: any) => r.deal_candidates?.product_id)
-        .filter(Boolean),
-      ...excludeProductIds,
-    ]),
+    ...new Set([...postedHistory.map((r) => r.productId), ...excludeProductIds]),
   ];
-  const postedHistory: PostedProductRecord[] = (alreadyPosted ?? [])
-    .map((r: any) => r.deal_candidates?.products)
-    .filter(Boolean)
-    .map((p: any) => ({ productName: p.product_name, categorySlug: p.category_slug ?? null }));
 
-  const streakWindow = Math.max(NON_SHOPEE_ROTATION_STREAK, FARMACIA_ROTATION_STREAK);
-  const { data: recent } = await db
+  const { data: recentFarmacia } = await db
     .from("social_posts")
-    .select("deal_candidates(products(platform), score_breakdown)")
+    .select("deal_candidates(score_breakdown)")
     .eq("post_type", "whatsapp")
     .order("posted_at", { ascending: false })
-    .limit(streakWindow);
-  const recentRows = (recent ?? []).map((r: any) => r.deal_candidates);
-  const lastNShopee = recentRows.slice(0, NON_SHOPEE_ROTATION_STREAK);
-  const forceNonShopee = lastNShopee.length === NON_SHOPEE_ROTATION_STREAK && lastNShopee.every((r) => r?.products?.platform === "shopee");
-  const lastNFarmacia = recentRows.slice(0, FARMACIA_ROTATION_STREAK);
-  const forceNonFarmacia = lastNFarmacia.length === FARMACIA_ROTATION_STREAK && lastNFarmacia.every((r) => r?.score_breakdown?.origem === FARMACIA_ORIGEM);
+    .limit(FARMACIA_ROTATION_STREAK);
+  const forceNonFarmacia =
+    (recentFarmacia ?? []).length === FARMACIA_ROTATION_STREAK &&
+    (recentFarmacia ?? []).every((r: any) => r.deal_candidates?.score_breakdown?.origem === FARMACIA_ORIGEM);
 
-  if (forceNonShopee) {
-    const reservedRows = await rankedCandidateRows(db, postedProductIds, true);
-    for (const row of reservedRows) {
+  const rows = await fetchAvailableCandidateRows(db, postedProductIds);
+  const groups = groupByCategoryAndBucket(rows);
+  const lastPosted = lastPostedAtByCategoryBucket(postedHistory);
+
+  // Par (categoria, bucket) mais desatualizado primeiro -- nunca postado
+  // (ausente do mapa) vence qualquer par já postado alguma vez. Isso
+  // reproduz organicamente a sequência que o Heber descreveu ("Shopee tv
+  // / ML tv / Shopee geladeira / ML geladeira / Shopee tênis / ML tênis /
+  // Awin tênis / ...") sem precisar de uma ordem fixa hardcoded.
+  const marketplaceOrderIndex = (bucket: string) => {
+    const idx = MARKETPLACE_ROTATION_ORDER.indexOf(bucket);
+    return idx === -1 ? MARKETPLACE_ROTATION_ORDER.length : idx;
+  };
+  const pairs = [...groups.keys()].sort((a, b) => {
+    const lastA = lastPosted.get(a) ?? -Infinity;
+    const lastB = lastPosted.get(b) ?? -Infinity;
+    if (lastA !== lastB) return lastA - lastB;
+    // Empate (ambos nunca postados) -- agrupa pela mesma categoria e
+    // desempata pela ordem Shopee -> Mercado Livre -> Awin, pra reproduzir
+    // "Shopee tv, ML tv, Shopee geladeira, ML geladeira..." em vez de uma
+    // ordem arbitrária vinda da ordenação global por score.
+    const [catA, bucketA] = a.split("::");
+    const [catB, bucketB] = b.split("::");
+    if (catA !== catB) return catA.localeCompare(catB);
+    return marketplaceOrderIndex(bucketA) - marketplaceOrderIndex(bucketB);
+  });
+
+  for (const key of pairs) {
+    const bucket = key.split("::")[1];
+    const bucketHistory = postedHistory.filter((r) => platformBucket(r.platform) === bucket);
+    for (const row of groups.get(key)!) {
+      if (forceNonFarmacia && isFarmaciaRow(row)) continue;
       const candidate = candidateFromRow(row);
       if (!candidate) continue;
-      if (isDuplicateOfPosted(candidate.productName, candidate.categorySlug, postedHistory)) continue;
+      if (isDuplicateOfPosted(candidate.productName, candidate.categorySlug, bucketHistory)) continue;
       return { candidate, demand: await computeDemandSignal(db, candidate.productId) };
     }
-    // Reserva não achou nada elegível fora da Shopee (pool vazio/sem
-    // candidato válido) — cai pro ranking normal em vez de travar o
-    // post daquela execução.
   }
 
-  const rows = await rankedCandidateRows(db, postedProductIds);
-
-  if (forceNonFarmacia) {
-    const nonFarmaciaRows = rows.filter((row) => !isFarmaciaRow(row));
-    const ranked = await rerankWithDemand(db, nonFarmaciaRows, postedHistory);
-    if (ranked.length > 0) return { candidate: ranked[0].candidate, demand: ranked[0].demand };
-    // Sem candidato elegível fora da Farmácia Uruguai (pool comum
-    // esgotado no momento) — cai pro ranking normal abaixo.
-  }
-
+  // Nenhum par (categoria, bucket) teve candidato elegível (catálogo
+  // momentaneamente esgotado em todas as combinações) -- último recurso,
+  // ranking por score/demanda sobre o pool inteiro, só pra garantir que a
+  // execução não fica sem postar nada.
   const ranked = await rerankWithDemand(db, rows, postedHistory);
   if (ranked.length > 0) return { candidate: ranked[0].candidate, demand: ranked[0].demand };
   return null;
