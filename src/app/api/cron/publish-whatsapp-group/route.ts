@@ -5,6 +5,7 @@ import { getPlatformInfo } from "../../../../lib/site/platforms";
 import { computeDemandSignal, type DemandSignal } from "../../../../lib/growth/demandSignal";
 import { generateEvidenceCopy } from "../../../../lib/growth/offerCopy";
 import { scrapeFeaturedProduct } from "../../../../lib/mercadolivre/scrape";
+import { isDuplicateOfPosted, type PostedProductRecord } from "../../../../lib/growth/productDedupe";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -151,12 +152,17 @@ async function categorySaturationPenalties(db: ReturnType<typeof getDbFresh>): P
  */
 const CANDIDATE_EVAL_LIMIT = 20;
 
-async function rerankWithDemand(db: ReturnType<typeof getDbFresh>, rows: any[]): Promise<Array<{ row: any; candidate: Candidate; demand: DemandSignal; effectiveScore: number }>> {
+async function rerankWithDemand(
+  db: ReturnType<typeof getDbFresh>,
+  rows: any[],
+  postedHistory: PostedProductRecord[]
+): Promise<Array<{ row: any; candidate: Candidate; demand: DemandSignal; effectiveScore: number }>> {
   const penalties = await categorySaturationPenalties(db);
   const evaluated: Array<{ row: any; candidate: Candidate; demand: DemandSignal; effectiveScore: number }> = [];
   for (const row of rows.slice(0, CANDIDATE_EVAL_LIMIT)) {
     const candidate = candidateFromRow(row);
     if (!candidate) continue;
+    if (isDuplicateOfPosted(candidate.productName, candidate.categorySlug, postedHistory)) continue;
     const demand = await computeDemandSignal(db, candidate.productId);
     const penalty = candidate.categorySlug ? penalties.get(candidate.categorySlug) ?? 0 : 0;
     evaluated.push({ row, candidate, demand, effectiveScore: candidate.baseScore + demand.demandBonus - penalty });
@@ -168,10 +174,18 @@ async function rerankWithDemand(db: ReturnType<typeof getDbFresh>, rows: any[]):
 type Pick = { candidate: Candidate; demand: DemandSignal };
 
 async function pickNextCandidate(db: ReturnType<typeof getDbFresh>, excludeProductIds: string[] = []): Promise<Pick | null> {
+  // Achado real (Heber, 2026-09-24: a repetição que ele via no grupo era
+  // "mesmo produto, de vendedor diferente") -- product_id sozinho não
+  // pega isso, porque na Shopee cada vendedor do MESMO produto físico tem
+  // seu próprio product_id. `postedHistory` (nome + categoria de tudo já
+  // postado, sem janela de tempo -- exclusão permanente, pedido dele: "já
+  // mandou uma vez aguarda... não tem pq tá repetindo") alimenta
+  // isDuplicateOfPosted em todo ponto de decisão abaixo.
   const { data: alreadyPosted } = await db
     .from("social_posts")
-    .select("deal_candidates(product_id)")
-    .eq("post_type", "whatsapp");
+    .select("deal_candidates(product_id, products(product_name, category_slug))")
+    .eq("post_type", "whatsapp")
+    .eq("status", "posted");
   const postedProductIds = [
     ...new Set([
       ...(alreadyPosted ?? [])
@@ -180,6 +194,10 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>, excludeProdu
       ...excludeProductIds,
     ]),
   ];
+  const postedHistory: PostedProductRecord[] = (alreadyPosted ?? [])
+    .map((r: any) => r.deal_candidates?.products)
+    .filter(Boolean)
+    .map((p: any) => ({ productName: p.product_name, categorySlug: p.category_slug ?? null }));
 
   const streakWindow = Math.max(NON_SHOPEE_ROTATION_STREAK, FARMACIA_ROTATION_STREAK);
   const { data: recent } = await db
@@ -198,7 +216,9 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>, excludeProdu
     const reservedRows = await rankedCandidateRows(db, postedProductIds, true);
     for (const row of reservedRows) {
       const candidate = candidateFromRow(row);
-      if (candidate) return { candidate, demand: await computeDemandSignal(db, candidate.productId) };
+      if (!candidate) continue;
+      if (isDuplicateOfPosted(candidate.productName, candidate.categorySlug, postedHistory)) continue;
+      return { candidate, demand: await computeDemandSignal(db, candidate.productId) };
     }
     // Reserva não achou nada elegível fora da Shopee (pool vazio/sem
     // candidato válido) — cai pro ranking normal em vez de travar o
@@ -209,13 +229,13 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>, excludeProdu
 
   if (forceNonFarmacia) {
     const nonFarmaciaRows = rows.filter((row) => !isFarmaciaRow(row));
-    const ranked = await rerankWithDemand(db, nonFarmaciaRows);
+    const ranked = await rerankWithDemand(db, nonFarmaciaRows, postedHistory);
     if (ranked.length > 0) return { candidate: ranked[0].candidate, demand: ranked[0].demand };
     // Sem candidato elegível fora da Farmácia Uruguai (pool comum
     // esgotado no momento) — cai pro ranking normal abaixo.
   }
 
-  const ranked = await rerankWithDemand(db, rows);
+  const ranked = await rerankWithDemand(db, rows, postedHistory);
   if (ranked.length > 0) return { candidate: ranked[0].candidate, demand: ranked[0].demand };
   return null;
 }
