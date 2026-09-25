@@ -4,6 +4,38 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-26 — Validação real do painel `/admin` (rótulos, `/admin/cupons`, cliques por origem)
+
+Depois do merge do commit `9c8edec`, login real em produção (a senha do
+`.env` local estava desatualizada — Vercel não deixa recuperar valor de
+env var "sensitive" via API/CLI; Heber passou a atual) e os 3 checks
+pedidos, todos passando:
+
+1. **`/admin` visão geral** — os 4 KPIs com os rótulos novos
+   ("Visualizações (7 dias)", "Cliques p/ lojas (7 dias)", "Cliques ÷
+   visualizações", "Produtos publicados"); CTR mostrou "+1.6 pp vs.
+   período anterior" (pontos percentuais, não "%"); testado em viewport
+   mobile (375px) — as dicas cinza cabem dentro do card, sem quebrar.
+2. **`/admin/cupons`** — os 3 cupons exatamente como descrito:
+   COMPREJUNTOAPPLE (Kabum) com chip "sem estimativa", decisão
+   "Estimativa bloqueada: o texto restringe a itens selecionados /
+   promoção / quantidade…", escopo "marca: apple · 211 produtos da loja
+   casam"; VGA8 (Kabum) com decisão 'Não associado a produtos: "vga" é
+   categoria…', validade "sem fim (marcador Awin +366d)"; JBL25 (Kabum)
+   com chip "estimativa liberada", escopo "marca: jbl · 116 produtos da
+   loja casam" — e mostrou o voto real que eu tinha dado na validação
+   anterior ("1 funcionou"), confirmando que o painel lê o mesmo dado que
+   o site público grava. Sem bug de `imatch`: todas as contagens vieram
+   corretas (211, 116, 36…), não precisou trocar por `ilike`.
+3. **`/admin/analytics`** — "Cliques por origem" aparece antes de
+   "Cliques por marketplace", com instagram (17) / cupom (2) / produto
+   (2) / unknown (1). Bônus: "cupom shopee" já aparece como 4º termo mais
+   buscado (2x) nos "Termos mais buscados" — confirma o problema que a
+   outra sessão corrigiu no commit `2adb918` (busca de "cupom" caindo em
+   "Impressora de cupom" por ser busca só de produto).
+
+Tudo passou; nada foi para CONTINUIDADE.md desta rodada.
+
 ## 2026-09-26 — Validação real no site em produção: cupom no contexto do produto + alerta de preço + Shopee offers + Lomadee na busca
 
 Depois do merge de `43d6580`/`45012fc` (correções de escopo/elegibilidade/
