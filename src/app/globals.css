@@ -24,6 +24,15 @@
      distinguíveis (ver nota acima). */
   --dc-urgency: #e2401f;
   --dc-urgency-bright: #ff6b3d;
+  /* Header claro, tirado literalmente dos 4 mockups (spec real pedida ao
+     ChatGPT -- ver memória project_header_literal_spec_v1, nenhum dos 4
+     cabeçalhos de referência é escuro). Tokens próprios do header porque
+     --dc-text/--dc-border ainda carregam um leve tom esverdeado herdado
+     do resto da paleta antiga -- essa limpeza fica pra um pass futuro. */
+  --dc-header-bg: #fdfbf7;
+  --dc-header-navy: #111a2c;
+  --dc-header-muted: #6b7280;
+  --dc-header-border: #e9e4de;
   --dc-bg: #f5faf6;
   --dc-card-bg: #ffffff;
   --dc-text: #14201a;
@@ -80,19 +89,16 @@ img {
   position: sticky;
   top: 0;
   z-index: 10;
-  /* 2026-09-25: trocado o BACKGROUND-HERO.png (imagem verde estática) por
-     gradiente puro em CSS -- resolve o problema real (o PNG era a maior
-     massa verde do site inteiro, maior que qualquer token trocado) sem
-     gastar crédito de geração de imagem (saldo baixo, compartilhado com
-     o pipeline de vídeo que gera receita de verdade) e sem precisar
-     regenerar um asset toda vez que a paleta mudar de novo. */
-  background-color: var(--dc-black);
-  background-image: radial-gradient(140% 180% at 12% -20%, rgba(185, 87, 63, 0.5), transparent 60%),
-    linear-gradient(135deg, var(--dc-black) 0%, var(--dc-black-soft) 55%, var(--dc-brand-deep) 140%);
-  color: #fff;
-  padding-block: 16px;
-  border-bottom: 1px solid var(--dc-brand-deep);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  /* 2026-09-25: header claro literal, spec pedida ao ChatGPT olhando os 4
+     mockups de verdade (ver memória project_header_literal_spec_v1) --
+     a versão escura de hoje mais cedo (commit 72745f7) era uma etapa
+     intermediária deliberadamente mais segura, não uma tentativa de bater
+     com a referência. Essa aqui é a fiel. */
+  background-color: var(--dc-header-bg);
+  color: var(--dc-header-navy);
+  padding-block: 14px;
+  border-bottom: 1px solid var(--dc-header-border);
+  box-shadow: 0 2px 10px rgba(17, 26, 44, 0.05);
 }
 
 .dc-header-row {
@@ -119,31 +125,40 @@ img {
   display: flex;
   align-items: center;
   gap: 20px;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13.5px;
+  font-weight: 500;
 }
 
 .dc-header-nav a {
+  color: var(--dc-header-navy);
   text-decoration: none;
-  opacity: 0.88;
   white-space: nowrap;
+  opacity: 0.92;
 }
 
 .dc-header-nav a:hover {
   opacity: 1;
+  color: var(--dc-brand);
 }
 
 .dc-header-bell {
-  /* 2026-09-25: era um PNG verde (SINO-SEM-NOTIFICAÇÃO.png), extraído via
-     clip-path+mix-blend-mode -- outro asset verde fora do sistema de
-     tokens. Trocado por SVG real (BellIcon), sem dependência de imagem. */
+  /* Nome mantido por compatibilidade (era o sino) -- agora é o link de
+     Favoritos, o ícone real que aparece nos 4 mockups (nenhum tem sino).
+     Favoritos já existe de verdade no site (FavoriteButton), só não
+     tinha entrada no cabeçalho ainda. */
   flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 34px;
   height: 34px;
+  color: var(--dc-header-navy);
   opacity: 0.85;
+}
+
+.dc-header-bell:hover {
+  opacity: 1;
+  color: var(--dc-brand);
 }
 
 .dc-header-search {
@@ -151,21 +166,21 @@ img {
   display: flex;
   align-items: center;
   gap: 10px;
-  /* 2026-09-25: era uma <img> real (BUSCADOR.png), um asset verde brilhante
-     tipo vidro neon -- outra fonte de verde que o find/replace de token de
-     CSS não pegava (não é var(--dc-green), é imagem). Trocado por
-     gradiente puro, mesma família terracota/navy do resto do redesign. */
-  background: linear-gradient(135deg, var(--dc-brand-deep), var(--dc-black-soft));
+  /* Pill branca com borda quente sutil e sombra leve, literal do spec dos
+     4 mockups (ver project_header_literal_spec_v1) -- era gradiente
+     escuro (etapa intermediária) antes disso. */
+  background: var(--dc-header-bg);
+  border: 1px solid var(--dc-header-border);
   border-radius: 999px;
   overflow: hidden;
   padding: 4px 4px 4px 18px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  transition: box-shadow 0.2s ease;
+  box-shadow: 0 2px 8px rgba(17, 26, 44, 0.05);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .dc-header-search:focus-within {
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 0 0 2px rgba(255, 255, 255, 0.55);
+  border-color: var(--dc-brand);
+  box-shadow: 0 2px 8px rgba(17, 26, 44, 0.05), 0 0 0 2px rgba(185, 87, 63, 0.18);
 }
 
 .dc-header-search input {
@@ -179,12 +194,12 @@ img {
   /* 16px é o mínimo pra Safari/Chrome no iOS não darem zoom automático
      ao focar o campo — abaixo disso a tela "pula" pra cima ao tocar. */
   font-size: 16px;
-  color: #fff;
+  color: var(--dc-header-navy);
   padding: 10px 0;
 }
 
 .dc-header-search input::placeholder {
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--dc-header-muted);
 }
 
 /* Botão continua existindo (funciona com Enter também) mas some
@@ -218,8 +233,8 @@ img {
 }
 
 .dc-platform-soon {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.45);
+  background: rgba(17, 26, 44, 0.06);
+  color: rgba(17, 26, 44, 0.4);
 }
 
 /* ---------- Hero ---------- */

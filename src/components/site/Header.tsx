@@ -1,6 +1,6 @@
 import { Logo } from "./Logo";
 import { PLATFORM_INFO } from "../../lib/site/platforms";
-import { BellIcon, SearchIcon } from "./icons";
+import { HeartIcon, SearchIcon } from "./icons";
 
 /**
  * Lojas que o comparador realmente já traz dado real. As outras aparecem
@@ -42,15 +42,19 @@ export function Header() {
             </a>
           ))}
         </nav>
-        {/* Sem contador — não temos sistema de notificação de verdade ainda,
-            então não inventamos um número. */}
-        <span className="dc-header-bell" title="Notificações em breve">
-          <BellIcon size={20} style={{ color: "#fff" }} />
-        </span>
+        {/* 2026-09-25: era um sino (BellIcon) -- inventado, não existe em
+            nenhuma das 4 imagens de referência (spec real: ver memória
+            project_header_literal_spec_v1). O que existe de verdade nas
+            imagens é um ícone de favoritos -- e favoritos já é uma
+            funcionalidade real do site (ver FavoriteButton/lib/site/
+            favorites.ts), só não tinha link no cabeçalho ainda. */}
+        <a className="dc-header-bell" href="/favoritos" title="Favoritos" aria-label="Favoritos">
+          <HeartIcon size={20} />
+        </a>
       </div>
       <div className="dc-shell">
         <form className="dc-header-search" action="/busca" method="GET">
-          <SearchIcon size={18} style={{ flex: "none", color: "#fff", opacity: 0.85 }} />
+          <SearchIcon size={18} style={{ flex: "none", color: "var(--dc-brand)" }} />
           <input
             type="search"
             name="q"
