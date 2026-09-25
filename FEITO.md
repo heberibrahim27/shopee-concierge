@@ -4,6 +4,36 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (manhã, continuação) — Pesquisa real: Zoom/Buscapé é uma empresa só, Ezoic fora de cogitação, AdSense travado em conteúdo
+
+Voltando pra pesquisa/monetização depois de fechar o comparador Kabum.
+
+**Zoom/Buscapé (referência do Heber pra positioning "Híbrido")**: achado
+real navegando o site -- Zoom, Buscapé e Bondfaro são a MESMA empresa
+(Mosaico), confirmado no portal do anunciante (`anunciante.zoom.com.br`):
+"suas ofertas podem ser exibidas em todas essas plataformas... time
+Comercial único". Cada marca fica independente pro consumidor, mas o
+anunciante compra acesso às 3 de uma vez -- confirma de novo o modelo de
+Retail Media já visto no Promobit, agora com estrutura de portfólio
+multi-marca. Cashback do Zoom também não é produto próprio: é funil pro
+Banco PAN (conta digital). Não é acionável agora (precisa de CNPJ,
+demanda de anunciante, tráfego que não temos) -- fica como referência
+de longo prazo.
+
+**Anúncio display (Ezoic/AdSense)**: o Gemini (aba já aberta de pesquisa
+anterior) recusou/travou de novo nessa pergunta (confirma
+[[feedback_gemini_unreliable_for_this_thread]], não insisti) -- usei
+busca direta. Resultado real: **Ezoic exige 250 mil+ usuários mensais**
+pra sequer entrar, hoje fora de cogitação. **AdSense não trava por
+tráfego** (10-20 visitas/dia já basta), mas trava em dois pontos reais:
+(1) Search Console verificado sem erro -- gap já conhecido, nunca feito;
+(2) política 2026 exige 20-30 posts originais de 600-800+ palavras --
+Desconto Chegando é site de listagem de produto, não blog, e nossas
+páginas (mesmo as "boas" pelo SEO_INDEX_GATE de hoje cedo) são
+título+preço+comparação, longe disso. Não é bloqueio técnico, é
+conteúdo editorial que não existe ainda -- não vou prometer AdSense como
+"rápido" pro Heber sem isso resolvido.
+
 ## 2026-09-25 (manhã, continuação) — 2 bugs reais no sitemap, corrigidos e testados antes de confiar
 
 Logo depois do SEO_INDEX_GATE v1 ir pro ar, o ChatGPT pegou um bug real:
