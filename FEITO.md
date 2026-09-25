@@ -4,6 +4,24 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-26 — Merge com a main: causa real do print era o carrossel novo da home
+
+Ao juntar a `main` de novo, apareceu o commit 4032a4a da outra sessão
+("rolagem horizontal em Ofertas de hoje", 16:49), publicado minutos
+antes do print do Heber (16:52). É ele a causa real: `.dc-grid-scroll`
+é um flex com cards fixos de 148px (3 aparecem, o 3º cortado) e, como
+flex estica por padrão, TODOS os 86 cards ficavam na altura do mais
+alto — o vazio enorme embaixo do botão. A hipótese anterior (zoom do
+Safari) fica registrada como o que se via sem esse commit; a correção
+da grade normal continua valendo.
+
+**Ajuste no carrossel** (`globals.css`): `align-items: flex-start` (cada
+card na própria altura) e largura `clamp(160px, 44vw, 200px)` — 2 cards
+inteiros + a beirada do 3º, sinal visual de "dá pra rolar". Medido com
+Playwright: 390/430/506px → 2 inteiros + 1 espiando, alturas 315/333/343
+nos cards simples e 433/437/447 no card Shopee rico (sem esticar os
+outros); 640px → 3 inteiros. Documento nunca mais largo que a tela.
+
 ## 2026-09-26 — Home "quebrada" no celular do Heber: 3 cards apertados e esticados (corrigido)
 
 Print do Heber: "Ofertas de hoje" com 3 cards de ~145px lado a lado
@@ -70,7 +88,18 @@ conferir (1) mensagem de boas-vindas chegou, (2) linha em `price_alerts`,
 (3) `curl -H "Authorization: Bearer $CRON_SECRET" /api/cron/price-alerts`
 devolve `checked: 1, sent: 0`.
 
-## 2026-09-26 — Cupom: "clique pra ver o código" (protege a comissão)
+## 2026-09-26 — Cupom: "clique pra ver o código" (protege a comissão) — SUBSTITUÍDO pela versão da main
+
+> Nota do merge (2026-09-26): a outra sessão publicou na `main`, no mesmo
+> momento, o fluxo "Revelar cupom" → copia → "Ir para a loja" dentro do
+> próprio `CouponCard.tsx` (commit 85bf519). Pra não ter dois componentes
+> fazendo a mesma coisa, o `CouponCodeReveal.tsx` desta sessão foi
+> removido no merge e ficou a versão da main, só com o ajuste do rótulo
+> de cupom Lomadee sem marca resolvida. Diferença de comportamento que
+> vale registrar: na versão da main, revelar NÃO abre a loja — se a
+> pessoa copiar o código e ir direto no site da loja sem clicar em "Ir
+> para a loja", a comissão se perde. O texto abaixo descreve a versão
+> descartada.
 
 Heber perguntou se cupom rende algo além de tráfego. Rende: o botão do
 cupom abre o `url_tracking` da Awin/Lomadee, link de afiliado igual ao
@@ -198,6 +227,57 @@ abrir `/busca?q=fone+bluetooth` e ver se a terceira seção aparece.
 `npx tsc --noEmit` limpo; `next build` compilou todas as rotas (o único
 erro é o pré-render de `/media-kit` sem `SUPABASE_URL` no container,
 anterior a esta mudança e inexistente na Vercel).
+## 2026-09-25 (tarde, continuação 17) — Página de cupons: fluxo revelar/copiar
+
+Heber mandou continuar o redesign. Próximo item real e ainda aberto:
+cupons (pesquisa de UX de concorrente já feita, ver memória
+project_competitor_cuponomia_coupon_ux). `CouponCard` virou client
+component com estado de "revelado":
+
+- Código do cupom vem mascarado (bolinhas) até clicar "Revelar cupom".
+- Ao revelar: copia pro clipboard automaticamente (melhor esforço --
+  se o navegador bloquear, o código continua visível pra copiar na
+  mão, não quebra nada) e SÓ DEPOIS mostra "Ir para a loja →" -- não
+  no mesmo clique, senão a aba muda antes da pessoa conseguir ver o
+  cupom (esse é o padrão real testado na Cuponomia, não inventado).
+- Campo `description` do cupom (já existia no banco, nunca tinha sido
+  renderizado) agora aparece no card.
+- Cupom sem código (promoção automática) continua com "Aproveitar"
+  direto, sem etapa de revelar (nada pra copiar).
+
+Não implementei "N pessoas usaram esse cupom" (padrão real da
+Cuponomia) -- checado ao vivo: `click_events` não tem coluna
+`coupon_id`, e o volume de clique em cupom hoje é baixo demais pra um
+número real ser um bom sinal de confiança. Melhor não mostrar do que
+inventar ou mostrar "1 uso".
+
+Testado ao vivo: revelar funciona (cupom aparece, botão troca pra "Ir
+pra loja"), testado na página /cupons E no carrossel da home (mesmo
+componente, dois lugares). Cópia pro clipboard não disparou no clique
+sintético do teste automatizado (limite conhecido de teste headless,
+não bloqueia a funcionalidade -- clique real de usuário é um gesture
+válido). Zero erro de console nos dois lugares. `tsc` e `next build`
+limpos.
+
+## 2026-09-25 (tarde, continuação 16) — Rolagem horizontal em "Ofertas de hoje"
+
+Heber notou que a home ficou muito grande e sugeriu rolagem horizontal.
+Investiguei o motivo real antes de mexer: `queryTodayPosts` não tem
+limite nenhum, pega TODO post do Instagram das últimas 24h -- hoje isso
+é **86 produtos únicos / 115 posts** (cresceu bastante com o conteúdo
+de crescimento além do cron de produto). Num grid vertical de 2-3
+colunas isso vira dezenas de linhas.
+
+Implementado: `ProductGrid` ganhou uma prop `layout="scroll"` (opcional,
+default continua `"grid"` -- categoria/busca/guia não mudam nada).
+`.dc-grid-scroll` no CSS: flexbox com `overflow-x: auto` +
+`scroll-snap-type` nativo (sem lib de carrossel), cards com largura fixa
+(148px mobile / 190px desktop+), sangrando até a borda da tela pra
+parecer nativo. Só a seção "Ofertas de hoje" da home usa isso.
+
+Testado ao vivo no preview: scroll com snap funcionando liso no mobile
+(375px) e desktop, zero erro de console, `tsc` e `next build` limpos.
+
 ## 2026-09-25 (tarde, continuação 15) — Descrição real do produto (Kabum) + resposta técnica sobre fotos múltiplas
 
 Heber comparou uma página real nossa (mouse) com a imagem de referência

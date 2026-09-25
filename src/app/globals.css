@@ -636,6 +636,40 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   }
 }
 
+/* Achado real 2026-09-25 (Heber): "Ofertas de hoje" cresceu pra ~86
+   produtos únicos/24h (mais fontes postando -- não é só o cron de
+   produto, cresceu com o conteúdo de crescimento também) e o grid
+   vertical deixava a home enorme. Rolagem horizontal nativa (sem lib
+   de carrossel) pra essa seção só -- scroll-snap pro toque parar
+   alinhado no card, resto do site continua em grid normal. */
+.dc-grid-scroll {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  padding-bottom: 4px;
+  margin: 0 -18px;
+  padding-inline: 18px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+/* Print do Heber (2026-09-26) logo depois desse carrossel entrar: 3 cards
+   de 148px apertados e TODOS esticados na altura do card mais alto dos
+   86 (flex estica por padrão) -- vazio enorme embaixo do botão. Dois
+   ajustes: cada card tem a própria altura (align-items: flex-start) e a
+   largura é ~44% da tela, limitada entre 160 e 200px -- 2 cards inteiros
+   + a beirada do 3º, que é o sinal visual de "dá pra rolar". */
+.dc-grid-scroll {
+  align-items: flex-start;
+}
+
+.dc-grid-scroll .dc-card {
+  flex: 0 0 clamp(160px, 44vw, 200px);
+  width: clamp(160px, 44vw, 200px);
+  scroll-snap-align: start;
+}
+
 .dc-card {
   /* Coluna flex (não block): numa linha da grade todos os cards têm a
      altura do mais alto; com flex o botão "Ver melhor oferta" gruda no
@@ -1359,6 +1393,24 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   color: var(--dc-text-muted, #666);
 }
 
+.dc-coupon-description {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--dc-text-muted, #666);
+}
+
+.dc-coupon-copied {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--dc-green-deep);
+}
+
+.dc-coupon-code strong.dc-coupon-code-masked {
+  letter-spacing: 0.12em;
+  color: #b8965a;
+}
+
 .dc-coupon-code strong {
   font-family: var(--font-heading);
   font-size: 15px;
@@ -1375,35 +1427,6 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   color: var(--dc-text-muted, #777);
 }
 
-/* "Clique pra ver o código" (CouponCodeReveal.tsx): código mascarado
-   antes do clique, botão de copiar depois. */
-.dc-coupon-code-masked {
-  letter-spacing: 0.12em;
-  opacity: 0.85;
-}
-
-.dc-coupon-cta-button {
-  border: 0;
-  cursor: pointer;
-  width: 100%;
-  font: inherit;
-  font-family: var(--font-heading);
-  font-weight: 700;
-  font-size: 13px;
-}
-
-.dc-coupon-copy {
-  margin-left: auto;
-  border: 1px solid var(--dc-border);
-  background: var(--dc-card-bg);
-  color: var(--dc-text);
-  border-radius: 999px;
-  padding: 3px 10px;
-  font: inherit;
-  font-size: 11.5px;
-  font-weight: 700;
-  cursor: pointer;
-}
 
 .dc-coupon-cta {
   margin-top: auto;
@@ -1416,6 +1439,13 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   font-weight: 700;
   font-size: 13px;
   text-decoration: none;
+  /* .dc-coupon-cta também vira <button> no passo "Revelar cupom" (ver
+     CouponCard.tsx) -- reset dos estilos nativos de botão pra ficar
+     idêntico ao link. */
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  display: block;
 }
 
 /* ==========================================================================
