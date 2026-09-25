@@ -4,6 +4,24 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (tarde, continuação) — Home reordenada: produto real antes de banner/cupom
+
+Segunda peça do redesign publicada. Reusei a section "Ofertas de hoje"
+que já existia (produto real com preço e comparação) e movi pra logo
+depois da busca, antes de categoria/guia/banner/cupom -- antes ficava
+por último, atrás de banner institucional e cupom, exatamente o
+problema que a crítica do ChatGPT (que o Heber trouxe) apontou. Nenhuma
+seção nova criada, só reordenada. Testado local (desktop+mobile) e
+confirmado ao vivo em produção via fetch direto do HTML: "Ofertas de
+hoje" aparece na posição 6515 do HTML, "Cupons em destaque" só na
+179647 -- ordem certa, não é suposição.
+
+Falta a peça maior e mais arriscada do redesign: trocar o esquema de
+cor (o cabeçalho hoje usa imagem de fundo escura verde, precisa virar
+clara; CTA/botão precisa migrar pro laranja que já existe como
+`--dc-urgency` no CSS). Não comecei ainda -- essa mexe em mais
+componentes ao mesmo tempo, quero fazer com mais cuidado.
+
 ## 2026-09-25 (tarde) — Redesign do site: início dos trabalhos, achado o brief real por trás dos mockups
 
 Heber mandou 4 imagens de referência ("Isso sim é um site padrão digno,
