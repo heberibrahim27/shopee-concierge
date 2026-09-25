@@ -227,6 +227,36 @@ abrir `/busca?q=fone+bluetooth` e ver se a terceira seção aparece.
 `npx tsc --noEmit` limpo; `next build` compilou todas as rotas (o único
 erro é o pré-render de `/media-kit` sem `SUPABASE_URL` no container,
 anterior a esta mudança e inexistente na Vercel).
+## 2026-09-26 (continuação) — "Explore por categoria" com fotos reais (novo mockup)
+
+Heber mandou um novo mockup (home completa, referência distinta da
+anterior) e pediu pra ajustar a seção de categorias primeiro. Ladrilho
+antigo era ícone+texto desenhado (`/icones-categorias/*.jpg`, arte do
+ChatGPT). Trocado por ladrilho com FOTO REAL de produto (o mais vendido
+com imagem de cada categoria, puxado ao vivo do catálogo via nova
+`getCachedFeaturedCategoryPhotos`) + rótulo + subtítulo curto -- só na
+home (`FeaturedCategoryGrid.tsx`, novo componente). A navegação por
+ícone em `/categoria/[slug]` continua igual (`CategoryGrid.tsx`
+intocado), essa troca foi só na home.
+
+6 categorias em destaque (Eletrônicos/Casa/Beleza/Moda/Esporte/Infantil,
+igual ao mockup) + "Ver todas →" pra `/categorias` (lista completa de
+18 já existe lá). Achado real testando: subtítulo da Casa
+("Cozinha, decoração e utilidades") estourava o card -- encurtado +
+`line-clamp:2` de proteção pros outros também.
+
+Testado ao vivo (preview local, mobile 375px): 6 fotos reais carregando,
+texto dentro dos limites, layout 3x2 batendo com o mockup. `tsc` e
+`next build` limpos.
+
+**Ainda no mesmo mockup, pendente**: logos das lojas parceiras
+(Heber quer usar os logos reais, modificados, protegido pelo disclaimer
+já existente no rodapé -- "as marcas citadas pertencem aos seus
+respectivos titulares"), seção de busca em destaque com botão "Comparar
+preços" embutido, e "Buscas em alta" (real, baseado em `search_events`
+-- hoje só 18 linhas, todas de teste meu, sem volume real ainda pra
+mostrar sem inventar).
+
 ## 2026-09-26 — Merge com outra sessão + 3 bugs reais corrigidos (barra fixa sobreposta, cards estourando no carrossel, altura desigual)
 
 Outra sessão (branch `claude/descontos-chegando-monetizacao-oe55gy`) tinha
