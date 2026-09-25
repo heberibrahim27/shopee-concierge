@@ -93,6 +93,24 @@ function platformBucket(platform: string): string {
 const MARKETPLACE_ROTATION_ORDER = ["shopee", "mercadolivre", "awin"];
 const CANDIDATE_POOL_LIMIT = 400;
 
+// Heber (2026-09-25, urgente -- irmão reclamou no grupo real): "grupo de
+// achadinhos é de produtos baratos". A atualização do catálogo Kabum criou
+// dezenas de pares (categoria, awin) nunca postados antes -- a rotação por
+// par mais desatualizado (acima) prioriza esses pares corretamente pela
+// própria lógica, só que isso significou ~12h seguidas de só Kabum,
+// maioria sem price_discount_rate real (score cai no fallback ~85 fixo) e
+// caro (iPad R$5.899, Apple Watch R$7.399, iPhone R$11.699 -- nada
+// "achadinho"). Teto de preço pra manter o grupo fiel ao que ele é.
+// R$150 cobre os achados reais que já rodavam (Shopee/ML de R$7 a R$196,
+// Farmácia Uruguai até R$129,90) sem abrir pra catálogo cheio de
+// eletrônico caro; ajustar aqui se o valor certo for outro.
+const GROUP_PRICE_CEILING = 150;
+
+function withinPriceCeiling(row: any): boolean {
+  const price = row.offer_snapshots?.price_min;
+  return price != null && Number(price) <= GROUP_PRICE_CEILING;
+}
+
 type PostedRecord = {
   productId: string;
   productName: string;
@@ -281,7 +299,7 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>, excludeProdu
     (recentFarmacia ?? []).length === FARMACIA_ROTATION_STREAK &&
     (recentFarmacia ?? []).every((r: any) => r.deal_candidates?.score_breakdown?.origem === FARMACIA_ORIGEM);
 
-  const rows = await fetchAvailableCandidateRows(db, postedProductIds);
+  const rows = (await fetchAvailableCandidateRows(db, postedProductIds)).filter(withinPriceCeiling);
   const groups = groupByCategoryAndBucket(rows);
   const lastPosted = lastPostedAtByCategoryBucket(postedHistory);
 
