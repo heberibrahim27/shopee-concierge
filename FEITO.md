@@ -4,6 +4,27 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (manhã, continuação) — QA amostral dos 988 matches Shopee×Kabum: 1 comparação errada encontrada e removida
+
+Seguindo o pedido do ChatGPT (amostra de 50-100 casos checando variante/
+capacidade/cor/voltagem/modelo), tirei uma amostra aleatória real de 60
+matches (`order by random()` no banco de produção) e conferi cada par.
+**1 comparação genuinamente errada**: "Câmera DJI Osmo Action **4**
+Standard Combo" (Kabum) linkada com "Câmera DJI Osmo Action **360**
+Standard combo 8K/50fps" (Shopee) — duas câmeras de linhas bem diferentes
+que só bateram porque as duas descrições continham o mesmo código
+"DJI214". Deslinkei na hora (zerei `group_id` dos dois produtos, apaguei
+o `product_groups` vazio) — isso estava aparecendo como comparação real
+pro usuário no site. Achei também ~4 casos de menor risco (mesmo código
+SKU, mas um atributo diverge entre a descrição Kabum e Shopee: cor,
+capacidade de peso, tamanho de tela, variante "ICE") — documentados na
+memória, não mexidos ainda. Taxa de erro da amostra: ~1,7% confirmado
+errado, ~8% com alguma divergência de atributo. Confirma o alerta do
+ChatGPT: o matcher por MPN+marca deixa passar exceção ocasional — não é
+motivo pra parar a ingestão, mas é candidato real a um reforço futuro
+(checar sobreposição de texto/modelo além de MPN+marca) se isso virar
+prioridade.
+
 ## 2026-09-25 (manhã, continuação) — Rotação por staleness no cron diário da Kabum (bug real do "limit:50" corrigido)
 
 O ChatGPT revisou o backfill (4.412 produtos, 988 comparações) e levantou uma
