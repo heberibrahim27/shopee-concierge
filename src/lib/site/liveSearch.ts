@@ -41,7 +41,7 @@ const STOPWORDS = new Set([
  * cabeça de impressão"). Exige que pelo menos uma palavra significativa da
  * busca apareça de verdade no título — filtro simples, mas evita a maior
  * parte do lixo fora de contexto sem arriscar cortar resultado bom. */
-function isRelevantTitle(term: string, productName: string): boolean {
+export function isRelevantTitle(term: string, productName: string): boolean {
   const words = term
     .toLowerCase()
     .split(/\s+/)

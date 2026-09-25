@@ -4,7 +4,12 @@
 > o que ainda está pendente. Atualize sempre que resolver ou descobrir algo novo.
 > Complementa o [FEITO.md](FEITO.md), que registra o que já está pronto.
 
-**Última atualização:** 2026-09-24 (lote de 11 produtos com vídeo Remotion + capa, dedupe por nome no WhatsApp)
+**Última atualização:** 2026-09-26 (busca full text + Lomadee ao vivo em /busca; ver FEITO.md)
+
+### 🔲 Pendências abertas de 2026-09-26 (busca e monetização, sessão paralela ao gráfico de preço)
+- **Conferir Lomadee ao vivo em produção** depois do deploy: `/busca?q=fone+bluetooth` deve mostrar a seção "Em outras lojas parceiras agora". Não foi testado com a chave real (container sem `.env`). Se a API ignorar o parâmetro `search`, o filtro de título vai deixar a seção vazia — aí é trocar por filtro no nosso lado sobre um lote maior.
+- **Não feito de propósito (custam dinheiro ou dependem do Heber)**: foto no site (custo por foto na OpenAI, precisa de limite diário + Turnstile antes), Google Shopping via SerpAPI (mensalidade nova), Amazon/AliExpress (conta a aprovar), viagem na Awin (CVC, Decolar, Hoteis.com, Localiza, Rentcars, Unidas, Quero Passagem disponíveis, Heber precisa solicitar no painel).
+- **Próximos de custo zero ainda não começados**: páginas de cupom por loja (`/cupom/[loja]`) e de loja (`/loja/[slug]`); indexar feeds inteiros de Nike/Olympikus (Kabum já está); alerta de queda de preço por WhatsApp (Z-API já existe); favoritos no servidor.
 
 ### 🔲 Pendências abertas da madrugada de 2026-09-24
 - **Buboflow** (sistema de automação de mensagem em grupo de WhatsApp) — Heber pediu pra pesquisar o que dá pra copiar dele, ainda não pesquisado.

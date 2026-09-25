@@ -56,7 +56,7 @@ export interface SiteProduct {
  * página de produto) e anexa até 3 outras ofertas do grupo pra mostrar um
  * mini comparativo direto no card. Produtos sem group_id passam direto.
  */
-function dedupeByGroup(rows: SiteProduct[]): SiteProduct[] {
+export function dedupeByGroup(rows: SiteProduct[]): SiteProduct[] {
   const order: SiteProduct[] = [];
   const groupFirstIndex = new Map<string, number>();
   const groupSiblings = new Map<string, SiteProduct[]>();
@@ -133,10 +133,10 @@ function hasSupabaseEnv(): boolean {
   return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
-const SITE_CATALOG_COLUMNS =
+export const SITE_CATALOG_COLUMNS =
   "id, slug, product_name, category_slug, platform, group_id, highlight_reason, image_url, price_min, price_max, price_discount_rate, rating_star, sales, offer_link, updated_at, snapshot_captured_at";
 
-function mapRow(row: Record<string, unknown>): SiteProduct {
+export function mapRow(row: Record<string, unknown>): SiteProduct {
   return {
     id: String(row.id),
     slug: String(row.slug),

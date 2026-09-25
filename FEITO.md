@@ -4,6 +4,66 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-26 — Busca do site deixou de ser "só ilike" e "só Shopee" (custo zero)
+
+Heber pediu pra começar só pelo que não aumenta custo, sem cruzar com a
+sessão paralela que está no gráfico de histórico de preço. Feito em
+arquivos novos + página `/busca`; em `catalog.ts` só três `export`
+(`mapRow`, `dedupeByGroup`, `SITE_CATALOG_COLUMNS`) pra reaproveitar sem
+duplicar — nenhuma lógica daquele arquivo mudou.
+
+**1. Busca de texto de verdade no catálogo (Postgres, sem serviço novo).**
+Antes: `ilike '%termo%'` no nome — só achava com as palavras na mesma
+ordem e sem erro de digitação. Agora: full text em português + pg_trgm
+(migration `20260926100000_site_catalog_fulltext_search.sql`, função
+`search_site_catalog`, módulo `src/lib/site/catalogSearch.ts`). Aplicada
+em produção e testada contra o catálogo real (6.336 publicados) ANTES de
+confiar — resultado medido, não suposto:
+
+| termo | ilike (antes) | full text (agora) | primeiro resultado |
+|---|---|---|---|
+| fone bluetooth | 4 | 48 | Fone Bluetooth Wave Buds 2 |
+| smartwach (erro de digitação) | 0 | 22 | SmartWatch Husky Sports 700 |
+| ssd nvme 1tb | 0 | 48 | SSD SanDisk Plus 1TB NVMe |
+| tenis olympikus (sem acento) | 0 | 48 | Tênis Olympikus Mantra |
+
+Dois ajustes de ranking saíram do teste real, não da teoria: (a) sem
+normalização por tamanho, "ssd nvme 1tb" trazia um PC Gamer de 104
+caracteres em primeiro (o título longo cita os três termos) — resolvido
+com `ts_rank_cd(..., 1)` + bônus pra título que COMEÇA com a primeira
+palavra da busca; (b) casamento só por trigram ficava acima de casamento
+de texto real ("tv 50 polegadas" trazia impressora "de 24 polegadas") —
+resolvido com +0.2 fixo pra quem casa no full text. Índices GIN em uso
+(confirmado por `explain analyze`: 5–20 ms por busca). Fallback: se a
+função não existir/falhar, cai no `searchProducts` antigo — a busca
+nunca fica pior do que era. Ordenação (preço/vendidos/avaliação) é feita
+em memória sobre os 48 melhores casamentos.
+
+**2. Lojas da Lomadee na página `/busca`** (`src/lib/site/lomadeeSearch.ts`,
+`LomadeeLiveCard.tsx`, rota `/go/lomadee`). Terceira coluna de resultado
+("Em outras lojas parceiras agora"), depois do catálogo e da Shopee ao
+vivo. Respeita o limite real da chave (60 req/min, compartilhado com o
+cron): resultado por termo cacheado 6h, nome da loja cacheado 7 dias e
+no máximo 6 lojas distintas resolvidas por busca, e o link de afiliado
+só é gerado NO CLIQUE (`/go/lomadee`, 1 chamada por clique real, cache em
+memória) — nunca 1 chamada por resultado exibido. Se a Lomadee recusar o
+link (marca restrita), redireciona pra URL crua da loja e registra o
+clique como `lomadee-sem-link`, pra dar pra medir quanto isso acontece.
+Mesmo filtro de relevância de título da Shopee ao vivo (`isRelevantTitle`)
+pra não exibir resultado solto.
+
+**Honesto sobre o que NÃO foi testado**: a busca Lomadee ao vivo não foi
+exercitada com a chave real (o container desta sessão não tem `.env`) —
+o parâmetro `search` da API está declarado no cliente mas o cron nunca o
+usou. O código não derruba a página em nenhum caso (sem chave ou erro →
+lista vazia), e o filtro de título segura resultado fora de contexto se
+a API ignorar o `search`. Primeira coisa a conferir depois do deploy:
+abrir `/busca?q=fone+bluetooth` e ver se a terceira seção aparece.
+
+`npx tsc --noEmit` limpo; `next build` compilou todas as rotas (o único
+erro é o pré-render de `/media-kit` sem `SUPABASE_URL` no container,
+anterior a esta mudança e inexistente na Vercel).
+
 ## 2026-09-25 (tarde, continuação 6) — Publisher do Telegram construído (ainda inativo, esperando token)
 
 Enquanto o header claro fica travado esperando a logo nova, adiantei o

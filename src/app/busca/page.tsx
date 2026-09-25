@@ -2,9 +2,11 @@ import { Header } from "../../components/site/Header";
 import { Footer } from "../../components/site/Footer";
 import { ProductGrid } from "../../components/site/ProductGrid";
 import { LiveProductCard } from "../../components/site/LiveProductCard";
+import { LomadeeLiveCard } from "../../components/site/LomadeeLiveCard";
 import { SortBar } from "../../components/site/SortBar";
-import { searchProducts } from "../../lib/site/catalog";
+import { searchCatalog } from "../../lib/site/catalogSearch";
 import { searchShopeeLive } from "../../lib/site/liveSearch";
+import { searchLomadeeLive } from "../../lib/site/lomadeeSearch";
 import { parseSortOption } from "../../lib/site/sort";
 import { logSearchEvent } from "../../lib/site/searchLog";
 
@@ -13,9 +15,11 @@ export const metadata = { title: "Busca" };
 /**
  * Quem pesquisa já quer comprar — por isso a busca não fica só no
  * catálogo curado (site_catalog): se faltar aqui, complementa com busca
- * ao vivo na Shopee (ver liveSearch.ts) pra não perder a venda. O
- * catálogo curado continua vindo primeiro/em destaque; o resultado ao
- * vivo aparece depois, marcado como tal (não passou pelo Growth OS).
+ * ao vivo na Shopee (ver liveSearch.ts) e nas lojas da Lomadee (ver
+ * lomadeeSearch.ts) pra não perder a venda. O catálogo curado continua
+ * vindo primeiro/em destaque (agora com full text do Postgres, ver
+ * catalogSearch.ts); o resultado ao vivo aparece depois, marcado como
+ * tal (não passou pelo Growth OS).
  */
 export default async function SearchPage({
   searchParams,
@@ -26,14 +30,15 @@ export default async function SearchPage({
   const hasTerm = term.trim().length >= 2;
   const sort = parseSortOption(searchParams.sort);
 
-  const [results, liveResults] = hasTerm
-    ? await Promise.all([searchProducts(term, sort), searchShopeeLive(term, sort)])
-    : [[], []];
+  const [results, liveResults, lomadeeResults] = hasTerm
+    ? await Promise.all([searchCatalog(term, sort), searchShopeeLive(term, sort), searchLomadeeLive(term)])
+    : [[], [], []];
 
-  const nothingFound = hasTerm && results.length === 0 && liveResults.length === 0;
+  const nothingFound =
+    hasTerm && results.length === 0 && liveResults.length === 0 && lomadeeResults.length === 0;
 
   if (hasTerm) {
-    await logSearchEvent(term, results.length + liveResults.length);
+    await logSearchEvent(term, results.length + liveResults.length + lomadeeResults.length);
   }
 
   return (
@@ -58,6 +63,17 @@ export default async function SearchPage({
             <div className="dc-grid">
               {liveResults.map((product) => (
                 <LiveProductCard key={product.itemId} product={product} />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {lomadeeResults.length > 0 ? (
+          <section className="dc-section">
+            <h2>Em outras lojas parceiras agora</h2>
+            <div className="dc-grid">
+              {lomadeeResults.map((product) => (
+                <LomadeeLiveCard key={product.id} product={product} />
               ))}
             </div>
           </section>
