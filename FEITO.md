@@ -62,6 +62,25 @@ atualizado há 2 dias", batendo com o snapshot real de 23/09). `npx tsc
 --noEmit` limpo (bateu erro real em `favoritos/page.tsx`, que montava um
 `SiteProduct` manual sem o campo novo — corrigido também).
 
+## 2026-09-25 (manhã, continuação) — Revertido também no WhatsApp: link direto pro produto, não pelo /go
+
+Heber notou que o link do WhatsApp também tinha virado `/go` e decidiu:
+"melhor levar logo para o produto do que ter que clicar para o site,
+isso pode perder a venda por clique" — decisão de negócio dele,
+priorizando conversão direta sobre o dado extra de atribuição de canal
+(mesmo eu já tendo confirmado antes que o card de prévia em si não
+quebrava com `/go`, lendo o código real da Z-API).
+
+`publish-whatsapp-group/route.ts` — `trackedLink` agora é
+`candidate.offerLink` direto, sem passar pelo `/go`. Removida a
+constante `SITE_URL` que ficou sem uso.
+
+**Resultado**: `/go` não está mais em nenhuma legenda/mensagem social
+(Instagram nem WhatsApp) — só dispara quando alguém já está no site
+(página de produto, páginas de SEO por preço). O buraco de atribuição de
+clique social que o `/go` fechava está aberto de novo, por escolha
+consciente do Heber nos dois canais, não por acidente.
+
 ## 2026-09-25 (manhã, continuação) — Revertido: /go na legenda do Instagram quebrava a marcação de produto do Heber
 
 Heber apontou algo real: ele edita cada post publicado e **cola o link da

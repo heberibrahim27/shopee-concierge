@@ -30,8 +30,6 @@ export const maxDuration = 60;
 // 2026-09-21). ID de grupo na Z-API, não telefone.
 const WHATSAPP_GROUP_ID = process.env.ZAPI_DESCONTOS_GROUP_ID || "120363368934404281-group";
 
-const SITE_URL = "https://descontochegando.com.br";
-
 type Candidate = {
   dealCandidateId: string;
   productId: string;
@@ -400,14 +398,15 @@ async function buildMessage(
     recentOpenings
   );
 
-  // Passa pelo redirecionador /go (ver src/app/go/route.ts e memória
-  // project_click_tracking_redirect) -- confirmado lendo zapi.ts que o
-  // card de prévia (imagem/título/descrição) vem 100% dos parâmetros
-  // explícitos do sendLink, não de raspagem do linkUrl, então trocar o
-  // destino aqui NÃO quebra o card já ajustado. A mensagem precisa
-  // terminar com o mesmo valor usado em linkUrl (regra documentada em
-  // OutgoingLinkMessage) -- por isso os dois usam a mesma variável.
-  const trackedLink = `${SITE_URL}/go?u=${encodeURIComponent(candidate.offerLink)}&src=whatsapp&pl=${encodeURIComponent(candidate.platform)}`;
+  // REVERTIDO (2026-09-25) -- tinha passado pelo redirecionador /go pra
+  // fechar o buraco de atribuição de clique social (o card de prévia em
+  // si não quebrava, confirmado lendo zapi.ts). Mas Heber pediu pra
+  // reverter mesmo assim, decisão de negócio dele: "melhor levar logo
+  // para o produto do que ter que clicar para o site, isso pode perder
+  // a venda por clique" -- prioriza conversão direta sobre o dado extra
+  // de qual canal social gerou o clique. Mesma lógica já aplicada no
+  // Instagram (ver publish-product/route.ts) -- link direto de novo.
+  const trackedLink = candidate.offerLink;
 
   const message = [
     narrative,
