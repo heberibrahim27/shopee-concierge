@@ -71,30 +71,35 @@ export async function GET(request: NextRequest) {
           </div>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "16px",
-            marginTop: "44px",
-            width: "100%",
-          }}
-        >
-          {images.map((src, i) => (
-            <img
-              key={i}
-              src={src}
-              width={336}
-              height={336}
-              style={{
-                width: "336px",
-                height: "336px",
-                objectFit: "cover",
-                borderRadius: "24px",
-                border: "3px solid rgba(255,255,255,0.15)",
-              }}
-            />
-          ))}
+        {/* Grade fixa 3x2 (sempre até 6 fotos), 2 linhas de flexbox
+            explícitas -- next/og (Satori) NÃO suporta CSS Grid, só
+            flexbox, então nada de display:grid aqui. Tamanho calculado
+            pra caber com folga dentro do canvas 1080x1350 sem sobrepor
+            o banner do rodapé (achado real testando: com flexWrap livre
+            e 336px por foto, a última linha estourava a altura e ficava
+            cortada por baixo do banner verde). */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "44px", width: "100%" }}>
+          {[images.slice(0, 3), images.slice(3, 6)].map((row, rowIdx) =>
+            row.length > 0 ? (
+              <div key={rowIdx} style={{ display: "flex", gap: "16px", width: "100%" }}>
+                {row.map((src, i) => (
+                  <img
+                    key={i}
+                    src={src}
+                    width={312}
+                    height={312}
+                    style={{
+                      width: "312px",
+                      height: "312px",
+                      objectFit: "cover",
+                      borderRadius: "24px",
+                      border: "3px solid rgba(255,255,255,0.15)",
+                    }}
+                  />
+                ))}
+              </div>
+            ) : null
+          )}
         </div>
 
         <div
