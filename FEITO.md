@@ -4,6 +4,29 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (tarde, continuação 10) — Pesquisa real: como o Zoom faz alerta de preço e o selo "preço bom"
+
+Fui direto no produto de verdade no Zoom.com.br conferir as duas
+peças que ainda faltam no nosso redesign (alerta de preço, selo de
+"preço bom"), em vez de inventar como implementar.
+
+Alerta de preço: no Zoom é um toggle na página do produto, mas clicar
+já pede login (Google/Facebook/e-mail) -- eles avisam por "meios de
+comunicação que você escolheu". Isso confirma que o nosso plano (push
+do navegador, sem precisar de login) é uma simplificação real e não
+um corte de canto -- push é anônimo por natureza (fica preso ao
+navegador, não a uma conta), o Zoom só precisa de login porque
+escolheu avisar por outros canais tipo e-mail.
+
+Selo "preço bom": um indicador visual (verde/amarelo/vermelho) que
+usa os 40 dias de menor preço diário pra dizer se o preço atual está
+bom, normal ou alto -- metodologia real, divulgada na própria tela.
+Achado técnico real: já temos boa parte do dado (offer_snapshots com
+captured_at por linha), só falta agregar por dia em vez de só guardar
+o mínimo histórico geral -- é construível com o que já temos, sem
+integração nova. Não construí ainda, deixei documentado como próxima
+peça candidata.
+
 ## 2026-09-25 (tarde, continuação 9) — Comissão real da Awin agora aparece no admin
 
 Heber perguntou direto: "temos que colocar no nosso admin se chegar
