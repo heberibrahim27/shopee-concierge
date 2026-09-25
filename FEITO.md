@@ -4,6 +4,29 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 — Grupo WhatsApp: teto de preço + navegação de categoria consistente
+
+**Grupo "Descontos Chegando #GR42" mandando só Kabum caro** (irmão do
+Heber reclamou ao vivo, print real de um iPad Air R$5.899,99 postado):
+a atualização do catálogo Kabum criou dezenas de pares (categoria, awin)
+nunca postados antes, e a rotação por "par mais desatualizado" priorizou
+exatamente isso por ~12h seguidas (confirmado via SQL: ~60 posts
+seguidos, maioria sem `price_discount_rate`, score fixo ~85). Corrigido
+com teto de preço R$150 em `publish-whatsapp-group/route.ts`, aplicado
+antes do agrupamento por categoria/marketplace (não só no bucket awin) —
+Farmácia Uruguai (até R$129,90) e os achados Shopee/ML que já rodavam
+continuam elegíveis. Deploy imediato pra "congelar" o problema.
+
+**Navegação de `/categoria/[slug]` inconsistente com a home**: Heber
+apontou que entrar numa categoria ainda mostrava o ladrilho antigo de
+ícone+texto (CategoryGrid.tsx), enquanto a home e `/categorias` já
+tinham o visual novo (foto real recortada + subtítulo) desde
+2026-09-26. Unificado: as 3 grades agora usam o mesmo componente visual
+e a mesma fonte (`CATEGORY_TILES`), só muda o layout do container.
+Campo `image` (ícone antigo) removido de `CategoryTile` e CSS morto
+correspondente apagado — sem consumidor depois da troca. Verificado
+visualmente local (desktop + mobile) antes de subir.
+
 ## 2026-09-26 — Busca por "cupom" trazia só impressora de cupom (corrigido)
 
 Heber: "quando pesquiso cupom, só abre impressora de cupons". Causa: a
