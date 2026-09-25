@@ -4,6 +4,47 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (madrugada) — Automação sem CNPJ debatida, carrossel novo formato, capas de destaque, limite diário de publicação descoberto
+
+**Debate "automatizar tudo sem pagar e sem CNPJ"** — Heber cobrou diretamente
+depois que eu disse que o Canal de Broadcast não tinha solução. Levei o
+inventário real de ações grátis da Windsor pro ChatGPT (post
+imagem/vídeo/carrossel/story + moderação de comentário) e ele desenhou um
+sistema de automação completo. Testei cada peça contra a API real antes de
+prometer:
+- **Auto-resposta a comentário "quero"/"?"**: confirmado que `comments` table
+  + `reply_to_comment` da Windsor funcionam sem CNPJ (usa o mesmo acesso já
+  aprovado que já modera comentário em produção). Mas puxei os comentários
+  reais dos últimos 30 dias e **100% eram nossos próprios comentários
+  automáticos** — zero pedido real de fora. Não construí (sem uso hoje);
+  documentado como pronto pra ligar quando o alcance crescer.
+- **Correção minha**: cheguei a tratar a marcação nativa de produto Shopee
+  no Reel como "não confirmada" — Heber corrigiu, ele já faz isso manualmente
+  em TODO post há mais de uma semana (já estava registrado em
+  `project_shopee_meta_affiliate_program.md`, eu não tinha conectado).
+- **Capas de Destaque**: Instagram não tem API pra gerenciar Destaque (nem
+  pra ninguém, plataforma inteira) — mas gerei 6 capas automáticas
+  (Casa/Eletrônicos/Brinquedos/Esporte/Saúde/Pet, categorias reais do
+  catálogo) via Remotion, enviadas pro Heber aplicar manualmente uma vez.
+
+**Novo formato: Carrossel de imagem** — `remotion/CarrosselSlide.tsx`
+(capa + slide por produto + encerramento), renderizado como still (4:5,
+1080x1350 — carrossel não aceita 9:16) via `npx remotion still`, sem gastar
+crédito Kairogen. Primeiro teste: Massageador Elétrico (R$28,99),
+Kit 3 Luminárias Pendentes (R$38,90), Smartwatch D20 (R$19,98) — trocados
+dos 3 produtos do TresAchados depois do Heber apontar repetição de conteúdo.
+Corrigido também: preço "de" removido quando a razão de desconto passa de
+2,5x (mesma regra já usada no publish-product), pra não parecer forçado.
+
+**Limite diário de publicação do Instagram descoberto** — tentei postar o
+carrossel e a Windsor recusou: "User is performing too many actions". Causa
+real: o cron `publish-product` sozinho já posta feed+story a cada ~45min,
+~28 publicações/dia — em cima ou acima do limite padrão de ~25/dia da API
+de Content Publishing da Meta. Carrossel ficou pronto (imagens já no bucket
+`reels-media`) mas bloqueado por cota, não por conteúdo — repostar quando
+abrir espaço na janela de 24h. Registrado em
+`project_instagram_daily_publish_limit.md`.
+
 ## 2026-09-24 (noite) — 2 Reels novos + debate com ChatGPT + gate de seleção de produto refinado
 
 **Reel: Organizador de Geladeira** — primeiro produto rodando o pipeline

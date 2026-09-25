@@ -2,6 +2,9 @@ import { Composition } from "remotion";
 import { FogaoVideo } from "./FogaoVideo";
 import { EndCard } from "./EndCard";
 import { Cover } from "./Cover";
+import { TresAchados, TRES_ACHADOS_TOTAL_FRAMES } from "./TresAchados";
+import { CarrosselCover, CarrosselProduto, CarrosselOutro } from "./CarrosselSlide";
+import { DestaqueCapa } from "./DestaqueCapa";
 
 const FPS = 30;
 const DURATION_SECONDS = 8;
@@ -188,6 +191,95 @@ export const RemotionRoot: React.FC = () => {
           priceFrom: "R$ 40,96",
           priceTo: "R$ 29,90",
           discountLabel: "27% OFF",
+        }}
+      />
+      <Composition
+        id="TresAchadosR40"
+        component={TresAchados}
+        durationInFrames={TRES_ACHADOS_TOTAL_FRAMES}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          kicker: "ABAIXO DE R$ 40",
+          achados: [
+            {
+              photoFile: "achado-suporte.jpg",
+              productName: "Suporte Magnético de Celular para Carro",
+              priceFrom: "R$ 18,17",
+              priceTo: "R$ 10,90",
+              discountLabel: "40% OFF",
+            },
+            {
+              photoFile: "achado-cozedor.jpg",
+              productName: "Cozedor de Ovos Elétrico Portátil 7 Ovos",
+              priceFrom: "R$ 70,16",
+              priceTo: "R$ 39,99",
+              discountLabel: "43% OFF",
+            },
+            {
+              photoFile: "achado-pentes.jpg",
+              productName: "Kit 10 Ferramentas para Tranças e Penteados",
+              priceFrom: "R$ 42,20",
+              priceTo: "R$ 18,99",
+              discountLabel: "55% OFF",
+            },
+          ],
+          ctaLine1: "Segue a Descontos Chegando",
+          ctaLine2: "amanhã tem mais 3 achados",
+        }}
+      />
+      <Composition
+        id="CarrosselCover"
+        component={CarrosselCover}
+        durationInFrames={1}
+        fps={30}
+        width={1080}
+        height={1350}
+        defaultProps={{
+          kicker: "ABAIXO DE R$ 40",
+          headline: "3 achados",
+        }}
+      />
+      <Composition
+        id="CarrosselProduto"
+        component={CarrosselProduto}
+        durationInFrames={1}
+        fps={30}
+        width={1080}
+        height={1350}
+        defaultProps={{
+          photoFile: "achado-suporte.jpg",
+          productName: "Suporte Magnético de Celular para Carro",
+          priceFrom: "R$ 18,17",
+          priceTo: "R$ 10,90",
+          discountLabel: "40% OFF",
+          index: 1,
+          total: 3,
+        }}
+      />
+      <Composition
+        id="CarrosselOutro"
+        component={CarrosselOutro}
+        durationInFrames={1}
+        fps={30}
+        width={1080}
+        height={1350}
+        defaultProps={{
+          ctaLine1: "Segue a Descontos Chegando",
+          ctaLine2: "amanhã tem mais achados",
+        }}
+      />
+      <Composition
+        id="DestaqueCapa"
+        component={DestaqueCapa}
+        durationInFrames={1}
+        fps={30}
+        width={1080}
+        height={1080}
+        defaultProps={{
+          label: "CASA",
+          accentColor: "#f59e0b",
         }}
       />
       <Composition
