@@ -48,7 +48,7 @@ export function LiveProductCard({ product }: { product: LiveProduct }) {
           <div className="dc-card-meta dc-icon-inline">
             {rating ? (
               <span className="dc-icon-inline">
-                <StarIcon size={12} style={{ color: "var(--dc-green-deep)" }} />
+                <StarIcon size={12} style={{ color: "var(--dc-brand)" }} />
                 {rating}
               </span>
             ) : null}

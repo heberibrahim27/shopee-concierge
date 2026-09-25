@@ -227,6 +227,39 @@ abrir `/busca?q=fone+bluetooth` e ver se a terceira seção aparece.
 `npx tsc --noEmit` limpo; `next build` compilou todas as rotas (o único
 erro é o pré-render de `/media-kit` sem `SUPABASE_URL` no container,
 anterior a esta mudança e inexistente na Vercel).
+## 2026-09-26 (continuação) — Paleta oficial aplicada + banners antigos removidos
+
+Heber mandou o doc oficial de marca ("Paleta oficial — Desconto
+Chegando") com hex exatos. Mudança de regra real e explícita: o doc diz
+"Não use verde como cor de marca ou para botões" e "Não use verde neon
+(padrão do site antigo)" -- isso reverte a decisão de 2026-09-25 que
+mantinha verde só pra selo de economia/menor preço. Aplicado:
+
+- `:root` reescrito com os hex oficiais: `--dc-brand: #e45a36`
+  (laranja-coral), `--dc-brand-hover: #d24e2d`, `--dc-navy: #14233b`,
+  `--dc-bg: #f7f2ec` (creme), `--dc-card-bg: #fffdf9`, `--dc-border:
+  #e7ddd3`, `--dc-text-muted: #6b7280`, mais os tokens novos de badge
+  (`--dc-savings-bg/-text`, `--dc-offer-badge-bg`). Nomes antigos
+  (`--dc-brand-deep`, `--dc-urgency`, `--dc-black` etc.) viraram ALIAS
+  pros valores novos em vez de reescrever os ~80 call sites no arquivo
+  -- mesmo resultado visual, risco bem menor.
+- Todo `--dc-green-deep`/`--dc-green` voltado pro cliente trocado pra
+  `--dc-savings-text`/`--dc-brand` (selo "Economize", "Menor preço
+  encontrado", estrela de avaliação, ponto do menor preço no gráfico,
+  números do media-kit, confirmações "Copiado!"/"Obrigado"). Verde
+  continua exatamente igual só no `/admin` (interno, convenção de
+  status ok/queda-alta, nunca visto pelo cliente).
+- Removidos os 2 banners do carrossel promocional da home
+  (`BANNER-FINAL.png` verde antigo + banner da Olympikus) e o banner +
+  link de grupo do WhatsApp no rodapé -- pedido direto do Heber
+  apontando pros elementos ainda na paleta antiga. `PromoBanner.tsx`/
+  `banners.ts` deixados no código (não deletados) caso volte com arte
+  nova na paleta certa depois.
+
+Testado ao vivo (preview local, mobile): home, produto e cupons
+conferidos visualmente, zero verde fora do admin, `tsc` e `next build`
+limpos.
+
 ## 2026-09-26 (continuação) — "Explore por categoria" com fotos reais (novo mockup)
 
 Heber mandou um novo mockup (home completa, referência distinta da

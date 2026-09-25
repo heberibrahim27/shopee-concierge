@@ -126,7 +126,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
               <div className="dc-card-meta dc-icon-inline" style={{ marginBottom: 8 }}>
                 {rating ? (
                   <span className="dc-icon-inline">
-                    <StarIcon size={12} style={{ color: "var(--dc-green-deep)" }} />
+                    <StarIcon size={12} style={{ color: "var(--dc-brand)" }} />
                     {rating}
                   </span>
                 ) : null}

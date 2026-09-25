@@ -41,7 +41,7 @@ export function PriceSparkline({ series, width = 280, height = 64 }: PriceSparkl
       <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
         <path d={areaPath} fill="var(--dc-brand)" opacity="0.08" />
         <path d={linePath} fill="none" stroke="var(--dc-brand)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        <circle cx={lowestPoint.x} cy={lowestPoint.y} r="3.5" fill="var(--dc-green-deep)" />
+        <circle cx={lowestPoint.x} cy={lowestPoint.y} r="3.5" fill="var(--dc-brand)" />
       </svg>
       <div className="dc-price-sparkline-labels">
         <span>{firstDay}</span>

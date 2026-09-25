@@ -1,43 +1,47 @@
 :root {
-  /* Redesign 2026-09-25 (brief real do Heber, ver memória
-     project_site_redesign_2026_09_25 -- pedido explícito dele: "cores
-     não puxada para verde nem cores típicas de IA"). Verde deixou de ser
-     a cor de MARCA e virou puramente semântico: só aparece em "economia",
-     "menor preço" e confirmação de sucesso (ver --dc-green abaixo). A
-     nova cor de marca/interação (CTA, header, pills ativos, hover) é
-     --dc-brand, um terracota/coral queimado -- deliberadamente mais
-     escuro/dessaturado que --dc-urgency pra não colidir visualmente com
-     o selo de desconto (mesma família de cor do mockup, luminosidade
-     diferente, revisado com o ChatGPT do Heber antes de aplicar).
-     --dc-black/-soft seguem esse nome por serem a superfície escura do
-     site (cabeçalho, botões invertidos, agora sem o tom esverdeado). */
-  --dc-black: #1a1512;
-  --dc-black-soft: #2b211c;
-  --dc-brand: #b9573f;
-  --dc-brand-bright: #d1715a;
-  --dc-brand-deep: #8f4230;
+  /* Paleta OFICIAL "Desconto Chegando" (2026-09-26, doc de marca enviado
+     pelo Heber com hex exatos) -- supersede a aproximação terracota do
+     redesign de 2026-09-25. Mudança de regra explícita no próprio doc:
+     "Não use verde como cor de marca ou para botões" e "Não use verde
+     neon (padrão do site antigo)" -- inclusive nos selos de
+     economia/menor preço, que antes eram verde de propósito (ver git
+     blame) e agora entram na família laranja/navy como tudo mais. Verde
+     sobrevive só no /admin (ferramenta interna, convenção comum de
+     status ok/queda-alta, nunca voltada pro cliente). */
+  --dc-brand: #e45a36; /* Laranja-coral -- primária, CTA, destaque */
+  --dc-brand-hover: #d24e2d; /* Laranja hover/pressed */
+  --dc-brand-soft: #f6d8cf; /* Laranja suave -- tint, superfícies suaves */
+  --dc-navy: #14233b; /* Navy principal -- logo, títulos, autoridade */
+  --dc-navy-deep: #22324a; /* Navy secundário -- textos fortes */
+  --dc-offer-badge-bg: #ffe6de; /* Badge de oferta (desconto %) */
+  --dc-savings-bg: #fce8d8; /* Badge de economia -- fundo */
+  --dc-savings-text: #b85a2b; /* Badge de economia -- texto */
+  --dc-active-icon-soft: #f2c9b8; /* Ícone ativo leve (nav mobile) */
+
+  /* Aliases dos nomes antigos pros valores novos -- evita reescrever
+     todo call site nesta rodada (são ~80 no arquivo todo) sem perder a
+     paleta oficial em lugar nenhum. Verde continua definido só porque o
+     /admin (interno) ainda usa como convenção de status, nunca marca. */
+  --dc-black: var(--dc-navy);
+  --dc-black-soft: var(--dc-navy-deep);
+  --dc-brand-bright: var(--dc-brand);
+  --dc-brand-deep: var(--dc-brand-hover);
+  --dc-urgency: var(--dc-brand);
+  --dc-urgency-bright: var(--dc-brand-hover);
   --dc-green: #16a34a;
   --dc-green-bright: #22c55e;
   --dc-green-deep: #0f7a37;
-  /* Vermelho/laranja só nos pontos de urgência (selo de desconto) — mais
-     vivo/saturado que --dc-brand de propósito, pra manter os dois sinais
-     distinguíveis (ver nota acima). */
-  --dc-urgency: #e2401f;
-  --dc-urgency-bright: #ff6b3d;
-  /* Header claro, tirado literalmente dos 4 mockups (spec real pedida ao
-     ChatGPT -- ver memória project_header_literal_spec_v1, nenhum dos 4
-     cabeçalhos de referência é escuro). Tokens próprios do header porque
-     --dc-text/--dc-border ainda carregam um leve tom esverdeado herdado
-     do resto da paleta antiga -- essa limpeza fica pra um pass futuro. */
-  --dc-header-bg: #fdfbf7;
-  --dc-header-navy: #111a2c;
-  --dc-header-muted: #6b7280;
-  --dc-header-border: #e9e4de;
-  --dc-bg: #f5faf6;
-  --dc-card-bg: #ffffff;
-  --dc-text: #14201a;
-  --dc-text-muted: #6b7d73;
-  --dc-border: #dcece1;
+
+  --dc-header-bg: var(--dc-card-bg);
+  --dc-header-navy: var(--dc-navy);
+  --dc-header-muted: var(--dc-text-muted);
+  --dc-header-border: var(--dc-border);
+
+  --dc-bg: #f7f2ec; /* Creme de fundo */
+  --dc-card-bg: #fffdf9; /* Superfície/card */
+  --dc-text: #14233b;
+  --dc-text-muted: #6b7280; /* Texto secundário */
+  --dc-border: #e7ddd3; /* Borda suave */
   --dc-radius: 18px;
   --dc-radius-sm: 12px;
   --dc-max-width: 760px;
@@ -853,7 +857,7 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   margin-top: 6px;
   font-size: 10.5px;
   font-weight: 800;
-  color: var(--dc-green-deep);
+  color: var(--dc-savings-text);
 }
 
 .dc-card-live-badge {
@@ -882,8 +886,8 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   margin-top: 2px;
   font-size: 11px;
   font-weight: 700;
-  color: var(--dc-green-deep);
-  background: #e8f8ed;
+  color: var(--dc-savings-text);
+  background: var(--dc-savings-bg);
   padding: 2px 8px;
   border-radius: 999px;
 }
@@ -1053,7 +1057,7 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
 }
 
 .dc-email-capture-thanks {
-  color: var(--dc-green-deep);
+  color: var(--dc-savings-text);
   font-weight: 700;
   font-size: 14px;
 }
@@ -1469,7 +1473,7 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
 .dc-coupon-copied {
   font-size: 11px;
   font-weight: 700;
-  color: var(--dc-green-deep);
+  color: var(--dc-savings-text);
 }
 
 .dc-coupon-code strong.dc-coupon-code-masked {
@@ -2317,7 +2321,7 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
 }
 
 .dc-suggestion-thanks {
-  color: var(--dc-green-deep) !important;
+  color: var(--dc-savings-text) !important;
   font-weight: 700;
 }
 
@@ -2567,7 +2571,7 @@ a.dc-partner-card:hover {
   font-weight: 600;
 }
 .dc-price-alert-done {
-  color: var(--dc-green-deep);
+  color: var(--dc-savings-text);
   font-weight: 700;
   font-size: 14px;
 }

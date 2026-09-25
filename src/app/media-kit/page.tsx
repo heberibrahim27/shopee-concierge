@@ -130,7 +130,7 @@ export default async function MediaKitPage() {
                 }}
               >
                 <span style={{ textTransform: "capitalize" }}>{source}</span>
-                <strong style={{ color: "var(--dc-green-deep)" }}>{fmt(n)}</strong>
+                <strong style={{ color: "var(--dc-brand)" }}>{fmt(n)}</strong>
               </div>
             ))}
           </div>
@@ -172,7 +172,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
         padding: "16px 14px",
       }}
     >
-      <div style={{ fontSize: 24, fontWeight: 800, color: "var(--dc-green-deep)" }}>{value}</div>
+      <div style={{ fontSize: 24, fontWeight: 800, color: "var(--dc-brand)" }}>{value}</div>
       <div style={{ fontSize: 12, color: "var(--dc-text-muted)", marginTop: 4 }}>{label}</div>
     </div>
   );

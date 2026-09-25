@@ -1,7 +1,6 @@
 import { Header } from "../components/site/Header";
 import { Footer } from "../components/site/Footer";
 import { FeaturedCategoryGrid } from "../components/site/FeaturedCategoryGrid";
-import { PromoBanner } from "../components/site/PromoBanner";
 import { ProductGrid } from "../components/site/ProductGrid";
 import { CouponSection } from "../components/site/CouponSection";
 import { getCachedTodayPosts, getCachedFeaturedCategoryPhotos } from "../lib/site/catalog";
@@ -74,10 +73,6 @@ export default async function HomePage() {
               </a>
             ))}
           </div>
-        </section>
-
-        <section className="dc-section">
-          <PromoBanner />
         </section>
 
         <CouponSection coupons={coupons.slice(0, 4)} showViewAll={coupons.length > 4} />
