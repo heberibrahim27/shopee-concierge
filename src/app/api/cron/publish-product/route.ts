@@ -165,14 +165,17 @@ export async function GET(request: NextRequest) {
   // da plataforma real do produto.
   const platformHashtag = candidate.platform.toLowerCase().replace(/[^a-z0-9]+/g, "");
   const storeHashtags = candidate.platform === "shopee" ? "#shopee #achadosdashopee" : platformHashtag ? `#${platformHashtag}` : "";
-  // Passa pelo redirecionador /go (ver src/app/go/route.ts) em vez do
-  // link cru -- fecha o buraco real apontado na revisão do plano de
-  // receita (2026-09-25): sem isso, clique que sai direto de rede social
-  // nunca aparecia em click_events, só o que passava pela própria página
-  // de produto do site. Não muda nada visível (Instagram não deixa link
-  // de legenda clicável mesmo), só registra quem copiar/colar.
-  const trackedLink = `${SITE_URL}/go?u=${encodeURIComponent(candidate.offerLink)}&src=instagram&pl=${encodeURIComponent(candidate.platform)}`;
-  const caption = `${candidate.productName}\n\n🔗 Link: ${trackedLink}\n\n#promocao #achadinhos${storeHashtags ? " " + storeHashtags : ""}`;
+  // REVERTIDO (2026-09-25) -- tinha trocado pelo redirecionador /go pra
+  // fechar o buraco de atribuição de clique social, mas isso quebrou o
+  // fluxo real do Heber: ele edita a publicação no app do Instagram e
+  // COLA o link da legenda no campo de marcar produto ("Use um link para
+  // um produto"). Essa marcação exige um link de verdade da Shopee —
+  // /go aponta pro nosso próprio domínio antes de redirecionar, e o
+  // Instagram não reconhece isso como produto Shopee pra marcar. Marcar
+  // produto (ícone de compra nativo, melhor alcance, comissão rastreada
+  // pela própria Shopee) vale mais que o clique-tracking do /go pra esse
+  // canal -- voltou a usar o link direto do afiliado na legenda.
+  const caption = `${candidate.productName}\n\n🔗 Link: ${candidate.offerLink}\n\n#promocao #achadinhos${storeHashtags ? " " + storeHashtags : ""}`;
 
   const results: Record<string, unknown> = { candidate: candidate.dealCandidateId };
 

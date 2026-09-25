@@ -62,6 +62,26 @@ atualizado há 2 dias", batendo com o snapshot real de 23/09). `npx tsc
 --noEmit` limpo (bateu erro real em `favoritos/page.tsx`, que montava um
 `SiteProduct` manual sem o campo novo — corrigido também).
 
+## 2026-09-25 (manhã, continuação) — Revertido: /go na legenda do Instagram quebrava a marcação de produto do Heber
+
+Heber apontou algo real: ele edita cada post publicado e **cola o link da
+legenda** no campo "Use um link para um produto" do Instagram pra marcar
+o produto Shopee (ícone de compra nativo). O Instagram só reconhece link
+direto da Shopee nesse campo — o `/go` (nosso próprio domínio, redireciona
+depois) não é reconhecido, mesmo levando pro lugar certo no final.
+
+Isso quebrou quando a legenda do Instagram foi trocada pro link `/go`
+mais cedo nesta sessão (pra fechar o buraco de atribuição de clique
+social). Prioridade errada: marcação de produto (alcance nativo, comissão
+rastreada pela própria Shopee) vale mais que o click-tracking do `/go`
+pra esse canal especificamente.
+
+**Corrigido**: `publish-product/route.ts` — legenda do Instagram volta a
+usar `candidate.offerLink` (link direto da Shopee), não mais `/go`.
+WhatsApp continua com `/go` normalmente (não tem esse conflito). Memória
+corrigida também: um registro antigo dizia que ele marcava buscando por
+NOME — desatualizado, o método real dele é colar o link da legenda.
+
 ## 2026-09-25 (manhã, continuação) — Correção crítica: pipeline Kabum×Shopee já existia, limite de 12/dia era o problema real
 
 Heber apontou (com razão): "KABUM já tava liberada mano tem tempo, o que
