@@ -57,7 +57,7 @@ export default async function PartnerStoresPage() {
           {stats.map(({ platform, count }) => {
             const info = getPlatformInfo(platform);
             return (
-              <div key={platform} className="dc-partner-card">
+              <a key={platform} className="dc-partner-card" href={`/loja/${platform}`}>
                 <span
                   className="dc-partner-badge"
                   style={{ background: info.color, color: info.textColor }}
@@ -65,7 +65,7 @@ export default async function PartnerStoresPage() {
                   {info.label}
                 </span>
                 <span className="dc-partner-count">{count.toLocaleString("pt-BR")} produtos</span>
-              </div>
+              </a>
             );
           })}
         </div>

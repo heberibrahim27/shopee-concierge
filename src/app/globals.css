@@ -2226,3 +2226,14 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   font-size: 12px;
   color: var(--dc-text-muted);
 }
+
+/* Páginas de loja / cupom por loja (lib/site/stores.ts) -- o card de
+   loja parceira virou link; hover discreto, sem mudar o layout. */
+a.dc-partner-card {
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+a.dc-partner-card:hover {
+  border-color: var(--dc-brand-deep);
+  transform: translateY(-1px);
+}

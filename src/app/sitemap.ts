@@ -2,11 +2,16 @@ import { MetadataRoute } from "next";
 import { SITE_CATEGORIES } from "../lib/site/categories";
 import { getCachedIndexableProducts, listViablePriceCategoryPages } from "../lib/site/catalog";
 import { GUIDES } from "../lib/site/guides";
+import { getCachedStoreDirectory, isCouponPageIndexable, isStorePageIndexable } from "../lib/site/stores";
 
 const SITE_URL = "https://descontochegando.com.br";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [products, pricePages] = await Promise.all([getCachedIndexableProducts(), listViablePriceCategoryPages()]);
+  const [products, pricePages, stores] = await Promise.all([
+    getCachedIndexableProducts(),
+    listViablePriceCategoryPages(),
+    getCachedStoreDirectory(),
+  ]);
 
   return [
     { url: SITE_URL, changeFrequency: "daily", priority: 1 },
@@ -22,6 +27,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
     { url: `${SITE_URL}/guia`, changeFrequency: "weekly" as const, priority: 0.6 },
     { url: `${SITE_URL}/lojas-parceiras`, changeFrequency: "weekly" as const, priority: 0.5 },
+    { url: `${SITE_URL}/cupons`, changeFrequency: "daily" as const, priority: 0.6 },
+    // Páginas por loja (ver lib/site/stores.ts) -- mesmos gates de
+    // indexação que a própria página usa no robots: loja só entra com
+    // catálogo real, cupom só entra com 3+ cupons ativos.
+    ...stores
+      .filter(isStorePageIndexable)
+      .map((store) => ({ url: `${SITE_URL}/loja/${store.slug}`, changeFrequency: "daily" as const, priority: 0.6 })),
+    ...stores
+      .filter(isCouponPageIndexable)
+      .map((store) => ({ url: `${SITE_URL}/cupom/${store.slug}`, changeFrequency: "daily" as const, priority: 0.65 })),
     // Conteúdo editorial real (ver lib/site/guides.ts) -- sempre
     // indexável, diferente do gate de produto: é texto original de
     // verdade, não risco de página fina.

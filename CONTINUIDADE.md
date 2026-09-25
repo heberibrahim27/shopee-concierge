@@ -9,7 +9,9 @@
 ### 🔲 Pendências abertas de 2026-09-26 (busca e monetização, sessão paralela ao gráfico de preço)
 - **Conferir Lomadee ao vivo em produção** depois do deploy: `/busca?q=fone+bluetooth` deve mostrar a seção "Em outras lojas parceiras agora". Não foi testado com a chave real (container sem `.env`). Se a API ignorar o parâmetro `search`, o filtro de título vai deixar a seção vazia — aí é trocar por filtro no nosso lado sobre um lote maior.
 - **Não feito de propósito (custam dinheiro ou dependem do Heber)**: foto no site (custo por foto na OpenAI, precisa de limite diário + Turnstile antes), Google Shopping via SerpAPI (mensalidade nova), Amazon/AliExpress (conta a aprovar), viagem na Awin (CVC, Decolar, Hoteis.com, Localiza, Rentcars, Unidas, Quero Passagem disponíveis, Heber precisa solicitar no painel).
-- **Próximos de custo zero ainda não começados**: páginas de cupom por loja (`/cupom/[loja]`) e de loja (`/loja/[slug]`); indexar feeds inteiros de Nike/Olympikus (Kabum já está); alerta de queda de preço por WhatsApp (Z-API já existe); favoritos no servidor.
+- **Conferir páginas por loja em produção** depois do deploy: `/cupom/kabum` (8 cupons, index), `/loja/kabum` (48 ofertas, index), `/cupom/sawary` (2 cupons, deve vir `noindex,follow`). Ver FEITO.md 2026-09-26.
+- **Cupons Lomadee com `platform = "lomadee"`** (Malwee, Anhanguera, Eco Flame, Little Duck, UVLine, Itatiaia): a marca não foi resolvida na ingestão; a página por loja contorna usando o nome do anunciante, mas vale investigar por que `fetchLomadeeBrandById` falhou pra esses IDs no cron.
+- **Próximos de custo zero ainda não começados**: indexar feeds inteiros de Nike/Olympikus (Kabum já está); alerta de queda de preço por WhatsApp (Z-API já existe); favoritos no servidor.
 
 ### 🔲 Pendências abertas da madrugada de 2026-09-24
 - **Buboflow** (sistema de automação de mensagem em grupo de WhatsApp) — Heber pediu pra pesquisar o que dá pra copiar dele, ainda não pesquisado.

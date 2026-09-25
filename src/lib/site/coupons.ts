@@ -54,6 +54,35 @@ async function queryActiveCoupons(): Promise<SiteCoupon[]> {
   return (data ?? []).map(mapRow);
 }
 
+/**
+ * TODOS os cupons ativos (não só os 20 da vitrine) — base das páginas por
+ * loja (`/cupom/[loja]`, ver stores.ts). Limite alto só como proteção;
+ * hoje são ~40 ativos no total.
+ */
+async function queryAllActiveCoupons(): Promise<SiteCoupon[]> {
+  if (!hasSupabaseEnv()) return [];
+
+  const db = getDb();
+  const nowIso = new Date().toISOString();
+  const { data, error } = await db
+    .from("coupons")
+    .select("id, advertiser_name, platform, title, description, code, url_tracking, ends_at, status")
+    .eq("status", "active")
+    .or(`ends_at.is.null,ends_at.gte.${nowIso}`)
+    .order("ends_at", { ascending: true, nullsFirst: false })
+    .limit(500);
+
+  if (error) throw new Error(`Falha ao buscar todos os cupons: ${error.message}`);
+  return (data ?? []).map(mapRow);
+}
+
+export function getCachedAllActiveCoupons(): Promise<SiteCoupon[]> {
+  return unstable_cache(queryAllActiveCoupons, ["all-active-coupons"], {
+    tags: ["coupons"],
+    revalidate: 3600,
+  })();
+}
+
 export function getCachedCoupons(): Promise<SiteCoupon[]> {
   return unstable_cache(queryActiveCoupons, ["active-coupons"], {
     tags: ["coupons"],

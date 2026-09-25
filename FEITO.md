@@ -4,6 +4,54 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-26 — Páginas de cupom por loja (`/cupom/[loja]`) e de loja (`/loja/[slug]`), custo zero
+
+Item que a outra sessão deixou registrado como meu. Padrão de SEO de
+cuponeiro/comparador real (Cuponomia, Promobit): "cupom kabum" e
+"ofertas kabum" são buscas com volume próprio, e até agora só existia a
+listagem geral em `/cupons`. Nenhuma tabela nova, nenhum serviço novo —
+tudo derivado do que os crons de cupom (Awin + Lomadee) e de catálogo já
+gravam.
+
+**Dado real que orientou o desenho** (consulta direta no banco antes de
+escrever): 26 lojas com cupom já gravado, mas só a Kabum tem volume (8
+ativos, todos com código); Malwee 4, Anhanguera 3, o resto 1–2. Vários
+cupons Lomadee estão com `platform = "lomadee"` (marca não resolvida na
+ingestão) — por isso a identidade da loja em `src/lib/site/stores.ts`
+usa o slug da plataforma quando é loja de verdade e cai pro slug do
+nome do anunciante quando é só a rede. Catálogo por loja: Kabum 4.412,
+Shopee 1.762, Mercado Livre 56, Olympikus 55, Nike 51.
+
+**Construído**:
+- `src/lib/site/stores.ts` — diretório de lojas (catálogo + cupons
+  ativos), produtos por loja (48 mais recentes, dedupe por grupo),
+  cupons por loja, e os dois gates de indexação.
+- `/cupom/[loja]` — título "Cupom {Loja} {mês de ano}", cupons ativos,
+  passo a passo de uso, até 12 ofertas da loja no comparador, chips pras
+  outras lojas com cupom. **Só pede index com 3+ cupons ativos** (hoje:
+  Kabum, Malwee, Anhanguera); com menos fica `noindex,follow` — página
+  com 1 cupom é conteúdo fino, mesma filosofia do SEO_INDEX_GATE.
+- `/loja/[slug]` — ofertas mais recentes da loja + cupons dela + texto
+  de transparência ("a parceria não muda o placar"). **Só pede index com
+  12+ produtos** (hoje as 5 lojas de catálogo).
+- `/cupons` ganhou chips por loja e metadata de verdade (antes era só
+  `title: "Cupons"`, sem descrição nem canonical); `/lojas-parceiras`
+  virou porta de entrada (cada card linka pra `/loja/[slug]`); sitemap
+  inclui as duas famílias com os mesmos gates.
+- `CouponCard`: cupom com `platform = "lomadee"` mostrava o selo
+  "lomadee" (nome da rede) em vez do nome da loja — corrigido pra usar o
+  anunciante nesse caso.
+- `coupons.ts`: `getCachedAllActiveCoupons()` (a vitrine continua com
+  20; as páginas por loja precisam de todos).
+
+**Validação**: `tsc` limpo, `next build` compila as rotas novas
+(sem `.env` no container o `generateStaticParams` devolve vazio e as
+páginas ficam sob demanda, como as de categoria). Não consegui renderizar
+com dado real aqui (sem chave do Supabase no container e sem acesso de
+rede ao site de produção). Primeira conferência depois do deploy:
+`/cupom/kabum` (8 cupons, index), `/loja/kabum` (48 ofertas, index),
+`/cupom/sawary` (2 cupons, deve vir com `noindex,follow`).
+
 ## 2026-09-26 — Busca do site deixou de ser "só ilike" e "só Shopee" (custo zero)
 
 Heber pediu pra começar só pelo que não aumenta custo, sem cruzar com a
