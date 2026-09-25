@@ -6,6 +6,7 @@ import { ProductGrid } from "../components/site/ProductGrid";
 import { CouponSection } from "../components/site/CouponSection";
 import { getCachedTodayPosts } from "../lib/site/catalog";
 import { getCachedCoupons } from "../lib/site/coupons";
+import { GUIDES } from "../lib/site/guides";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,25 @@ export default async function HomePage() {
 
         <section className="dc-section" style={{ paddingBlock: "6px 4px" }}>
           <CategoryGrid />
+        </section>
+
+        {/* Achado real (2026-09-25): Heber não viu os guias porque não
+            tinham NENHUM ponto de entrada visível na home -- só rodapé
+            (texto pequeno) e fim de 2 páginas de categoria. Primeira
+            tentativa colocou essa section DEPOIS de "Ofertas de hoje",
+            mas essa lista tem 70+ produtos -- na prática continuava
+            enterrado. Movido pra ANTES da lista longa, logo depois das
+            categorias, pra ficar visível sem precisar rolar muito. */}
+        <section className="dc-section">
+          <h2 className="dc-icon-inline">📖 Guias de compra</h2>
+          <div className="dc-guide-list">
+            {GUIDES.map((guide) => (
+              <a key={guide.slug} className="dc-guide-list-item" href={`/guia/${guide.slug}`}>
+                <h3>{guide.title}</h3>
+                <p>{guide.description}</p>
+              </a>
+            ))}
+          </div>
         </section>
 
         <section className="dc-section">
