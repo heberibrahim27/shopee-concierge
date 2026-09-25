@@ -4,6 +4,15 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (madrugada, continuação) — Captura de e-mail no ar (Fase 1)
+
+Construí e publiquei a captura de e-mail própria — tabela
+`email_subscribers`, rota `/api/subscribe`, formulário no rodapé (toda
+página, mesmo padrão do CTA de grupo do WhatsApp já existente ali do
+lado). Testado local de ponta a ponta: formulário envia, grava no
+banco, limpo depois de confirmar. Só coleta por enquanto — Resend (já
+decidido) ainda não está conectado pra mandar nada de verdade.
+
 ## 2026-09-25 (madrugada, continuação) — Produção verificada, ESP escolhido, CPA fundamentado
 
 Confirmei em produção (não só local) que o `/go` está de verdade no ar
