@@ -4,6 +4,41 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-26 — Validação real no site em produção: cupom no contexto do produto + alerta de preço + Shopee offers + Lomadee na busca
+
+Depois do merge de `43d6580`/`45012fc` (correções de escopo/elegibilidade/
+rótulo/validade), rodei os 5 itens pedidos direto no `descontochegando.com.br`
+real (confirmado que é o projeto Vercel `shopee-concierge-prod`, não o
+`descontochegando` -- ver `reference_vercel_two_projects_gotcha` na memória):
+
+1. **Cupom no contexto do produto** -- 5 casos, todos batendo com o
+   esperado: fone JBL C50HI R$42,90 → JBL25 com estimativa R$32,17 (×0,75)
+   + 2 genéricos; iPhone 16e R$4.399,99 → COMPREJUNTOAPPLE sem estimativa,
+   regra "12% OFF · em Apple · itens selecionados"; placa-mãe ASRock
+   R$512,99 → ASROCK100 com estimativa R$412,99 (−R$100); adaptador
+   Apple→VGA (tem "Apple" no nome) → mostra COMPREJUNTOAPPLE certo, sem
+   VGA8; monitor Acer com VGA no nome (sem marca reconhecida) → só os 2
+   genéricos, sem VGA8; produto Shopee → bloco de cupom ausente. Revelar
+   cupom mostrou o código real (JBL25); "Ir para a loja" abriu link Awin
+   (`awin1.com/cread.php?awinmid=17729...`); voto "Sim" gravou linha real
+   em `coupon_feedback` (`worked: true`).
+2. **Oferta em destaque Kabum×Shopee** -- grupo "Suporte Monitor Evolut"
+   (Shopee R$147,60 × Kabum R$195,90, Shopee mais barata): bloco de cupom
+   correto ausente (segue `bestOffer.platform`, não mostra cupom Kabum só
+   porque a loja aparece em "Compare em outras lojas").
+3. **Cron `source-shopee-offers`** -- dry-run real: `atuais: 30`, amostra
+   com `offerName`/`offerLink` no formato esperado (sem precisar ajustar
+   o SELECT). Rodado sem `dry=1` depois: `coletados: 30, ativos: 30`.
+4. **Alerta de preço** -- criado no site real (produto Suporte Monitor
+   Evolut, alvo R$132) com o WhatsApp do Heber; linha real gravada em
+   `price_alerts` (`phone: 5571993085436, status: active`); cron
+   `price-alerts` respondeu `checked: 1, sent: 0` como esperado (preço
+   atual R$147,60 ainda acima do alvo).
+5. **Lomadee em `/busca?q=fone+bluetooth`** -- seção "Em outras lojas
+   parceiras agora" presente.
+
+Tudo passou; nada foi para CONTINUIDADE.md desta rodada.
+
 ## 2026-09-26 — Merge do branch da sessão paralela (`claude/descontos-chegando-monetizacao-oe55gy`) na main
 
 3 commits do branch paralelo incorporados via `git merge` (sem conflitos,
