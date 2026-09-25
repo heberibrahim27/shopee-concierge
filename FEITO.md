@@ -4,6 +4,22 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (manhã, continuação) — Renner: Heber topou, mandei passo a passo (precisa do login dele, não é automatizável)
+
+Heber respondeu "fique à vontade" sobre pedir a Renner como anunciante
+novo. Antes de fazer qualquer coisa, chequei se dava pra automatizar via
+API -- confirmado nos docs da própria Awin: entrar num programa de
+anunciante é ação só pela interface (Advertisers > Join Programmes), sem
+endpoint de escrita público pra isso. A gente só tem AWIN_API_TOKEN e
+AWIN_DATAFEED_KEY no .env, nenhum login de painel -- e não vou pedir a
+senha dele pra fazer login por ele, isso é o tipo de credencial que devo
+evitar manusear, não contornar. Mandei o passo a passo exato pro
+WhatsApp dele (entrar em ui.awin.com, Advertisers > Join Programmes,
+procurar "Lojas Renner BR" -- ID 17801 -- e pedir o programa "Favoritos
+Renner"). Fica pendente de aprovação (mesmo padrão da Kabum), e quando
+aprovar o código de ingestão já existe pronto pra reusar -- nada pra
+construir agora, só esperando o clique dele + aprovação.
+
 ## 2026-09-25 (manhã, continuação) — Concorrente Instagram real (@promos.lari) + achado: Renner já dá pra pedir na nossa conta Awin
 
 Primeira pesquisa da sessão focada em conta de achadinhos NATIVA do
