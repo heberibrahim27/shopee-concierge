@@ -37,8 +37,33 @@ bug real: filtro por `account_id` da Windsor não funciona, `username` sim),
 catálogo. Números ainda baixos (163 visitas/30d) — serve pra acompanhar
 crescimento, não pra já pitchar anunciante.
 
-**Pesquisa em paralelo com Gemini 3.1 Pro** (conta do Heber, com busca do
-Google) sobre outras fontes de receita — rodando, resposta ainda pendente.
+**Gemini 3.1 Pro não entregou** — 3 tentativas reais na mesma conversa
+(recusa direta na primeira, travado sem responder nas outras duas). Não
+vou insistir nessa conversa; ChatGPT já cobriu o mesmo terreno bem.
+
+**Mapa completo de canais além do Instagram (ChatGPT, pesquisa real com
+fontes)** — Telegram é o vencedor claro (Bot API grátis, zero CNPJ, zero
+toque humano depois do setup, só falta o Heber criar o bot). Pinterest é
+real e aceita link de afiliado direto no Pin, mas tem 1 aprovação única
+(Standard Access) antes de virar 100% automático. Facebook Página pode
+ter API orgânica de verdade fora da Windsor — token antigo que tínhamos
+está morto (confirmado, já era esperado), precisa reautorização pra
+testar de verdade. TikTok: NÃO construir poster próprio — as regras deles
+proíbem explicitamente esse uso; usar Metricool (grátis até 20 posts/mês)
+se quiser testar. YouTube Shorts: link na descrição não é clicável, só
+vale via Shopping nativo (precisa 500+ inscritos).
+
+**Helper de Telegram criado** (`src/lib/channel/telegram.ts`) — Bot API
+direta, sem Windsor. Só falta `TELEGRAM_BOT_TOKEN` (Heber cria uma vez
+no @BotFather) pra ativar; nenhum cron liga nisso ainda.
+
+**Segundo concorrente real analisado (Zoom.com.br)** — o maior comparador
+de preço do Brasil tem CASHBACK como modelo principal, não só link de
+afiliado (banner de "Ativar cashback", % de cashback em cada card de
+produto). Prova real de que cashback é modelo comprovado no nosso nicho
+exato, mesmo continuando fora do curto prazo (exige infra de pagamento
+própria). Também tem "Crédito para você" — parece indicação de produto
+financeiro (outra fonte de receita simples de copiar depois).
 
 ## 2026-09-25 (madrugada) — Automação sem CNPJ debatida, carrossel novo formato, capas de destaque, limite diário de publicação descoberto
 
