@@ -4,6 +4,41 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (tarde, continuação 5) — Correção real do Heber: parei de inventar, spec literal do header + logo travada
+
+Heber corrigiu direto: "Não invente" / "Siga as imagens como exemplo
+fidedigno" -- eu tinha desenhado um BellIcon e escolhido cores/gradiente
+sozinho, sem checar o que as 4 imagens de verdade mostram. Ele lembrou
+que eu posso perguntar ao ChatGPT (quem gerou as imagens, enxerga o
+que eu não enxergo nessa sessão) em vez de improvisar.
+
+Pedi ao ChatGPT uma descrição literal e pixel-a-pixel do cabeçalho nas
+4 imagens. Achado real que já corrige o que eu tinha inventado:
+NENHUM dos 4 cabeçalhos é escuro -- todos são branco/creme
+(aproximadamente #FDFBF7), texto/ícones navy, terracota só como cor
+ativa/marca. E não existe sino de notificação em nenhuma imagem (eu
+tinha inventado um) -- o que existe é ícone de favoritos (já é
+funcionalidade real do site, só faltava link no cabeçalho), usuário/
+conta (algumas telas), busca (algumas telas) e hamburger (mobile).
+Registrei a spec completa (cores exatas, tipografia, ícones, altura)
+na memória project_header_literal_spec_v1.
+
+Implementei o cabeçalho claro seguindo a spec literal -- e bati num
+bloqueio real: a logo atual (LOGO.png) tem "DESCONTO" em branco com
+sombra preta, desenhada pro fundo verde escuro antigo. Em fundo claro
+fica quase ilegível, e sobra só o verde brilhante da etiqueta +
+"CHEGANDO" -- vira a maior mancha verde do site, pior que antes. Não
+publiquei essa versão (ficou só local, sem commit) -- logo ilegível é
+regressão real, não é um passo seguro.
+
+Não inventei uma logo nova sozinho: perguntei ao ChatGPT, que não
+consegue gerar imagem nesse chat mas escreveu um prompt de produção
+completo e literal (ícone de etiqueta terracota, wordmark navy+
+terracota, tagline, sem verde/gradiente/neon/sombra pesada). Passei
+esse prompt pro Heber rodar no ChatGPT que gerou as 4 imagens
+originais. **Travado esperando o arquivo da logo nova** -- o header
+claro fica pronto assim que ela chegar.
+
 ## 2026-09-25 (tarde, continuação 4) — Canal real do Telegram encontrado (Bench Promos), mesma categoria do nosso estoque Kabum
 
 Pesquisa de concorrente real desse ciclo: achei um canal ativo do
