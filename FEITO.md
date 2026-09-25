@@ -4,6 +4,14 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (madrugada, continuação) — QA visual real no mobile
+
+Conferi ao vivo (screenshot real, não suposição) o rodapé em produção
+no mobile com as duas features novas juntas (WhatsApp + captura de
+e-mail): empilham direito, sem sobrepor, o botão de sugestão flutuante
+não atrapalha nada crítico. Nada quebrado, nenhuma mudança de código
+necessária.
+
 ## 2026-09-25 (madrugada, continuação) — Autocorreção: parei de dar push a cada ciclo
 
 Percebi um erro real meu: dei push separado a cada um dos últimos ~10
