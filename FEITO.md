@@ -4,6 +4,51 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (manhã, continuação) — Gate de validação de atributo pros matches Kabum×Shopee (988 → 968, auditoria retroativa aplicada)
+
+Seguindo a recomendação do ChatGPT ("esse índice já justifica endurecer
+o matcher agora"), construí `src/lib/awin/matchValidation.ts`
+(`findMatchConflicts`) e liguei no `matchAndLinkShopee` do cron: antes de
+criar um `group_id` novo, compara o nome dos dois produtos procurando
+valor-com-unidade conflitante (armazenamento/cache GB-TB-MB, potência W,
+taxa de atualização Hz, peso/capacidade kg, voltagem V, tela, resolução
+K, diâmetro mm). Se os dois lados falam da mesma classe de atributo e o
+valor diverge, REJEITA o match (não cria comparação) -- falso negativo é
+preferível a mostrar dois produtos diferentes como se fossem o mesmo.
+
+**Processo real que vale registrar**: a primeira versão do gate também
+tinha um check de "número solto" (qualquer dígito sem unidade, pensado
+pra pegar exatamente o caso "Action 4 x Action 360") e um de "palavra de
+edição" (ice/pro/max/ultra/...). Antes de confiar, rodei um dry-run
+contra os 987 matches reais em produção
+(`scripts/audit-kabum-shopee-matches.ts`, sem `--fix`) -- resultado:
+~102/963 (10,6%) flagados, e a esmagadora maioria era falso alarme de
+tokenização ("LGA 1700" com espaço vs "LGA1700" sem espaço perde o
+limite de palavra do regex; "ultra" batendo em "Ultra-Baixa Latência",
+marketing genérico, não nome de produto). **Removi os dois checks
+ruidosos** em vez de tentar consertar a tokenização, ficando só com o
+check de unidade, estruturalmente mais confiável porque a unidade ancora
+o número a um atributo específico. Rodei o dry-run de novo com a versão
+enxuta: 18/963 (1,9%) flagados, todos plausíveis conferindo manualmente
+(cadeira Rise Mode X06 120kg x 100kg -- mesmo caso já achado na QA
+manual; water cooler Thermaltake 120mm x 240mm, tamanho de radiador
+fisicamente diferente; Kindle "Colorsoft" x "Paperwhite", linha de
+produto diferente; vários Ryzen com cache mais baixo do lado Kabum que
+Shopee pro MESMO código oficial AMD, provavelmente metodologia de
+cache diferente entre as fontes, não SKU errado -- mantive bloqueado
+mesmo assim pelo princípio "falso negativo é mais barato").
+
+Apliquei `--fix`: 18 deslinkados pelo gate + os 2 casos DJI (o já achado
+manualmente + um segundo, DJI215, achado só de bater o olho no resultado
+ruidoso do primeiro dry-run antes de descartar aquela versão) removidos
+direto no banco. **988 → 968 comparações reais Shopee×Kabum**, conferido
+com contagem direta no banco. O gate agora roda pra todo match novo que
+o cron diário criar daqui pra frente. `npx tsc --noEmit` limpo em cada
+etapa. Lição de processo pro futuro: testar qualquer heurística nova de
+auto-bloqueio/auto-match contra dado real de produção ANTES de confiar
+nela ou ligar em produção -- uma heurística que "parece certa" pode ter
+um bug de tokenização que só aparece em volume.
+
 ## 2026-09-25 (manhã, continuação) — QA amostral dos 988 matches Shopee×Kabum: 1 comparação errada encontrada e removida
 
 Seguindo o pedido do ChatGPT (amostra de 50-100 casos checando variante/
