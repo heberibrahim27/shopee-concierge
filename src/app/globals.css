@@ -2662,3 +2662,64 @@ a.dc-partner-card:hover {
   font-weight: 700;
   cursor: pointer;
 }
+
+/* Admin: dica sob o KPI e painel de cupons (/admin/cupons). */
+.dc-kpi-card-hint {
+  display: block;
+  font-size: 11px;
+  color: var(--dc-text-muted);
+  margin-top: 2px;
+}
+.dc-admin-coupon-row {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--dc-border);
+}
+.dc-admin-coupon-row:last-child {
+  border-bottom: 0;
+}
+.dc-admin-coupon-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.dc-admin-coupon-source {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dc-text-muted);
+}
+.dc-admin-coupon-code {
+  font-size: 12.5px;
+  background: #fff3d9;
+  color: #96700c;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.dc-admin-coupon-title {
+  margin: 6px 0 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.dc-admin-coupon-facts {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 4px 10px;
+  margin: 0 0 10px;
+  font-size: 12.5px;
+}
+.dc-admin-coupon-facts dt {
+  color: var(--dc-text-muted);
+}
+.dc-admin-coupon-facts dd {
+  margin: 0;
+}
+@media (max-width: 480px) {
+  .dc-admin-coupon-facts {
+    grid-template-columns: 1fr;
+  }
+  .dc-admin-coupon-facts dt {
+    margin-top: 4px;
+  }
+}

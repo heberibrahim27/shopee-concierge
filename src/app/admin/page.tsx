@@ -24,10 +24,33 @@ export default async function AdminOverviewPage() {
     <AdminShell updatedAt={now}>
       <section className="dc-admin-section">
         <div className="dc-admin-kpi-grid">
-          <KpiCard icon={<EyeIcon size={16} />} label="Visitas (7 dias)" value={overview.views7d} changePct={overview.viewsChangePct} />
-          <KpiCard icon={<ClickIcon size={16} />} label="Cliques em ofertas (7 dias)" value={overview.clicks7d} changePct={overview.clicksChangePct} />
-          <KpiCard icon={<ChartIcon size={16} />} label="CTR (7 dias)" value={overview.ctr7d !== null ? `${overview.ctr7d.toFixed(1)}%` : "—"} changePct={overview.ctrChangePct} />
-          <KpiCard icon={<PackageIcon size={16} />} label="Produtos ativos" value={overview.products} />
+          {/* Rótulos revisados 2026-09-26: page_views conta VISUALIZAÇÕES de
+              página (não sessões nem pessoas), já sem o admin logado;
+              CTR = cliques pra lojas ÷ visualizações; variação do CTR é em
+              pontos percentuais. */}
+          <KpiCard
+            icon={<EyeIcon size={16} />}
+            label="Visualizações (7 dias)"
+            value={overview.views7d}
+            changePct={overview.viewsChangePct}
+            hint="páginas vistas, sem o admin"
+          />
+          <KpiCard
+            icon={<ClickIcon size={16} />}
+            label="Cliques p/ lojas (7 dias)"
+            value={overview.clicks7d}
+            changePct={overview.clicksChangePct}
+            hint="saídas pra Shopee, Kabum etc."
+          />
+          <KpiCard
+            icon={<ChartIcon size={16} />}
+            label="Cliques ÷ visualizações"
+            value={overview.ctr7d !== null ? `${overview.ctr7d.toFixed(1)}%` : "—"}
+            changePct={overview.ctrChangePct}
+            changeUnit="pp"
+            hint="7 dias; 1 clique a cada N páginas"
+          />
+          <KpiCard icon={<PackageIcon size={16} />} label="Produtos publicados" value={overview.products} hint="catálogo inteiro; ver Produtos" />
         </div>
       </section>
 
