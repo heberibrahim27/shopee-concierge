@@ -287,7 +287,7 @@ export async function getAnalyticsStats() {
       .limit(2000),
     db
       .from("click_events")
-      .select("platform, product_name, product_slug, created_at")
+      .select("platform, product_name, product_slug, source, created_at")
       .gte("created_at", daysAgoIso(7))
       .order("created_at", { ascending: false })
       .limit(1000),
@@ -312,8 +312,13 @@ export async function getAnalyticsStats() {
   const topPaths = [...viewsByPath.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
 
   const clicksByMarketplace = new Map<string, number>();
+  const clicksBySource = new Map<string, number>();
   const clicksByProduct = new Map<string, { name: string; count: number }>();
   for (const row of clicks) {
+    // Origem do clique (source em click_events): produto, cupom, busca-ao-vivo,
+    // instagram, whatsapp, alerta... -- responde "onde vale divulgar".
+    const src = (row as { source?: string | null }).source || "desconhecida";
+    clicksBySource.set(src, (clicksBySource.get(src) ?? 0) + 1);
     const label = marketplaceDisplayLabel(row.platform);
     clicksByMarketplace.set(label, (clicksByMarketplace.get(label) ?? 0) + 1);
     if (row.product_name) {
@@ -348,6 +353,7 @@ export async function getAnalyticsStats() {
     topSearched,
     topZeroResult,
     clicksByMarketplace: [...clicksByMarketplace.entries()].sort((a, b) => b[1] - a[1]),
+    clicksBySource: [...clicksBySource.entries()].sort((a, b) => b[1] - a[1]),
     topProducts,
     topPaths,
   };

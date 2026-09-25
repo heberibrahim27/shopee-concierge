@@ -4,6 +4,57 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-26 — Admin: auditoria contra o documento do GPT + rótulos honestos + painel de cupons + cliques por origem
+
+Heber trouxe um segundo documento do GPT, sobre o admin. Auditado
+módulo a módulo no código antes de mexer (o documento avisa que não
+inspecionou o repositório):
+
+**Já existia**: exclusão do admin logado das métricas (`track-view` e
+`track-click` ignoram sessão admin e caminhos /admin); diagnóstico de
+links com distinção bloqueado × morto × sem preço × sem imagem
+(`/admin/produtos`); receita Shopee e Awin com pedidos/comissão por
+período e "erro na fonte" separado de R$0; comparações Kabum×Shopee;
+funil, tendência diária, termos buscados, buscas sem resultado, cliques
+por marketplace e produtos mais clicados (`/admin/analytics`); fila da
+Mercado Livre; sugestões de visitantes. A "fila de divulgação" existe
+como automação (os crons de Instagram/WhatsApp escolhem sozinhos de
+`deal_candidates`), não como tela.
+
+**Ajustado agora (visão geral)**: "Visitas" virou "Visualizações (7
+dias)" com a dica "páginas vistas, sem o admin" (o contador é
+`page_views`, não sessão nem pessoa); "Cliques em ofertas…" (truncava
+no celular) virou "Cliques p/ lojas (7 dias)"; "CTR" virou "Cliques ÷
+visualizações" e a variação passou a ser em pontos percentuais ("+2,0
+pp", não "+2%" — o cálculo já era diferença de taxas, só o rótulo estava
+errado); "Produtos ativos" virou "Produtos publicados" com dica.
+`KpiCard` ganhou `hint` e `changeUnit`.
+
+**Novo: `/admin/cupons`** (`src/lib/admin/coupons.ts`), acessível por
+Mais → Cupons. Por cupom ativo: loja, rede de origem, código (e se foi
+lido do título), texto original, regra extraída, escopo (marca ×
+categoria × genérico) com quantos produtos da loja casam pelo nome,
+restrições, validade (distinguindo o marcador Awin "+366 dias" de
+validade real), "atualizado em", a DECISÃO em uma frase (por que
+calcula ou não o preço estimado) e os votos funcionou/não funcionou
+com tamanho da amostra. Exemplos que o revisor pediu saem direto do
+dado: Apple → "bloqueada: itens selecionados"; VGA8 → "categoria, não
+casa por nome". Só leitura: pausar/corrigir associação fica pra
+CONTINUIDADE.md.
+
+**Novo: "Cliques por origem"** em `/admin/analytics` (`source` de
+`click_events`: produto, cupom, busca-ao-vivo, instagram, whatsapp,
+alerta…). Dado real de 30 dias hoje: instagram 17, produto 6, cupom 1.
+É o primeiro relatório que responde "onde vale divulgar".
+
+**Não feito, e por quê**: fila de divulgação como tela (o maior item do
+documento) — precisa de decisão sobre o que "marcar como divulgado"
+significa em relação aos crons que já publicam sozinhos; atualização
+por fonte no cabeçalho ("Atualizado agora" hoje é a hora do render);
+verde residual nos ícones do admin; pausar/corrigir cupom com histórico.
+Tudo listado em CONTINUIDADE.md. Renderização do `/admin/cupons` com
+dado real não foi possível aqui (sem chave e com login); `tsc` limpo.
+
 ## 2026-09-26 — Revisão do GPT sobre o cálculo de cupom: 4 pontos, 4 confirmados no dado real, 4 corrigidos
 
 O revisor pediu quatro garantias antes de considerar o "preço estimado

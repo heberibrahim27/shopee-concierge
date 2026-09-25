@@ -42,6 +42,15 @@ export default async function AdminAnalyticsPage() {
         />
       </section>
 
+      <section className="dc-admin-section">
+        <RankingCard
+          title="Cliques por origem"
+          subtitle="De onde saiu o clique pra loja: página de produto, cupom, busca ao vivo, Instagram, WhatsApp, alerta."
+          rows={stats.clicksBySource}
+          emptyMessage="Nenhum clique registrado ainda."
+        />
+      </section>
+
       <section className="dc-admin-section dc-admin-grid-2">
         <RankingCard
           title="Cliques por marketplace"
