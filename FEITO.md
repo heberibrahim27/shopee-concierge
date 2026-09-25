@@ -4,6 +4,62 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-26 — Documento do "GPT 6 Astra" sobre o modelo Cuponomia: o que já existia, o que entrou agora
+
+Heber trouxe uma pesquisa longa (40 oportunidades + plano em 7 etapas).
+Cruzado item a item com o repositório antes de agir:
+
+**Já existia (hoje ou antes)**: página por loja (`/cupom/[loja]`), central
+de cupons, ingestão Awin/Lomadee/Shopee (shopeeOfferV2, deste mesmo dia),
+revelar/copiar, clique rastreado + `rel="sponsored"`, alerta de preço,
+favoritos, relacionados, guias, seleções "até R$50/100", Telegram/
+WhatsApp/e-mail, relatórios de comissão Shopee e Awin no admin, mídia
+kit. Cerca de 25 das 40 "oportunidades" estavam cobertas ou adiadas por
+decisão registrada (cashback, clube, extensão, display).
+
+**O que o documento acerta e ainda não tínhamos**: o diferencial
+"encontre o cupom certo para o que você quer comprar e veja quanto vai
+pagar" -- cupom no contexto do produto, regras estruturadas (valor,
+mínimo, teto, escopo), tipo de objeto (código × oferta sem código),
+"conferido em", voto funcionou/não funcionou. É o que entrou agora.
+
+**Onde discordo ou o dado real corrige**: (1) "validar recursos da conta
+Shopee" já foi feito -- productOfferV2, generateShortLink e
+conversionReport confirmados ao vivo em sessões anteriores, e o que
+falta é só o dry-run do shopeeOfferV2; (2) "Central de cupons Shopee"
+como prioridade 1 não se sustenta: a Shopee não expõe cupom com código
+pra afiliado (confirmado 22/09), então a central Shopee é de promoções
+sem código (feito hoje) -- quem tem código de verdade é Kabum (8),
+Malwee, Balaroti; (3) Rakuten/Admitad são cadastros que dependem do
+Heber, não engenharia; anotado em CONTINUIDADE.md.
+
+**Construído (custo zero)**:
+- `src/lib/site/couponRules.ts`: parser puro de regra a partir do texto
+  (percentual, valor fixo, mínimo, teto, escopo de marca/linha, código
+  escrito no título). Padrões escritos lendo os 40 cupons reais do banco,
+  17 casos de teste passando (JBL, Apple, ASRock, PlayNinja, VGA,
+  "compras acima de R$ 499", "Use o cupom: EXTRA20").
+- Página de produto: bloco "Cupom que pode valer nessa compra" --
+  cupons ativos da MESMA loja da oferta em destaque; cupom com escopo de
+  marca só aparece se a marca está no nome do produto e aí mostra
+  "Preço estimado com cupom: R$ X (sem frete; confira as condições)";
+  cupom genérico ("produtos selecionados") aparece sem número e no
+  máximo 2. Cobertura real hoje no catálogo Kabum: Apple 211 produtos,
+  JBL 116, ASRock 36, VGA 17.
+- Card de cupom: linha de regra ("25% OFF · em JBL"), "Conferido em
+  dd/mm" (fetched_at), e depois de revelar: "O cupom funcionou? Sim/Não"
+  → `POST /api/coupon-feedback` → tabela `coupon_feedback` (migration
+  aplicada; só hash de IP, 30 votos/hora por IP). Ainda não exibe
+  contagem nem selo -- sem volume, seria número inventado.
+- Correções de dado achadas no caminho: cupons Lomadee com código no
+  título e coluna vazia agora revelam o código; Awin manda `ends_at` de
+  "1 ano à frente" quando a campanha não tem fim (Kabum: 2027 com
+  "válido até 20/09" no texto) -- card não mostra validade nesse caso;
+  descrição igual ao título não é mais repetida.
+
+Testado: parser com tsx; bloco renderizado no Chromium (revelar → copiado
+→ voto → beacon recebido); `tsc` limpo. Não renderizado com produto real.
+
 ## 2026-09-26 — "Veja também" na página de produto + guias por produto + buscas populares
 
 Conferido antes (pedido do Heber: "veja se não já foi construído por

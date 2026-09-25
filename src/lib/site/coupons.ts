@@ -6,6 +6,7 @@
  */
 import { unstable_cache } from "next/cache";
 import { getDb } from "../db/client";
+import { parseCouponRule } from "./couponRules";
 
 export interface SiteCoupon {
   id: string;
@@ -17,6 +18,8 @@ export interface SiteCoupon {
   urlTracking: string;
   endsAt: string | null;
   status: string;
+  /** Última vez que o cron confirmou o cupom na rede ("Conferido em"). */
+  fetchedAt: string | null;
 }
 
 function hasSupabaseEnv(): boolean {
@@ -24,16 +27,24 @@ function hasSupabaseEnv(): boolean {
 }
 
 function mapRow(row: Record<string, unknown>): SiteCoupon {
+  const title = String(row.title);
+  const description = (row.description as string | null) ?? null;
+  const storedCode = (row.code as string | null) ?? null;
+  // Achado real 2026-09-26: cupons Lomadee vêm com o código escrito no
+  // título ("Use o cupom: EXTRA20") e a coluna `code` vazia -- sem isso o
+  // card mostrava "Aproveitar" em vez de revelar o código.
+  const code = storedCode ?? parseCouponRule({ title, description, code: storedCode }).codeFromText;
   return {
     id: String(row.id),
     advertiserName: String(row.advertiser_name),
     platform: (row.platform as string | null) ?? null,
-    title: String(row.title),
-    description: (row.description as string | null) ?? null,
-    code: (row.code as string | null) ?? null,
+    title,
+    description: description && description.trim() === title.trim() ? null : description,
+    code,
     urlTracking: String(row.url_tracking),
     endsAt: (row.ends_at as string | null) ?? null,
     status: String(row.status),
+    fetchedAt: (row.fetched_at as string | null) ?? null,
   };
 }
 
@@ -44,7 +55,7 @@ async function queryActiveCoupons(): Promise<SiteCoupon[]> {
   const nowIso = new Date().toISOString();
   const { data, error } = await db
     .from("coupons")
-    .select("id, advertiser_name, platform, title, description, code, url_tracking, ends_at, status")
+    .select("id, advertiser_name, platform, title, description, code, url_tracking, ends_at, status, fetched_at")
     .eq("status", "active")
     .or(`ends_at.is.null,ends_at.gte.${nowIso}`)
     .order("ends_at", { ascending: true })
@@ -66,7 +77,7 @@ async function queryAllActiveCoupons(): Promise<SiteCoupon[]> {
   const nowIso = new Date().toISOString();
   const { data, error } = await db
     .from("coupons")
-    .select("id, advertiser_name, platform, title, description, code, url_tracking, ends_at, status")
+    .select("id, advertiser_name, platform, title, description, code, url_tracking, ends_at, status, fetched_at")
     .eq("status", "active")
     .or(`ends_at.is.null,ends_at.gte.${nowIso}`)
     .order("ends_at", { ascending: true, nullsFirst: false })

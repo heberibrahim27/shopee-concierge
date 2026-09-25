@@ -2629,3 +2629,52 @@ a.dc-partner-card:hover {
   font-weight: 700;
   font-size: 14px;
 }
+
+/* Cupom na página de produto (ProductCoupons.tsx) + linha de regra e
+   voto "funcionou?" no card (CouponCard.tsx). */
+.dc-product-coupons {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--dc-border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dc-product-coupons-estimate {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--dc-text);
+}
+.dc-product-coupons-estimate strong {
+  font-family: var(--font-heading);
+  font-size: 16px;
+  color: var(--dc-brand-deep);
+}
+.dc-product-coupons-estimate span {
+  color: var(--dc-text-muted);
+  font-size: 12px;
+}
+.dc-coupon-rule {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--dc-brand-deep);
+}
+.dc-coupon-vote {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--dc-text-muted);
+}
+.dc-coupon-vote button {
+  border: 1px solid var(--dc-border);
+  background: var(--dc-card-bg);
+  color: var(--dc-text);
+  border-radius: 999px;
+  padding: 3px 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
