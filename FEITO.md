@@ -4,6 +4,25 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (madrugada, continuação) — Páginas de intenção de compra (SEO real de aquisição)
+
+Como quase tudo mais dependia do Heber acordar, ataquei o problema que
+o ChatGPT apontou como ainda em aberto: os 163 visitas/mês de
+aquisição. Construí `/categoria/[slug]/ate-[preco]` ("Casa até R$30" —
+48 produtos reais) — só gera a página quando existe estoque real
+(mínimo 6 produtos), verifiquei isso com query real antes de escolher
+os limiares (30/50/100). 53 páginas reais geradas, ligadas no sitemap.
+
+**Bug real de rota do Next.js encontrado e corrigido**: minha primeira
+tentativa usou uma pasta chamada `ate-[preco]` (texto fixo misturado
+com colchete) — isso COMPILA sem erro mas nunca casa rota nenhuma
+(testei ao vivo, confirmei 404 nos dois formatos de URL). Corrigido
+usando uma pasta `[preco]` totalmente dinâmica, que captura o texto
+inteiro "ate-30" e eu mesmo interpreto. Testado local de ponta a ponta
+depois da correção: título certo, produto real aparecendo, sitemap com
+as 53 URLs, combinação rasa (alimentos até R$30, só 2 produtos)
+corretamente excluída.
+
 ## 2026-09-25 (madrugada, continuação) — ChatGPT fechou o assunto do /go, Facebook confirmado bloqueado
 
 ChatGPT concordou com a análise (não construir o gate de política por

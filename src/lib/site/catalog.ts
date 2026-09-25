@@ -203,6 +203,67 @@ export function getCachedCategory(categorySlug: string): Promise<SiteProduct[]> 
   )();
 }
 
+// Páginas de intenção de compra por categoria + faixa de preço (ex:
+// "achados de casa até R$50") -- pedido do ChatGPT na revisão do plano
+// de receita (Fase 1: SEO de intenção, não só verificar Search
+// Console). Só os limiares abaixo, escolhidos por serem os mesmos já
+// usados no conteúdo do Instagram (achado-cozedor etc, "ABAIXO DE R$
+// 40"-like) -- generateStaticParams (ver page.tsx) decide quais
+// combinações categoria+limiar têm produto real o suficiente antes de
+// gerar a página, pra não criar conteúdo raso.
+export const PRICE_THRESHOLDS = [30, 50, 100] as const;
+
+async function queryCategoryProductsUnderPrice(categorySlug: string, maxPrice: number): Promise<SiteProduct[]> {
+  if (!hasSupabaseEnv()) return [];
+
+  const db = getDb();
+  const { data, error } = await db
+    .from("site_catalog")
+    .select(SITE_CATALOG_COLUMNS)
+    .eq("category_slug", categorySlug)
+    .lte("price_min", maxPrice)
+    .order("price_discount_rate", { ascending: false, nullsFirst: false })
+    .limit(48);
+
+  if (error) throw new Error(`Falha ao buscar categoria ${categorySlug} até R$${maxPrice}: ${error.message}`);
+  return dedupeByGroup((data ?? []).map(mapRow));
+}
+
+export function getCachedCategoryUnderPrice(categorySlug: string, maxPrice: number): Promise<SiteProduct[]> {
+  return unstable_cache(
+    () => queryCategoryProductsUnderPrice(categorySlug, maxPrice),
+    ["category-price", categorySlug, String(maxPrice)],
+    { tags: [`category:${categorySlug}`], revalidate: FALLBACK_REVALIDATE_SECONDS }
+  )();
+}
+
+/** Mínimo de produto real pra valer a pena gerar a página -- evita conteúdo raso. */
+const MIN_PRODUCTS_FOR_PRICE_PAGE = 6;
+
+/** Combinações (categoria, limiar) com produto real o suficiente, pra generateStaticParams. */
+export async function listViablePriceCategoryPages(): Promise<Array<{ slug: string; preco: number }>> {
+  if (!hasSupabaseEnv()) return [];
+  const db = getDb();
+  const viable: Array<{ slug: string; preco: number }> = [];
+  for (const threshold of PRICE_THRESHOLDS) {
+    const { data, error } = await db
+      .from("site_catalog")
+      .select("category_slug")
+      .lte("price_min", threshold)
+      .not("category_slug", "is", null);
+    if (error || !data) continue;
+    const counts = new Map<string, number>();
+    for (const row of data as any[]) {
+      const slug = row.category_slug as string;
+      counts.set(slug, (counts.get(slug) ?? 0) + 1);
+    }
+    for (const [slug, count] of counts) {
+      if (count >= MIN_PRODUCTS_FOR_PRICE_PAGE) viable.push({ slug, preco: threshold });
+    }
+  }
+  return viable;
+}
+
 export function getCachedProduct(slug: string): Promise<SiteProduct | null> {
   return unstable_cache(() => queryProductBySlug(slug), ["product", slug], {
     tags: [`product:${slug}`],
