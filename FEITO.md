@@ -4,6 +4,39 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (tarde) — Redesign do site: início dos trabalhos, achado o brief real por trás dos mockups
+
+Heber mandou 4 imagens de referência ("Isso sim é um site padrão digno,
+precisamos dar um jeito de fazer ele idêntico com todas as
+funcionalidades") + link de um chat do ChatGPT compartilhado. Fui atrás
+do link pelo Chrome (o navegador embutido não tinha acesso logado) e
+achei o brief REAL por trás das imagens, não só o resultado visual:
+
+- **Confirmado: é mockup gerado por IA, site não existe de verdade**
+  ("O site não existe ainda estou criando imagens no chatGPT") -- então
+  nenhuma funcionalidade mostrada é garantia de que funciona, cada uma
+  precisa da própria checagem técnica antes de eu prometer algo.
+- **A crítica real não é só visual, é de HIERARQUIA**: o ChatGPT apontou
+  que a home hoje parece "portal de cupom" porque banner e cupom
+  aparecem antes de produto/preço/comparação real. Pedido: busca em
+  destaque, comparação de preço real logo abaixo, lojas viram filtro
+  secundário (não botão gigante no topo), cupom desce de prioridade.
+- **Cor: Heber pediu explicitamente "não puxada para verde nem cores
+  típicas de IA"** -- não foi acidente da IA gerar laranja, foi
+  instrução direta dele. Registrado pra não ficar reconsiderando depois.
+- Confirmado por ele: sem login por enquanto ("não tem sentido"), alerta
+  de preço via PWA (push do navegador, não WhatsApp/e-mail).
+
+**Primeira peça no ar**: menu de navegação desktop no cabeçalho (Início/
+Categorias/Lojas Parceiras/Cupons/Blog) -- não existia nenhum link além
+do logo antes. Testado local (desktop esconde a barra de baixo do
+mobile, mobile continua com o BottomNav de sempre) e publicado.
+
+**Próximos passos anotados**: reordenar a hierarquia da home (busca +
+comparação primeiro, categoria/cupom descem), trocar o esquema de cor
+pra longe do verde. Trabalho grande, feito em pedaços, não tudo de uma
+vez.
+
 ## 2026-09-25 (tarde) — Promotech: comparador de hardware real, monetiza só com afiliado (não patrocínio direto)
 
 Pesquisando modelo de patrocínio/CPA direto em comparador (sugestão do
