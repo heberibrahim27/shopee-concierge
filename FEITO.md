@@ -4,6 +4,36 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (tarde, continuação 11) — Gráfico de histórico de preço construído (versão honesta, não o gauge completo)
+
+Antes de construir o gauge de 40 dias que o Zoom tem, chequei o dado
+real: o domínio tem 12 dias, e o produto com MAIS histórico no
+catálogo inteiro tem só 6 dias distintos de captura de preço. Um
+gauge de "preço bom/normal/alto" com 2-3 pontos ficaria vazio --
+decidi não construir isso ainda, seria prometer profundidade que a
+gente não tem de verdade.
+
+Construí uma versão menor e honesta no lugar: `getCachedProductPriceHistory`
+agora também devolve a série diária (mesma query, sem consulta nova
+no banco), e um componente `PriceSparkline` (SVG puro, sem lib de
+gráfico) aparece na página de produto -- mas só quando o produto tem
+7+ dias reais de histórico. Com menos que isso, a linha fica quase
+reta e passa desconfiança em vez de informação, então simplesmente
+não aparece (o selo "menor preço que monitoramos" já cobre esse
+caso).
+
+Hoje NENHUM produto ainda bate os 7 dias (máximo real é 6) -- testei
+isso de propósito, baixando o corte temporariamente pra 5 contra dois
+produtos reais (um com preço parado, outro com queda e alta reais) só
+pra confirmar que o componente renderiza certo, e voltei o corte pra
+7 antes de publicar. O gráfico vai começar a aparecer sozinho conforme
+os dias de captura acumularem -- não precisa de mais código.
+
+Divisão de trabalho combinada com outra sessão do Heber (a "Fable 5",
+que também está mexendo no projeto): ela fica com as páginas de cupom
+por loja (`/cupom/[loja]`, `/loja/[slug]`), eu fiquei com esse
+gráfico -- arquivos diferentes, sem conflito.
+
 ## 2026-09-25 (tarde, continuação 10) — Pesquisa real: como o Zoom faz alerta de preço e o selo "preço bom"
 
 Fui direto no produto de verdade no Zoom.com.br conferir as duas

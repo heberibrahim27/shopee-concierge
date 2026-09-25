@@ -434,10 +434,18 @@ export function getCachedViablePriceThresholds(categorySlug: string): Promise<nu
 export interface ProductPriceHistory {
   lowestPrice: number | null;
   daysTracked: number;
+  /** Um ponto por dia (mínimo do dia), ordenado do mais antigo pro mais
+   * recente -- mesma consulta do selo de "menor preço", sem abrir uma
+   * segunda query por página (achado real 2026-09-25: os crons de coleta
+   * rodam ~1x/dia, então isso nunca vai ter mais de 1 ponto por dia). Só
+   * vale renderizar como gráfico com 7+ dias cobertos -- com menos que
+   * isso vira uma linha quase reta que passa desconfiança em vez de
+   * transmitir dado real; a UI decide esse corte, não essa função. */
+  dailySeries: { day: string; minPrice: number }[];
 }
 
 async function queryProductPriceHistory(productId: string): Promise<ProductPriceHistory> {
-  if (!hasSupabaseEnv()) return { lowestPrice: null, daysTracked: 0 };
+  if (!hasSupabaseEnv()) return { lowestPrice: null, daysTracked: 0, dailySeries: [] };
 
   const db = getDb();
   const { data, error } = await db
@@ -447,14 +455,26 @@ async function queryProductPriceHistory(productId: string): Promise<ProductPrice
     .not("price_min", "is", null)
     .order("captured_at", { ascending: true });
 
-  if (error || !data || data.length === 0) return { lowestPrice: null, daysTracked: 0 };
+  if (error || !data || data.length === 0) return { lowestPrice: null, daysTracked: 0, dailySeries: [] };
 
-  const prices = (data as { price_min: number; captured_at: string }[]).map((r) => Number(r.price_min));
+  const rows = data as { price_min: number; captured_at: string }[];
+  const prices = rows.map((r) => Number(r.price_min));
   const lowestPrice = Math.min(...prices);
-  const oldestCapturedAt = new Date(data[0].captured_at).getTime();
+  const oldestCapturedAt = new Date(rows[0].captured_at).getTime();
   const daysTracked = Math.max(1, Math.round((Date.now() - oldestCapturedAt) / (24 * 60 * 60 * 1000)));
 
-  return { lowestPrice, daysTracked };
+  const byDay = new Map<string, number>();
+  for (const row of rows) {
+    const day = row.captured_at.slice(0, 10); // YYYY-MM-DD
+    const price = Number(row.price_min);
+    const current = byDay.get(day);
+    if (current === undefined || price < current) byDay.set(day, price);
+  }
+  const dailySeries = [...byDay.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([day, minPrice]) => ({ day, minPrice }));
+
+  return { lowestPrice, daysTracked, dailySeries };
 }
 
 export function getCachedProductPriceHistory(productId: string): Promise<ProductPriceHistory> {

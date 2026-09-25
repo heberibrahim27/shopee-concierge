@@ -1064,6 +1064,21 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   border: 1px solid var(--dc-border);
 }
 
+.dc-price-sparkline {
+  background: var(--dc-card-bg);
+  border: 1px solid var(--dc-border);
+  border-radius: var(--dc-radius-sm);
+  padding: 8px 10px 6px;
+}
+
+.dc-price-sparkline-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10.5px;
+  color: var(--dc-text-muted);
+  margin-top: 2px;
+}
+
 .dc-choice-badge {
   display: inline-flex;
   align-items: center;

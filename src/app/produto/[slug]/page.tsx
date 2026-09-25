@@ -8,6 +8,7 @@ import { AwardIcon, StarIcon, ClockIcon, TrendingDownIcon } from "../../../compo
 import { getPlatformInfo } from "../../../lib/site/platforms";
 import { TrackedOfferLink } from "../../../components/site/TrackedOfferLink";
 import { ShareButton } from "../../../components/site/ShareButton";
+import { PriceSparkline } from "../../../components/site/PriceSparkline";
 
 export async function generateMetadata({ params }: { params: { slug: string } }) {
   const product = await getCachedProduct(params.slug);
@@ -143,6 +144,15 @@ export default async function ProductPage({ params }: { params: { slug: string }
                 <div className="dc-card-price" style={{ fontSize: 26 }}>
                   {price}
                 </div>
+              </div>
+            ) : null}
+
+            {priceHistory.dailySeries.length >= 7 ? (
+              <div style={{ marginTop: 10 }}>
+                <p style={{ fontSize: 11.5, fontWeight: 700, color: "var(--dc-text-muted)", marginBottom: 4 }}>
+                  Histórico de preço
+                </p>
+                <PriceSparkline series={priceHistory.dailySeries} />
               </div>
             ) : null}
 
