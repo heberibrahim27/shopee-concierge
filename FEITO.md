@@ -4,6 +4,30 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (tarde, continuação 9) — Comissão real da Awin agora aparece no admin
+
+Heber perguntou direto: "temos que colocar no nosso admin se chegar
+alguma comissão dela via API?". Testei antes de responder: o endpoint
+`/transactions` da Awin funciona de verdade com nosso token (200
+confirmado), limite real de 31 dias por chamada (erro 400 testando
+range maior). Construí e publiquei:
+
+- `src/lib/awin/revenue.ts` -- busca transações reais, mesmo padrão de
+  soma de comissão que já existia pra Shopee.
+- `lib/admin/stats.ts` -- Awin e Shopee buscados em blocos
+  independentes (falha de uma não derruba a outra).
+- Painel admin: novo bloco "Receita e conversões — Awin (Kabum, Nike,
+  Olympikus)" ao lado do da Shopee.
+
+Hoje mostra R$0 -- dado real, não bug: nenhum dos 3 programas
+(Kabum/Nike/Olympikus) teve venda confirmada ainda nos últimos 30
+dias. Não consegui testar visualmente no painel local porque o Heber
+trocou a senha do admin pelo próprio painel em algum momento (fica no
+Supabase agora, não no `.env` local que eu tenho) -- compensei com
+`tsc` limpo, `next build` completo sem erro, e o endpoint da Awin
+testado isolado antes de integrar. Publicado junto com o commit
+anterior (cabeçalho/logo), num lote só.
+
 ## 2026-09-25 (tarde, continuação 8) — Rechecagem real da Awin: leads de sportswear novos, eletrônicos ainda parados
 
 Conferi de novo (via API real, não suposição) quantos programas da
