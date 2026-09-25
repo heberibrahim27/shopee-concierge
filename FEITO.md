@@ -4,6 +4,22 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (manhã, continuação) — Correção real: parâmetro certo é countryCode=BR, não region=BR
+
+O ChatGPT pegou um detalhe técnico no achado do diretório Awin: eu tinha
+usado `region=BR` (que a API ignora silenciosamente) e concluído errado
+que o filtro regional "não funciona". Testei de novo com o parâmetro
+certo, `countryCode=BR` -- bate exatamente: 233 resultados, 0 estrangeiro
+misturado, filtro server-side real. O dado final (233, os mesmos 12
+candidatos de eletrônicos) sempre esteve certo, só o diagnóstico do
+"porquê" estava errado -- registrado pra não repetir o parâmetro errado
+no futuro. Ele também confirmou (doc oficial da Awin) que realmente não
+existe endpoint público pra "entrar" num programa via API, e priorizou
+os 3 candidatos por chance real de sobreposição: Gigantec > iPlace >
+Acer. Boa ideia adotada: não mandar 1 mensagem por anunciante -- juntar
+tudo numa memória do estilo "quando entrar no painel, pede esses 3
+também" e só notificar o Heber quando tiver um lote que valha a pena.
+
 ## 2026-09-25 (manhã, continuação) — Achado técnico real: dá pra listar TODO o diretório de anunciantes da Awin não-aprovados via API
 
 Seguindo sugestão do ChatGPT (procurar mais anunciante Awin com
