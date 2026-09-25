@@ -2000,3 +2000,80 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   font-size: 13px;
   margin-top: 8px;
 }
+
+/* ---------- Guias de compra ---------- */
+
+.dc-guide {
+  padding-block: 24px 40px;
+}
+
+.dc-guide h1 {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 24px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  margin: 14px 0 10px;
+}
+
+.dc-guide h2 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 18px;
+  margin: 28px 0 10px;
+  letter-spacing: -0.01em;
+}
+
+.dc-guide p {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--dc-text);
+  margin: 0 0 16px;
+}
+
+.dc-guide-intro {
+  font-size: 16px;
+  color: var(--dc-text-muted);
+}
+
+.dc-guide-compare,
+.dc-guide-products {
+  margin: 18px 0 24px;
+}
+
+.dc-guide-compare-note {
+  font-size: 13px;
+  color: var(--dc-text-muted);
+  margin: 0 0 10px;
+  font-style: italic;
+}
+
+.dc-guide-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dc-guide-list-item {
+  display: block;
+  background: var(--dc-card-bg);
+  border: 1.5px solid var(--dc-border);
+  border-radius: var(--dc-radius);
+  padding: 16px 18px;
+  text-decoration: none;
+  color: var(--dc-text);
+}
+
+.dc-guide-list-item h2 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 16px;
+  margin: 0 0 6px;
+  color: var(--dc-text);
+}
+
+.dc-guide-list-item p {
+  font-size: 13px;
+  color: var(--dc-text-muted);
+  margin: 0;
+}
