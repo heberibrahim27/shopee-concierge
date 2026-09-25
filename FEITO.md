@@ -4,6 +4,18 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (madrugada, continuação) — 4º concorrente (Cuponomia)
+
+Cashback confirmado pela 3ª vez entre concorrentes reais (Promobit tem
+o próprio, Zoom e agora Cuponomia lideram com ele) — detalhe novo: saldo
+só sacável a partir de R$20 (reduz custo de repasse pro operador).
+Achado novo que ninguém mais tinha mostrado: **extensão de navegador**
+como canal de retenção/distribuição (aplica cupom/cashback sozinha no
+checkout em 2 mil lojas) — engenharia grande demais pra agora, mas fica
+registrado como ideia de longo prazo de verdade. Banner de marca
+patrocinada (Samsung) confirma pela 3ª vez que o modelo de mídia paga
+(Fase 3) não é especulação.
+
 ## 2026-09-25 (madrugada, continuação) — Checagem de saúde de produção
 
 Depois de várias features seguidas essa madrugada (widget de sugestão,
