@@ -4,6 +4,17 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (manhã, continuação) — Riachuelo também é Awin (ID 86587), aproveitei a mesma mensagem
+
+Achei que a Riachuelo (a outra loja de moda nos destaques da conta de
+referência) também está na Awin, ID 86587, confirmado via busca real
+(comissão padrão Awin, taxa de 25% sobre a comissão, pago em EUR com
+dedução de câmbio de 5% -- termo padrão da rede, não específico dessa
+loja). Já que o Heber vai entrar no painel da Awin pra pedir a Renner
+mesmo, mandei complemento no WhatsApp sugerindo pedir as duas de uma vez
+(evita ele logar duas vezes). Nada construído ainda -- só esperando ele
+pedir e a aprovação vir.
+
 ## 2026-09-25 (manhã, continuação) — Renner: Heber topou, mandei passo a passo (precisa do login dele, não é automatizável)
 
 Heber respondeu "fique à vontade" sobre pedir a Renner como anunciante
