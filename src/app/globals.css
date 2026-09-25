@@ -1426,6 +1426,41 @@ img {
   color: var(--dc-text);
 }
 
+/* Logo real da loja no cupom (Heber: "igual ao Cuponomia", 2026-09-25) --
+   quando a loja tem logo baixada (ver platforms.ts), substitui o badge de
+   texto+cor por logo + nome simples. */
+.dc-coupon-store {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dc-coupon-store-logo {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid var(--dc-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.dc-coupon-store-logo img {
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
+}
+
+.dc-coupon-store-name {
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--dc-text);
+}
+
 .dc-coupon-title {
   margin: 0;
   font-size: 14px;
@@ -2362,21 +2397,59 @@ img {
   gap: 14px;
 }
 
+/* Card do guia de compra -- Heber: "guia de compras tá feio" (2026-09-25),
+   era só título+texto empilhado. Foto real da categoria (mesma fonte dos
+   ladrilhos, CATEGORY_TILES) como apoio visual, mesmo tratamento de
+   "elevar" no hover que o resto do site usa (@media hover:hover). */
 .dc-guide-list-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 14px;
   background: var(--dc-card-bg);
   border: 1.5px solid var(--dc-border);
   border-radius: var(--dc-radius);
-  padding: 16px 18px;
+  padding: 14px 16px;
   text-decoration: none;
   color: var(--dc-text);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+@media (hover: hover) {
+  .dc-guide-list-item:hover {
+    transform: translateY(-2px);
+    border-color: var(--dc-brand-deep);
+  }
+}
+
+.dc-guide-list-thumb {
+  flex: 0 0 56px;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--dc-radius-sm);
+  background: #ffffff;
+  border: 1px solid var(--dc-border);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.dc-guide-list-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.dc-guide-list-text {
+  min-width: 0;
 }
 
 .dc-guide-list-item h3 {
   font-family: var(--font-heading);
   font-weight: 700;
   font-size: 16px;
-  margin: 0 0 6px;
+  margin: 0 0 4px;
   color: var(--dc-text);
 }
 

@@ -1,6 +1,7 @@
 import { Header } from "../../components/site/Header";
 import { Footer } from "../../components/site/Footer";
 import { Breadcrumb } from "../../components/site/Breadcrumb";
+import { GuideListItem } from "../../components/site/GuideListItem";
 import { GUIDES } from "../../lib/site/guides";
 
 export function generateMetadata() {
@@ -23,10 +24,7 @@ export default function GuidesIndexPage() {
         </section>
         <section className="dc-section dc-guide-list">
           {GUIDES.map((guide) => (
-            <a key={guide.slug} className="dc-guide-list-item" href={`/guia/${guide.slug}`}>
-              <h3>{guide.title}</h3>
-              <p>{guide.description}</p>
-            </a>
+            <GuideListItem key={guide.slug} guide={guide} />
           ))}
         </section>
         <a className="dc-back-link" href="/">

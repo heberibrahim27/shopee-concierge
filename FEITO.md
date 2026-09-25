@@ -4,6 +4,38 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 — Home menos vazia, guias com foto, logo real da loja nos cupons
+
+3 pedidos do Heber num print da home:
+
+**"Na home ficou vazia, poderia colocar alguma categoria em baixo de
+ofertas"**: "Ofertas de hoje" só mostra o que saiu no Instagram nas
+últimas 24h (`queryTodayPosts`) -- num dia fraco de postagens a home
+acabava logo depois. Duas seções novas, cobrindo o catálogo inteiro
+(sempre têm conteúdo, independente do volume de posts do dia):
+"🏆 Mais vendidos" (`getCachedBestSellers`, ordenado por `sales` real) e
+"💸 Achados até R$49,90" (`getCachedCheapFinds`, pedido também nessa
+conversa -- preço ≤ R$49,90, ordenado por maior desconto real dentro do
+teto).
+
+**"Guia de compras tá feio"**: era só título+texto empilhado
+(`.dc-guide-list-item`). Novo componente `GuideListItem.tsx` (usado nas
+4 listagens: home, /guia, /categoria/[slug], /produto/[slug]) com
+miniatura -- reaproveita a foto real de categoria já recortada
+(`CATEGORY_TILES`), sem precisar de arte nova.
+
+**"Cupons pode usar a logo da loja igual ao Cuponomia"**: até aqui,
+`platforms.ts` documentava a decisão de nunca usar logo de terceiro
+(só rótulo+cor); Heber pediu explicitamente o oposto, seguindo o padrão
+de qualquer comparador de preço real (uso nominativo/informativo,
+prática comum). Logo real baixada direto do site oficial de cada loja
+(Kabum, Shopee, Nike, Olympikus, Malwee -- `public/lojas-logos/`),
+mostrada no `CouponCard` com fallback pro badge de texto+cor de sempre
+quando não tem logo baixada ainda. Achado no caminho: a logo da Malwee é
+uma versão só-branca (feita pro fundo escuro do header dela) -- sumia
+no fundo branco do card; corrigido com `logoBg` por loja quando
+necessário.
+
 ## 2026-09-25 — WhatsApp: rotação por marketplace + categoria "Casa" com produto errado
 
 **Grupo só postando Awin mesmo depois do teto de preço**: Heber ao vivo

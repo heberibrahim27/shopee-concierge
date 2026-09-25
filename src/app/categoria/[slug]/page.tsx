@@ -8,6 +8,7 @@ import { getCachedCategory, getCachedViablePriceThresholds } from "../../../lib/
 import { Breadcrumb } from "../../../components/site/Breadcrumb";
 import { CATEGORY_ICONS } from "../../../components/site/icons";
 import { getGuidesForCategory } from "../../../lib/site/guides";
+import { GuideListItem } from "../../../components/site/GuideListItem";
 
 export function generateStaticParams() {
   return SITE_CATEGORIES.map((category) => ({ slug: category.slug }));
@@ -69,10 +70,7 @@ export default async function CategoryPage({ params }: { params: { slug: string 
           <section className="dc-section dc-guide-list">
             <h2>Guias de compra</h2>
             {relatedGuides.map((guide) => (
-              <a key={guide.slug} className="dc-guide-list-item" href={`/guia/${guide.slug}`}>
-                <h3>{guide.title}</h3>
-                <p>{guide.description}</p>
-              </a>
+              <GuideListItem key={guide.slug} guide={guide} />
             ))}
           </section>
         ) : null}

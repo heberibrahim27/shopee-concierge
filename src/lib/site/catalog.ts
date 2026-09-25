@@ -347,6 +347,63 @@ export function getCachedHomeOffers(): Promise<SiteProduct[]> {
   })();
 }
 
+// Achado real (2026-09-25, Heber: "na home ficou vazia, poderia colocar
+// alguma categoria em baixo de ofertas"): "Ofertas de hoje" só mostra o
+// que saiu no Instagram nas últimas 24h (queryTodayPosts) -- num dia
+// fraco de postagens, a home literalmente acaba ali e pula direto pra
+// guias. "Mais vendidos" cobre o catálogo inteiro (sales real da Shopee/
+// Awin), então sempre tem conteúdo, independente do volume de posts do
+// dia.
+async function queryBestSellers(): Promise<SiteProduct[]> {
+  if (!hasSupabaseEnv()) return [];
+
+  const db = getDb();
+  const { data, error } = await db
+    .from("site_catalog")
+    .select(SITE_CATALOG_COLUMNS)
+    .not("sales", "is", null)
+    .order("sales", { ascending: false })
+    .limit(24);
+
+  if (error) throw new Error(`Falha ao buscar mais vendidos: ${error.message}`);
+  return dedupeByGroup((data ?? []).map(mapRow));
+}
+
+export function getCachedBestSellers(): Promise<SiteProduct[]> {
+  return unstable_cache(queryBestSellers, ["best-sellers"], {
+    tags: ["home:bestsellers"],
+    revalidate: FALLBACK_REVALIDATE_SECONDS,
+  })();
+}
+
+// Heber (2026-09-25, mesma conversa): "se puder colocar algo tbm como
+// achados abaixo de 49,90". Preço baixo de verdade (não só desconto
+// percentual alto em cima de preço inflado) -- ordena por maior desconto
+// real dentro do teto, pra mostrar achadinho de verdade primeiro.
+const CHEAP_FINDS_MAX_PRICE = 49.9;
+
+async function queryCheapFinds(): Promise<SiteProduct[]> {
+  if (!hasSupabaseEnv()) return [];
+
+  const db = getDb();
+  const { data, error } = await db
+    .from("site_catalog")
+    .select(SITE_CATALOG_COLUMNS)
+    .lte("price_min", CHEAP_FINDS_MAX_PRICE)
+    .order("price_discount_rate", { ascending: false, nullsFirst: false })
+    .limit(24);
+
+  if (error) throw new Error(`Falha ao buscar achados baratos: ${error.message}`);
+  return dedupeByGroup((data ?? []).map(mapRow));
+}
+
+export function getCachedCheapFinds(): Promise<SiteProduct[]> {
+  return unstable_cache(queryCheapFinds, ["cheap-finds"], {
+    tags: ["home:cheapfinds"],
+    revalidate: FALLBACK_REVALIDATE_SECONDS,
+  })();
+}
+
 export function getCachedCategory(categorySlug: string): Promise<SiteProduct[]> {
   return unstable_cache(
     () => queryCategoryProducts(categorySlug),

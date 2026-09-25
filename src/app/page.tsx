@@ -3,7 +3,8 @@ import { Footer } from "../components/site/Footer";
 import { FeaturedCategoryGrid } from "../components/site/FeaturedCategoryGrid";
 import { ProductGrid } from "../components/site/ProductGrid";
 import { CouponSection } from "../components/site/CouponSection";
-import { getCachedTodayPosts } from "../lib/site/catalog";
+import { GuideListItem } from "../components/site/GuideListItem";
+import { getCachedTodayPosts, getCachedBestSellers, getCachedCheapFinds } from "../lib/site/catalog";
 import { getCachedCoupons } from "../lib/site/coupons";
 import { GUIDES } from "../lib/site/guides";
 
@@ -15,7 +16,12 @@ export default async function HomePage() {
   // automação posta 20x/dia). Produtos publicados fora desse fluxo (ex:
   // Awin/Nike/Olympikus) continuam visíveis nas categorias, só não
   // aparecem mais aqui.
-  const [offers, coupons] = await Promise.all([getCachedTodayPosts(), getCachedCoupons()]);
+  const [offers, bestSellers, cheapFinds, coupons] = await Promise.all([
+    getCachedTodayPosts(),
+    getCachedBestSellers(),
+    getCachedCheapFinds(),
+    getCachedCoupons(),
+  ]);
 
   return (
     <>
@@ -55,6 +61,34 @@ export default async function HomePage() {
           />
         </section>
 
+        {/* Achado real (2026-09-25, Heber: "na home ficou vazia, poderia
+            colocar alguma categoria em baixo de ofertas") -- "Ofertas de
+            hoje" só mostra o que saiu no Instagram nas últimas 24h, então
+            num dia fraco de postagens a home ficava curta. "Mais
+            vendidos" cobre o catálogo inteiro (sales real), sempre tem
+            conteúdo. */}
+        {bestSellers.length > 0 ? (
+          <section className="dc-section" style={{ paddingBlock: "6px 4px" }}>
+            <h2 className="dc-icon-inline">🏆 Mais vendidos</h2>
+            <ProductGrid
+              products={bestSellers}
+              emptyMessage="Ainda não temos dado de vendas suficiente aqui — em breve."
+              layout="scroll"
+            />
+          </section>
+        ) : null}
+
+        {cheapFinds.length > 0 ? (
+          <section className="dc-section" style={{ paddingBlock: "6px 4px" }}>
+            <h2 className="dc-icon-inline">💸 Achados até R$49,90</h2>
+            <ProductGrid
+              products={cheapFinds}
+              emptyMessage="Ainda não temos achados nessa faixa de preço — em breve."
+              layout="scroll"
+            />
+          </section>
+        ) : null}
+
         {/* Achado real (2026-09-25): Heber não viu os guias porque não
             tinham NENHUM ponto de entrada visível na home -- só rodapé
             (texto pequeno) e fim de 2 páginas de categoria. */}
@@ -62,10 +96,7 @@ export default async function HomePage() {
           <h2 className="dc-icon-inline">📖 Guias de compra</h2>
           <div className="dc-guide-list">
             {GUIDES.map((guide) => (
-              <a key={guide.slug} className="dc-guide-list-item" href={`/guia/${guide.slug}`}>
-                <h3>{guide.title}</h3>
-                <p>{guide.description}</p>
-              </a>
+              <GuideListItem key={guide.slug} guide={guide} />
             ))}
           </div>
         </section>

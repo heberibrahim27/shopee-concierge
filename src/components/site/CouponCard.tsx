@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { SiteCoupon } from "../../lib/site/coupons";
-import { getPlatformInfo } from "../../lib/site/platforms";
+import { getPlatformInfo, getAdvertiserLogo } from "../../lib/site/platforms";
 import { AFFILIATE_LINK_REL } from "../../lib/site/affiliateLink";
 import { describeRule, isAwinOpenEnded, parseCouponRule } from "../../lib/site/couponRules";
 
@@ -72,6 +72,14 @@ export function CouponCard({ coupon }: { coupon: SiteCoupon }) {
   // na ingestão — nesse caso o nome do anunciante é o rótulo certo, não
   // o nome da rede de afiliados.
   const info = coupon.platform && coupon.platform !== "lomadee" ? getPlatformInfo(coupon.platform) : null;
+  // Achado real (2026-09-25, Heber: "cupons pode usar a logo da loja igual
+  // ao cuponomia"): logo baixada direto do site oficial da loja (ver
+  // platforms.ts) -- primeiro tenta pela plataforma (Shopee/Kabum/Nike/
+  // Olympikus), depois pelo nome do anunciante (lojas Lomadee, ex.
+  // Malwee). Sem logo baixada ainda, cai no badge de texto+cor de sempre.
+  const logo = info?.logoUrl
+    ? { logoUrl: info.logoUrl, logoBg: info.logoBg }
+    : getAdvertiserLogo(coupon.advertiserName);
 
   function handleReveal() {
     setRevealed(true);
@@ -86,13 +94,23 @@ export function CouponCard({ coupon }: { coupon: SiteCoupon }) {
 
   return (
     <div className="dc-coupon-card">
-      {info ? (
-        <span className="dc-coupon-badge" style={{ background: info.color, color: info.textColor }}>
-          {info.label}
-        </span>
-      ) : (
-        <span className="dc-coupon-badge">{coupon.advertiserName}</span>
-      )}
+      <div className="dc-coupon-store">
+        {logo ? (
+          <span className="dc-coupon-store-logo" style={logo.logoBg ? { background: logo.logoBg } : undefined}>
+            <img src={logo.logoUrl} alt="" loading="lazy" />
+          </span>
+        ) : null}
+        {info ? (
+          <span
+            className={logo ? "dc-coupon-store-name" : "dc-coupon-badge"}
+            style={logo ? undefined : { background: info.color, color: info.textColor }}
+          >
+            {info.label}
+          </span>
+        ) : (
+          <span className={logo ? "dc-coupon-store-name" : "dc-coupon-badge"}>{coupon.advertiserName}</span>
+        )}
+      </div>
       <p className="dc-coupon-title">{coupon.title}</p>
       {ruleLine ? <p className="dc-coupon-rule">{ruleLine}</p> : null}
       {coupon.description ? <p className="dc-coupon-description">{coupon.description}</p> : null}

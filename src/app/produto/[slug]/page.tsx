@@ -13,6 +13,7 @@ import { PriceAlertForm } from "../../../components/site/PriceAlertForm";
 import { ProductGrid } from "../../../components/site/ProductGrid";
 import { getRelatedProducts } from "../../../lib/site/related";
 import { getGuidesForCategory } from "../../../lib/site/guides";
+import { GuideListItem } from "../../../components/site/GuideListItem";
 import { ProductCoupons } from "../../../components/site/ProductCoupons";
 import { getCachedAllActiveCoupons } from "../../../lib/site/coupons";
 import { StickyBuyBar } from "../../../components/site/StickyBuyBar";
@@ -283,10 +284,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
             <h2 className="dc-icon-inline">📖 Guias de compra</h2>
             <div className="dc-guide-list">
               {relatedGuides.map((guide) => (
-                <a key={guide.slug} className="dc-guide-list-item" href={`/guia/${guide.slug}`}>
-                  <h3>{guide.title}</h3>
-                  <p>{guide.description}</p>
-                </a>
+                <GuideListItem key={guide.slug} guide={guide} />
               ))}
             </div>
           </section>
