@@ -4,6 +4,24 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (manhã, continuação) — Respondi pergunta original do Heber: dá pra vender dado agregado de preço B2B?
+
+Essa pergunta ficou sem resposta real desde o início da sessão (o
+Gemini recusou/travou 2x, nunca insisti mais). Respondi direto com busca
+própria: SIM, existe mercado B2B real de venda de dado de preço no
+Brasil -- InfoPrice (fundada 2013, captou R$15 milhões, ~100 clientes em
+2021, provavelmente mais hoje), Precifica, Priceva, Prisync. MAS achado
+importante: a fonte de dado principal da InfoPrice é varejo FÍSICO,
+coletado com hardware próprio em loja -- não é a mesma coisa que nosso
+dado (preço de marketplace online: Shopee, Kabum, Nike/Olympikus via
+Awin). Então o ângulo específico "dado de marketplace online" não está
+obviamente saturado pelo player líder, mas construir um produto de dado
+B2B de verdade (venda enterprise, infraestrutura de API pra cliente
+externo, contrato, garantia de qualidade) é um negócio bem diferente de
+site de achadinho, e muito além da nossa escala hoje. Registrado como
+referência de longo prazo (Fase 3/4), não recomendação de agora --
+mesmo tratamento que dei pro achado Zoom/Buscapé/Mosaico.
+
 ## 2026-09-25 (manhã, continuação) — Correção real: parâmetro certo é countryCode=BR, não region=BR
 
 O ChatGPT pegou um detalhe técnico no achado do diretório Awin: eu tinha
