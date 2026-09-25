@@ -8,6 +8,10 @@ import { searchCatalog } from "../../lib/site/catalogSearch";
 import { searchShopeeLive } from "../../lib/site/liveSearch";
 import { searchLomadeeLive } from "../../lib/site/lomadeeSearch";
 import { getCachedPopularSearches } from "../../lib/site/popularSearches";
+import { CouponCard } from "../../components/site/CouponCard";
+import { getCachedAllActiveCoupons } from "../../lib/site/coupons";
+import { findStoreInTerm, hasCouponIntent } from "../../lib/site/couponIntent";
+import { getCachedStoreDirectory, storeSlugForCoupon } from "../../lib/site/stores";
 import { parseSortOption } from "../../lib/site/sort";
 import { logSearchEvent } from "../../lib/site/searchLog";
 
@@ -43,6 +47,22 @@ export default async function SearchPage({
   const nothingFound =
     hasTerm && results.length === 0 && liveResults.length === 0 && lomadeeResults.length === 0;
 
+  // Intenção de cupom ("cupom", "cupom kabum"): a busca é de produto, e
+  // "cupom" casava só com impressora de cupom (achado do Heber, 26/09).
+  // Mostra os cupons ANTES dos produtos; se o termo cita uma loja com
+  // cupom ativo, só os dela e o atalho pra /cupom/[loja].
+  const couponIntent = hasTerm && hasCouponIntent(term);
+  const [directory, allCoupons] = couponIntent
+    ? await Promise.all([getCachedStoreDirectory(), getCachedAllActiveCoupons()])
+    : [[], []];
+  const intentStore = couponIntent ? findStoreInTerm(term, directory) : null;
+  const intentCoupons = !couponIntent
+    ? []
+    : intentStore
+      ? allCoupons.filter((c) => storeSlugForCoupon(c) === intentStore.slug)
+      : [...allCoupons].sort((a, b) => Number(Boolean(b.code)) - Number(Boolean(a.code))).slice(0, 6);
+  const storesWithCoupons = directory.filter((s) => s.couponCount > 0);
+
   if (hasTerm) {
     await logSearchEvent(term, results.length + liveResults.length + lomadeeResults.length);
   }
@@ -55,7 +75,46 @@ export default async function SearchPage({
           <h1>{term ? `Resultados pra "${term}"` : "Busca"}</h1>
         </section>
 
+        {couponIntent ? (
+          <section className="dc-section">
+            <h2 className="dc-icon-inline">
+              🏷️ {intentStore ? `Cupons ${intentStore.label}` : "Cupons ativos"}
+            </h2>
+            {intentCoupons.length > 0 ? (
+              <div className="dc-coupon-grid">
+                {intentCoupons.map((coupon) => (
+                  <CouponCard key={coupon.id} coupon={coupon} />
+                ))}
+              </div>
+            ) : (
+              <p className="dc-empty">
+                {intentStore
+                  ? `Nenhum cupom ativo da ${intentStore.label} agora.`
+                  : "Nenhum cupom ativo agora."}
+              </p>
+            )}
+            <p style={{ marginTop: 12 }}>
+              <a className="dc-coupon-see-all" href={intentStore ? `/cupom/${intentStore.slug}` : "/cupons"}>
+                {intentStore ? `Todos os cupons da ${intentStore.label} →` : "Ver todos os cupons →"}
+              </a>
+            </p>
+            {!intentStore && storesWithCoupons.length > 0 ? (
+              <div className="dc-price-filter-row" style={{ marginTop: 10 }}>
+                {storesWithCoupons.map((store) => (
+                  <a key={store.slug} href={`/cupom/${store.slug}`} className="dc-price-filter-pill">
+                    {store.label} ({store.couponCount})
+                  </a>
+                ))}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+
         {hasTerm && !nothingFound ? <SortBar term={term} active={sort} /> : null}
+
+        {couponIntent && results.length > 0 ? (
+          <h2 className="dc-section" style={{ paddingBottom: 0 }}>Produtos com esse termo</h2>
+        ) : null}
 
         {results.length > 0 ? (
           <section className="dc-section">
@@ -85,7 +144,7 @@ export default async function SearchPage({
           </section>
         ) : null}
 
-        {nothingFound || !hasTerm ? (
+        {(nothingFound && intentCoupons.length === 0) || !hasTerm ? (
           <section className="dc-section">
             <p className="dc-empty">
               {hasTerm
