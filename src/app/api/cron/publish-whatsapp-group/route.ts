@@ -30,6 +30,8 @@ export const maxDuration = 60;
 // 2026-09-21). ID de grupo na Z-API, não telefone.
 const WHATSAPP_GROUP_ID = process.env.ZAPI_DESCONTOS_GROUP_ID || "120363368934404281-group";
 
+const SITE_URL = "https://descontochegando.com.br";
+
 type Candidate = {
   dealCandidateId: string;
   productId: string;
@@ -383,7 +385,7 @@ async function buildMessage(
   demand: DemandSignal,
   inviteLink: string,
   recentOpenings: string[]
-): Promise<{ message: string; linkDescription: string }> {
+): Promise<{ message: string; linkDescription: string; trackedLink: string }> {
   const { formatted: priceLine, plain: priceLinePlain } = buildPriceLines(candidate);
 
   const platformLabel = getPlatformInfo(candidate.platform).ctaPreposition; // ex: "na Shopee", "no KaBuM!"
@@ -398,6 +400,15 @@ async function buildMessage(
     recentOpenings
   );
 
+  // Passa pelo redirecionador /go (ver src/app/go/route.ts e memória
+  // project_click_tracking_redirect) -- confirmado lendo zapi.ts que o
+  // card de prévia (imagem/título/descrição) vem 100% dos parâmetros
+  // explícitos do sendLink, não de raspagem do linkUrl, então trocar o
+  // destino aqui NÃO quebra o card já ajustado. A mensagem precisa
+  // terminar com o mesmo valor usado em linkUrl (regra documentada em
+  // OutgoingLinkMessage) -- por isso os dois usam a mesma variável.
+  const trackedLink = `${SITE_URL}/go?u=${encodeURIComponent(candidate.offerLink)}&src=whatsapp&pl=${encodeURIComponent(candidate.platform)}`;
+
   const message = [
     narrative,
     "",
@@ -408,10 +419,10 @@ async function buildMessage(
     inviteLink,
     "",
     `🛒 Oferta ${platformLabel} — clica aqui:`,
-    candidate.offerLink,
+    trackedLink,
   ].join("\n");
 
-  return { message, linkDescription: priceLinePlain };
+  return { message, linkDescription: priceLinePlain, trackedLink };
 }
 
 // Pedido do Heber (2026-09-21): "mandava de 10 em 10 min das 8 até as 21
@@ -502,7 +513,7 @@ export async function GET(request: NextRequest) {
   }
 
   const recentOpenings = await fetchRecentOpenings(db);
-  const { message: caption, linkDescription } = await buildMessage(candidate, demand, inviteLink, recentOpenings);
+  const { message: caption, linkDescription, trackedLink } = await buildMessage(candidate, demand, inviteLink, recentOpenings);
 
   // Modo de pré-visualização — monta tudo (candidato real, link de
   // convite real) mas não manda a mensagem de verdade. Útil pra
@@ -537,7 +548,7 @@ export async function GET(request: NextRequest) {
       chatId: WHATSAPP_GROUP_ID,
       message: caption,
       imageUrl: candidate.imageUrl,
-      linkUrl: candidate.offerLink,
+      linkUrl: trackedLink,
       title: candidate.productName,
       linkDescription,
       // Heber (2026-09-24, depois de ver o card real no grupo): pediu
