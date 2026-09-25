@@ -14,8 +14,18 @@ Pinterest) → Fase 2 primeira receita nova de baixo atrito (anúncio, lista
 própria) → Fase 3 patrocínio de marca tipo Promobit Ads (precisa do
 mídia kit já criado) → Fase 4 escala, cashback tipo Zoom.com.br + dado
 B2B (exige capital). Artefato: https://claude.ai/artifact/6xf5KFXbUYZCSbF7S77Dcg
-— mandei pro ChatGPT criticar antes de considerar fechado, resposta
-pendente. Detalhes em `project_business_plan_artifact` na memória.
+
+**Revisão real do ChatGPT incorporada (versão 2, mesmo link)** — não foi
+só elogio, apontou furo de verdade: faltava uma Fase 0 de instrumentação
+(rastrear clique→produto→comissão por canal, sem isso o crescimento é
+cego); Telegram/e-mail são retenção, não "receita nova" (movido pra Fase
+1); Ezoic exige 250 mil usuários/mês pra site novo desde fev/2026 —
+confirmei isso é real (WebSearch), removido do centro do plano; Fase 4
+dividida em cashback (4A) vs. dado B2B (4B), são negócios operacionalmente
+diferentes; adicionadas 2 trilhas paralelas que não dependem do tamanho
+da nossa audiência (CPA direto com marca, Creative Studio B2B vendendo o
+Remotion como serviço). Detalhes em `project_business_plan_artifact` na
+memória.
 
 ## 2026-09-25 (madrugada, continuação) — Loop de melhoria contínua, widget de sugestão, mídia kit, auditoria de SEO, pesquisa de concorrente
 
