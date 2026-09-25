@@ -8,6 +8,7 @@ import { AwardIcon, StarIcon, ClockIcon, TrendingDownIcon } from "../../../compo
 import { getPlatformInfo } from "../../../lib/site/platforms";
 import { TrackedOfferLink } from "../../../components/site/TrackedOfferLink";
 import { ShareButton } from "../../../components/site/ShareButton";
+import { PriceSparkline } from "../../../components/site/PriceSparkline";
 
 export async function generateMetadata({ params }: { params: { slug: string } }) {
   const product = await getCachedProduct(params.slug);
@@ -143,6 +144,21 @@ export default async function ProductPage({ params }: { params: { slug: string }
                 <div className="dc-card-price" style={{ fontSize: 26 }}>
                   {price}
                 </div>
+              </div>
+            ) : null}
+
+            {priceHistory.dailySeries.length >= 7 ? (
+              <div style={{ marginTop: 10 }}>
+                <p style={{ fontSize: 11.5, fontWeight: 700, color: "var(--dc-text-muted)", marginBottom: 4 }}>
+                  Histórico monitorado: {priceHistory.dailySeries.length} dias
+                  {/* Achado real do ChatGPT (2026-09-25): não dizer "40 dias"
+                      antes da hora, e deixar claro de qual loja é o
+                      histórico quando o produto tem oferta em mais de uma
+                      (o preço mostrado é sempre da oferta em destaque, que
+                      pode trocar de loja ao longo do tempo). */}
+                  {remainingOffers.length > 0 ? ` nessa loja (${bestPlatform.label})` : ""}
+                </p>
+                <PriceSparkline series={priceHistory.dailySeries} />
               </div>
             ) : null}
 

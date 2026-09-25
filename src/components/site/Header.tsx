@@ -1,20 +1,16 @@
 import { Logo } from "./Logo";
-import { PLATFORM_INFO } from "../../lib/site/platforms";
 import { HeartIcon, SearchIcon } from "./icons";
-
-/**
- * Lojas que o comparador realmente já traz dado real. As outras aparecem
- * apagadas com "em breve": mostra pra onde o produto está indo sem fingir
- * que já compara com elas (nenhuma delas tem link, de propósito).
- */
-const AVAILABLE_PLATFORMS = ["shopee", "nike", "olympikus"];
+import { MobileNavDrawer } from "./MobileNavDrawer";
 
 /**
  * Menu de navegação real no desktop (achado real 2026-09-25: não
  * existia NENHUM link de navegação além do logo -- Lojas Parceiras,
  * Blog (guias) e Cupons só eram alcançáveis via rodapé/URL direta,
  * pedido do Heber pra ficar mais parecido com um comparador "padrão").
- * Some no mobile (BottomNav já cobre isso).
+ * Some no mobile (texto), mas os mesmos itens ficam no hambúrguer --
+ * achado real 2026-09-25: sem isso, Lojas Parceiras/Cupons/Blog ficavam
+ * inalcançáveis pelo cabeçalho no mobile (a barra inferior só cobre
+ * Início/Buscar/Favoritos/Categorias/WhatsApp).
  */
 const NAV_ITEMS = [
   { href: "/", label: "Início" },
@@ -25,15 +21,17 @@ const NAV_ITEMS = [
 ];
 
 /**
- * Cabeçalho fixo em três fileiras (logo, busca, lojas) — a busca fica
- * sempre visível em qualquer página, sem depender do Hero da Home. O
- * WhatsApp já tem lugar de sobra no site (rodapé, barra fixa do mobile,
- * página de produto), não precisa de mais um atalho aqui.
+ * Cabeçalho fiel à spec literal tirada das 4 imagens de referência (ver
+ * memória project_header_literal_spec_v1) -- nenhuma delas mostra a fileira
+ * de chips de loja no cabeçalho; essa informação já vive de verdade na
+ * página /lojas-parceiras (com contagem real por loja), então não foi
+ * duplicada aqui.
  */
 export function Header() {
   return (
     <header className="dc-header">
       <div className="dc-shell dc-header-row">
+        <MobileNavDrawer items={NAV_ITEMS} />
         <Logo />
         <nav className="dc-header-nav" aria-label="Navegação principal">
           {NAV_ITEMS.map((item) => (
@@ -65,21 +63,6 @@ export function Header() {
             Buscar
           </button>
         </form>
-        <div className="dc-header-platforms">
-          {Object.entries(PLATFORM_INFO).map(([key, info]) => {
-            const available = AVAILABLE_PLATFORMS.includes(key);
-            return (
-              <span
-                key={key}
-                className={`dc-platform-pill${available ? "" : " dc-platform-soon"}`}
-                style={available ? { background: info.color, color: info.textColor } : undefined}
-                title={available ? undefined : `${info.label} — em breve`}
-              >
-                {info.label}
-              </span>
-            );
-          })}
-        </div>
       </div>
     </header>
   );

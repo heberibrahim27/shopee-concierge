@@ -63,6 +63,182 @@ abrir `/busca?q=fone+bluetooth` e ver se a terceira seção aparece.
 `npx tsc --noEmit` limpo; `next build` compilou todas as rotas (o único
 erro é o pré-render de `/media-kit` sem `SUPABASE_URL` no container,
 anterior a esta mudança e inexistente na Vercel).
+## 2026-09-25 (tarde, continuação 13) — Chips de loja removidos do cabeçalho + menu hambúrguer no mobile (lacuna real corrigida)
+
+Heber pediu pra terminar o redesign. Nenhuma das 4 imagens de
+referência mostra a fileira de chips de loja (Shopee/KaBuM!/etc) no
+cabeçalho -- removi (essa informação já existe de verdade na página
+/lojas-parceiras, com contagem ao vivo, não duplicada).
+
+Achado real ao tirar a fileira de chips: percebi que no mobile o menu
+de texto (`Lojas Parceiras`, `Cupons`, `Blog`) já ficava escondido
+sem nenhuma substituição -- a barra inferior só cobre Início/Buscar/
+Favoritos/Categorias/WhatsApp. Essas 3 páginas ficavam inalcançáveis
+pelo cabeçalho no celular. O menu hambúrguer do mockup não é só
+estética, resolve isso de verdade.
+
+Construí `MobileNavDrawer.tsx` -- botão hambúrguer (só aparece no
+mobile, mesmo breakpoint que já existia) que abre um painel lateral
+com os mesmos links do menu desktop, fecha ao clicar fora ou num
+link. Testado ao vivo: abre, fecha, navega de verdade pra
+Lojas Parceiras (confirmei a página carregando). Desktop sem nenhuma
+mudança visual (hambúrguer fica escondido).
+
+tsc limpo, `next build` completo sem erro. Um erro de console
+"BellIcon is not defined" que continuava aparecendo era histórico
+acumulado de uma aba antiga (3+ horas de sessão) -- confirmei abrindo
+uma aba nova do zero, zero erro real.
+
+## 2026-09-25 (tarde, continuação 12) — Ajustes reais pedidos pelo ChatGPT + benchmark de receita real do mercado
+
+ChatGPT revisou o que publiquei (sparkline + comissão Awin no admin)
+e pegou duas coisas reais que eu não tinha coberto:
+
+1. O rótulo do sparkline não dizia quantos dias esse gráfico
+   específico cobre, e não deixava claro que o histórico é da oferta
+   em destaque (pode trocar de loja) quando o produto tem mais de uma
+   loja vinculada. Corrigido: "Histórico monitorado: X dias" + "nessa
+   loja (Nome)" quando aplicável.
+2. O admin somava comissão pendente + validada sob o rótulo "Receita
+   gerada" -- comissão pendente não é receita realizada. Renomeado
+   pra "Comissão total (pendente + validada)" nos dois blocos
+   (Shopee e Awin), deixando explícito que parte pode não se
+   confirmar.
+
+Testado local (label do sparkline confirmado com produto real de 6
+dias), tsc limpo, publicado.
+
+Também recebi (via outra sessão do Heber, Fable 5) um benchmark real
+de receita por mil visitas do nosso nicho, com fontes citadas
+(Promobit ~R$43/mil visitas na venda pra Méliuz, Zoom/Mosaico
+~R$274/mil visitas no teto do nicho). Não verifiquei cada número
+pessoalmente contra a fonte original, mas a conclusão bate com tudo
+que já sabíamos: com ~328 visualizações/30 dias (4-6 visitas/dia),
+estamos bem abaixo de qualquer modelo de monetização virar receita de
+verdade -- tráfego continua sendo o gargalo real, não falta de
+camada de receita. Documentado, não muda nenhuma decisão já tomada,
+só confirma a ordem de prioridade (SEO/tráfego antes de mais
+monetização).
+
+## 2026-09-25 (tarde, continuação 11) — Gráfico de histórico de preço construído (versão honesta, não o gauge completo)
+
+Antes de construir o gauge de 40 dias que o Zoom tem, chequei o dado
+real: o domínio tem 12 dias, e o produto com MAIS histórico no
+catálogo inteiro tem só 6 dias distintos de captura de preço. Um
+gauge de "preço bom/normal/alto" com 2-3 pontos ficaria vazio --
+decidi não construir isso ainda, seria prometer profundidade que a
+gente não tem de verdade.
+
+Construí uma versão menor e honesta no lugar: `getCachedProductPriceHistory`
+agora também devolve a série diária (mesma query, sem consulta nova
+no banco), e um componente `PriceSparkline` (SVG puro, sem lib de
+gráfico) aparece na página de produto -- mas só quando o produto tem
+7+ dias reais de histórico. Com menos que isso, a linha fica quase
+reta e passa desconfiança em vez de informação, então simplesmente
+não aparece (o selo "menor preço que monitoramos" já cobre esse
+caso).
+
+Hoje NENHUM produto ainda bate os 7 dias (máximo real é 6) -- testei
+isso de propósito, baixando o corte temporariamente pra 5 contra dois
+produtos reais (um com preço parado, outro com queda e alta reais) só
+pra confirmar que o componente renderiza certo, e voltei o corte pra
+7 antes de publicar. O gráfico vai começar a aparecer sozinho conforme
+os dias de captura acumularem -- não precisa de mais código.
+
+Divisão de trabalho combinada com outra sessão do Heber (a "Fable 5",
+que também está mexendo no projeto): ela fica com as páginas de cupom
+por loja (`/cupom/[loja]`, `/loja/[slug]`), eu fiquei com esse
+gráfico -- arquivos diferentes, sem conflito.
+
+## 2026-09-25 (tarde, continuação 10) — Pesquisa real: como o Zoom faz alerta de preço e o selo "preço bom"
+
+Fui direto no produto de verdade no Zoom.com.br conferir as duas
+peças que ainda faltam no nosso redesign (alerta de preço, selo de
+"preço bom"), em vez de inventar como implementar.
+
+Alerta de preço: no Zoom é um toggle na página do produto, mas clicar
+já pede login (Google/Facebook/e-mail) -- eles avisam por "meios de
+comunicação que você escolheu". Isso confirma que o nosso plano (push
+do navegador, sem precisar de login) é uma simplificação real e não
+um corte de canto -- push é anônimo por natureza (fica preso ao
+navegador, não a uma conta), o Zoom só precisa de login porque
+escolheu avisar por outros canais tipo e-mail.
+
+Selo "preço bom": um indicador visual (verde/amarelo/vermelho) que
+usa os 40 dias de menor preço diário pra dizer se o preço atual está
+bom, normal ou alto -- metodologia real, divulgada na própria tela.
+Achado técnico real: já temos boa parte do dado (offer_snapshots com
+captured_at por linha), só falta agregar por dia em vez de só guardar
+o mínimo histórico geral -- é construível com o que já temos, sem
+integração nova. Não construí ainda, deixei documentado como próxima
+peça candidata.
+
+## 2026-09-25 (tarde, continuação 9) — Comissão real da Awin agora aparece no admin
+
+Heber perguntou direto: "temos que colocar no nosso admin se chegar
+alguma comissão dela via API?". Testei antes de responder: o endpoint
+`/transactions` da Awin funciona de verdade com nosso token (200
+confirmado), limite real de 31 dias por chamada (erro 400 testando
+range maior). Construí e publiquei:
+
+- `src/lib/awin/revenue.ts` -- busca transações reais, mesmo padrão de
+  soma de comissão que já existia pra Shopee.
+- `lib/admin/stats.ts` -- Awin e Shopee buscados em blocos
+  independentes (falha de uma não derruba a outra).
+- Painel admin: novo bloco "Receita e conversões — Awin (Kabum, Nike,
+  Olympikus)" ao lado do da Shopee.
+
+Hoje mostra R$0 -- dado real, não bug: nenhum dos 3 programas
+(Kabum/Nike/Olympikus) teve venda confirmada ainda nos últimos 30
+dias. Não consegui testar visualmente no painel local porque o Heber
+trocou a senha do admin pelo próprio painel em algum momento (fica no
+Supabase agora, não no `.env` local que eu tenho) -- compensei com
+`tsc` limpo, `next build` completo sem erro, e o endpoint da Awin
+testado isolado antes de integrar. Publicado junto com o commit
+anterior (cabeçalho/logo), num lote só.
+
+## 2026-09-25 (tarde, continuação 8) — Rechecagem real da Awin: leads de sportswear novos, eletrônicos ainda parados
+
+Conferi de novo (via API real, não suposição) quantos programas da
+Awin a conta já tem de verdade: continua só 3 -- Nike BR, Olympikus
+BR, Kabum BR. Os leads de eletrônicos (Renner/Riachuelo/Acer/iPlace/
+Gigantec) surgidos antes continuam sem aprovação -- ainda depende do
+Heber agir no painel da Awin (não tem endpoint de API pra isso).
+
+Achado novo: vasculhei os 233 anunciantes brasileiros ainda não
+conectados atrás de mais alguém na categoria que JÁ funciona de
+verdade pra gente (esporte, via Nike/Olympikus) -- achei 5 reais:
+adidas BR, PUMA BR, Under Armour BR, Centauro BR e Decathlon BR.
+Diferente dos leads de eletrônicos, esses não pedem nenhuma engenharia
+nova -- é a mesma categoria que já roda (ingestão, site, Instagram),
+só falta o Heber aprovar no painel.
+
+## 2026-09-25 (tarde, continuação 7) — Cabeçalho claro + logo nova publicados (peça final do redesign de cor)
+
+Heber gerou a logo nova (navy+terracota, sem verde) no ChatGPT certo
+(a sessão que fez as 4 imagens originais, não a de debate) e mandou o
+arquivo direto no chat. Apliquei: `public/LOGO-LIGHT.png`, cabeçalho
+trocado pra fundo claro de verdade (#FDFBF7, literal da spec tirada
+pixel a pixel das 4 imagens), texto/ícones navy, terracota só como
+cor ativa. Busca virou pill branca com borda sutil. Testado local
+desktop+mobile em home/produto/lojas-parceiras antes de publicar --
+sem regressão. Confirmado ao vivo em produção via screenshot direto,
+bate com o mockup de verdade agora (não é mais a versão escura
+intermediária).
+
+Achado à parte durante o teste: apareceu um erro de console
+"BellIcon is not defined" mesmo com o código já limpo -- era cache
+antigo do servidor de dev (`.next`), não bug real. Limpei o cache e
+reiniciei, confirmado que sumiu.
+
+**Aviso real do Heber sobre custo da Vercel**: 66 commits só hoje,
+cada um builda de novo -- ele viu as notificações chegando toda hora
+e ficou preocupado com surpresa na fatura. Consultei o gasto real
+(Vercel MCP): ~US$0,83-1,50/dia, "Build CPU Minutes" é o maior item --
+valor baixo em dólar, mas a frequência de push é o problema de
+verdade. Juntei o que faltava (4 arquivos) num commit só antes de
+publicar, e vou manter essa disciplina daqui pra frente -- não
+publicar mais por partes.
 
 ## 2026-09-25 (tarde, continuação 6) — Publisher do Telegram construído (ainda inativo, esperando token)
 
