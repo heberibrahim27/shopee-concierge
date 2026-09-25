@@ -260,6 +260,26 @@ Testado ao vivo (preview local, mobile): home, produto e cupons
 conferidos visualmente, zero verde fora do admin, `tsc` e `next build`
 limpos.
 
+## 2026-09-26 (continuação) — Correção real do bug de hover no toque (raiz, não sintoma)
+
+Heber confirmou com print em produção que o `padding-top` não resolveu o
+corte de borda no toque. Causa real: `:hover` é efeito de MOUSE, e no
+toque mobile ele "gruda" (Safari/Chrome mobile aplicam `:hover` no tap e
+só soltam no próximo toque em outro lugar) -- por mais padding que desse
+na fileira, qualquer solução que dependesse de "dar espaço" ia
+eventualmente falhar pra algum caso. Corrigido na raiz: `.dc-card:hover`
+e `.dc-featured-cat-tile:hover` agora só existem dentro de
+`@media (hover: hover)` -- nunca disparam onde não existe mouse de
+verdade. Verificado ao vivo: `matchMedia('(hover: hover)')` retorna
+`false` no viewport mobile emulado (mesmo `pointer: coarse` do iPhone
+real), confirmando que a regra realmente não ativa em toque.
+
+De brinde, mais 2 ajustes pedidos com print: cards de categoria
+reduzidos de novo (`clamp(84,108)` → `clamp(68,86)`) e filtro de
+clareamento da chaleira reforçado (`brightness(1.55) saturate(0.35)
+contrast(0.85)`, era 1.35/0.92) -- fundo cinza claro ainda aparecia
+como cor, não branco puro.
+
 ## 2026-09-26 (continuação) — Curadoria manual das fotos de categoria + 2 bugs reais de mobile
 
 Heber revisou a seção "Explore por categoria" e pediu ajustes em sequência,

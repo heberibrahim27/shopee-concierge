@@ -493,8 +493,8 @@ a.dc-cat-page-tile:hover .dc-cat-tile-fallback {
 }
 
 .dc-featured-cat-tile {
-  flex: 0 0 clamp(84px, 23vw, 108px);
-  width: clamp(84px, 23vw, 108px);
+  flex: 0 0 clamp(68px, 19vw, 86px);
+  width: clamp(68px, 19vw, 86px);
   scroll-snap-align: start;
   display: block;
   text-decoration: none;
@@ -506,9 +506,19 @@ a.dc-cat-page-tile:hover .dc-cat-tile-fallback {
   transition: transform 0.15s ease, border-color 0.15s ease;
 }
 
-.dc-featured-cat-tile:hover {
-  transform: translateY(-2px);
-  border-color: var(--dc-brand-deep);
+/* @media (hover: hover) -- achado real 2026-09-26 (print do Heber, 2ª
+   rodada: o padding-top na fileira não bastou): o efeito de "levantar"
+   no :hover é coisa de mouse. No toque, o :hover fica "grudado" até o
+   próximo toque em outro lugar (comportamento nativo do Safari/Chrome
+   mobile), e a fileira com scroll horizontal corta esse levantamento
+   (overflow-x:auto força overflow-y:auto -- não dá pra ter um eixo
+   visible e o outro auto). Corrigido na raiz: só aplica em quem
+   realmente tem mouse/hover de verdade, nunca dispara no toque. */
+@media (hover: hover) {
+  .dc-featured-cat-tile:hover {
+    transform: translateY(-2px);
+    border-color: var(--dc-brand-deep);
+  }
 }
 
 .dc-featured-cat-photo {
@@ -794,10 +804,14 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
-.dc-card:hover {
-  transform: translateY(-3px);
-  border-color: var(--dc-brand-deep);
-  box-shadow: 0 14px 28px rgba(20, 17, 12, 0.12);
+/* Ver nota de @media (hover: hover) em .dc-featured-cat-tile:hover --
+   mesmo achado real, mesmo motivo, mesma correção. */
+@media (hover: hover) {
+  .dc-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--dc-brand-deep);
+    box-shadow: 0 14px 28px rgba(20, 17, 12, 0.12);
+  }
 }
 
 .dc-card-image img {

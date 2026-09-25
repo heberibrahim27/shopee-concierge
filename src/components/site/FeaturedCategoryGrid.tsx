@@ -90,7 +90,7 @@ export function FeaturedCategoryGrid() {
               src={cat.imageUrl}
               alt={cat.alt}
               loading="lazy"
-              style={cat.whiten ? { filter: "brightness(1.35) contrast(0.92)" } : undefined}
+              style={cat.whiten ? { filter: "brightness(1.55) saturate(0.35) contrast(0.85)" } : undefined}
             />
           </div>
           <div className="dc-featured-cat-text">
