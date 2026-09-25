@@ -24,7 +24,7 @@ export default function GuidesIndexPage() {
         <section className="dc-section dc-guide-list">
           {GUIDES.map((guide) => (
             <a key={guide.slug} className="dc-guide-list-item" href={`/guia/${guide.slug}`}>
-              <h2>{guide.title}</h2>
+              <h3>{guide.title}</h3>
               <p>{guide.description}</p>
             </a>
           ))}

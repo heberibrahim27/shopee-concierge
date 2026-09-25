@@ -32,6 +32,7 @@ export const GUIDES: GuideDefinition[] = [
   {
     slug: "kabum-ou-shopee-onde-ssd-e-mais-barato",
     title: "Kabum ou Shopee: onde o SSD sai mais barato?",
+    categorySlug: "eletronicos",
     description:
       "Comparamos o mesmo SSD, exatamente o mesmo modelo, em Kabum e Shopee — o preço muda mais do que parece.",
     intro:
@@ -58,6 +59,7 @@ export const GUIDES: GuideDefinition[] = [
   {
     slug: "ssd-nvme-ou-sata-qual-comprar",
     title: "SSD NVMe ou SATA: qual a diferença na prática?",
+    categorySlug: "eletronicos",
     description:
       "NVMe e SATA são dois tipos de SSD bem diferentes na velocidade e no preço — veja qual faz sentido pro seu uso.",
     intro:
@@ -96,6 +98,7 @@ export const GUIDES: GuideDefinition[] = [
   {
     slug: "tv-4k-50-polegadas-o-que-olhar-antes-de-comprar",
     title: "TV 4K de 50\": o que olhar antes de comprar",
+    categorySlug: "eletronicos",
     description:
       "Resolução, taxa de atualização e HDMI são os pontos que realmente importam — e o mesmo modelo pode custar diferente em cada loja.",
     intro:
@@ -116,6 +119,7 @@ export const GUIDES: GuideDefinition[] = [
   {
     slug: "notebook-ate-4000-reais-os-mais-em-conta",
     title: "Notebook até R$4.000: os modelos mais em conta hoje",
+    categorySlug: "eletronicos",
     description:
       "Levantamento real do catálogo: hoje o notebook mais barato que vendemos custa a partir de R$3.199 — veja as opções.",
     intro:
@@ -138,6 +142,7 @@ export const GUIDES: GuideDefinition[] = [
   {
     slug: "tenis-olympikus-guia-dos-modelos",
     title: "Tênis Olympikus: guia rápido dos modelos",
+    categorySlug: "esporte",
     description: "Conferimos no catálogo os modelos reais disponíveis hoje e o que diferencia cada linha.",
     intro:
       "A Olympikus tem várias linhas de tênis, e o nome do modelo já indica bastante sobre a proposta de cada um. Reunimos aqui os que estão disponíveis agora, do mais simples ao mais em conta.",
@@ -192,4 +197,14 @@ export const GUIDES: GuideDefinition[] = [
 
 export function getGuideBySlug(slug: string): GuideDefinition | undefined {
   return GUIDES.find((g) => g.slug === slug);
+}
+
+/**
+ * Guias ligados a uma categoria -- usado pra linkar dos guias nas
+ * páginas de categoria de verdade (antes só eram alcançáveis por /guia
+ * e pelo sitemap, achado real registrado no dia em que os guias foram
+ * publicados).
+ */
+export function getGuidesForCategory(categorySlug: string): GuideDefinition[] {
+  return GUIDES.filter((g) => g.categorySlug === categorySlug);
 }

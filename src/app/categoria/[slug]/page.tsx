@@ -7,6 +7,7 @@ import { getCategoryBySlug, SITE_CATEGORIES } from "../../../lib/site/categories
 import { getCachedCategory, getCachedViablePriceThresholds } from "../../../lib/site/catalog";
 import { Breadcrumb } from "../../../components/site/Breadcrumb";
 import { CATEGORY_ICONS } from "../../../components/site/icons";
+import { getGuidesForCategory } from "../../../lib/site/guides";
 
 export function generateStaticParams() {
   return SITE_CATEGORIES.map((category) => ({ slug: category.slug }));
@@ -31,6 +32,7 @@ export default async function CategoryPage({ params }: { params: { slug: string 
     getCachedViablePriceThresholds(category.slug),
   ]);
   const Icon = CATEGORY_ICONS[category.slug];
+  const relatedGuides = getGuidesForCategory(category.slug);
 
   return (
     <>
@@ -63,6 +65,17 @@ export default async function CategoryPage({ params }: { params: { slug: string 
             emptyMessage="Ainda não temos produtos publicados nessa categoria. Manda uma foto no WhatsApp que a gente procura pra você."
           />
         </section>
+        {relatedGuides.length > 0 ? (
+          <section className="dc-section dc-guide-list">
+            <h2>Guias de compra</h2>
+            {relatedGuides.map((guide) => (
+              <a key={guide.slug} className="dc-guide-list-item" href={`/guia/${guide.slug}`}>
+                <h3>{guide.title}</h3>
+                <p>{guide.description}</p>
+              </a>
+            ))}
+          </section>
+        ) : null}
         <a className="dc-back-link" href="/">
           ← Voltar pra Home
         </a>

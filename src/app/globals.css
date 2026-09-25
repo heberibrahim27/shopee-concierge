@@ -2064,7 +2064,7 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   color: var(--dc-text);
 }
 
-.dc-guide-list-item h2 {
+.dc-guide-list-item h3 {
   font-family: var(--font-heading);
   font-weight: 700;
   font-size: 16px;
