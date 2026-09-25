@@ -4,6 +4,31 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (manhã, continuação) — Concorrente Instagram real (@promos.lari) + achado: Renner já dá pra pedir na nossa conta Awin
+
+Primeira pesquisa da sessão focada em conta de achadinhos NATIVA do
+Instagram (antes só tinha pesquisado site comparador/cashback --
+Pelando, Cuponomia, Méliuz, Zoom/Buscapé). `@promos.lari` (4.845
+seguidores, ~3x o nosso) usa exatamente a mesma estrutura de funil que a
+gente já usa: nome com palavra-chave, bio curta, 1 link (Linktree) que
+manda pro grupo de WhatsApp. Confirma que nossa estrutura já bate com o
+que uma conta maior do nicho faz -- não é gap, é validação.
+
+Instagram deslogado limita muito o que dá pra ver (só 3 posts do grid
+sem login), então não confirmei estilo de conteúdo real (rosto humano x
+foto de produto) além da bio/destaques.
+
+**Achado novo real**: os destaques dela incluem Renner e Riachuelo
+(moda). Chequei se dá pra ter isso também -- o programa "Favoritos
+Renner" roda na Awin, MESMA rede que já temos conta aprovada (Nike/
+Olympikus/Kabum). Rodei `listAwinFeeds()` contra a conta real: Renner
+NÃO está entre os 4 feeds ativos hoje. Mesmo padrão do gap já documentado
+de Magalu/Americanas -- precisa pedir aprovação como anunciante novo
+dentro da Awin (passo de negócio, provavelmente CNPJ do Heber), não é
+código. Vale propor pro Heber como próximo anunciante pra pedir --
+moda/vestuário é categoria real que hoje não cobrimos (só tênis +
+eletrônicos na Awin).
+
 ## 2026-09-25 (manhã, continuação) — Mandei pro Heber os 2 pontos que dependem dele (Search Console + conteúdo editorial)
 
 Os dois itens que sobraram da pesquisa de monetização precisam de
