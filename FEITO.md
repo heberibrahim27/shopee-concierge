@@ -46,6 +46,18 @@ follow">`.
 **Não feito ainda**: nenhuma página existente (produto/categoria) linka
 pros guias novos ainda -- só alcançáveis por /guia e pelo sitemap.
 
+**Resolvido no mesmo dia**: adicionei `categorySlug` em cada guia
+(conferido contra `category_slug` real no banco, não assumido -- SSD/TV/
+notebook são `eletronicos`, tênis Olympikus é `esporte`) e uma seção
+"Guias de compra" no fim de cada página de categoria que bate, linkando
+os guias relevantes. O guia universal (sem categoria específica, "como
+sabemos se um preço é bom") ficou linkado no rodapé, alcançável de
+qualquer página do site. Testado ao vivo em produção via inspeção direta
+do DOM: `/categoria/eletronicos` mostra os 4 guias certos + link do
+rodapé, `/categoria/esporte` mostra o guia de tênis + link do rodapé.
+Ainda falta: link direto de página de PRODUTO individual pro guia
+relacionado (só categoria por enquanto).
+
 ## 2026-09-25 (manhã, continuação) — Respondi pergunta original do Heber: dá pra vender dado agregado de preço B2B?
 
 Essa pergunta ficou sem resposta real desde o início da sessão (o
