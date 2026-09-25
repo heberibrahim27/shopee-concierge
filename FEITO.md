@@ -4,6 +4,26 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (madrugada, continuação) — Produção verificada, ESP escolhido, CPA fundamentado
+
+Confirmei em produção (não só local) que o `/go` está de verdade no ar
+(`curl` real, 302 correto). Nenhum post automático saiu ainda desde o
+deploy — esperado, os crons só rodam dentro do horário diurno (8h-21h
+Brasília), vou conferir o primeiro post real de manhã. Caixa de
+sugestão do site segue vazia (esperado, pouco tráfego ainda).
+
+Pesquisei CPA (Custo por Aquisição) de verdade — modelo real e
+estabelecido no Brasil, pagamento só na venda validada, rastreado via
+link/UTM — confirma que o `/go` que já construí é exatamente a base
+técnica que esse modelo precisa, não é preciso construir nada novo pra
+isso, só fechar acordo com marca quando fizer sentido.
+
+**Decisão técnica: Resend como provedor de e-mail** pra quando a lista
+própria (Fase 1) for construída — verifiquei que o plano grátis real é
+3.000 e-mails/mês, 100/dia, cobre nosso volume por bastante tempo, e
+encaixa no stack Next.js/Vercel que já usamos. Não conectado ainda, só
+decidido.
+
 ## 2026-09-25 (madrugada, continuação) — /go ligado também no WhatsApp
 
 Investiguei de verdade (lendo `zapi.ts`, não supondo) se trocar o link
