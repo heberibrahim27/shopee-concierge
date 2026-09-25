@@ -3,7 +3,7 @@ import { Footer } from "../components/site/Footer";
 import { FeaturedCategoryGrid } from "../components/site/FeaturedCategoryGrid";
 import { ProductGrid } from "../components/site/ProductGrid";
 import { CouponSection } from "../components/site/CouponSection";
-import { getCachedTodayPosts, getCachedFeaturedCategoryPhotos } from "../lib/site/catalog";
+import { getCachedTodayPosts } from "../lib/site/catalog";
 import { getCachedCoupons } from "../lib/site/coupons";
 import { GUIDES } from "../lib/site/guides";
 
@@ -15,11 +15,7 @@ export default async function HomePage() {
   // automação posta 20x/dia). Produtos publicados fora desse fluxo (ex:
   // Awin/Nike/Olympikus) continuam visíveis nas categorias, só não
   // aparecem mais aqui.
-  const [offers, coupons, categoryPhotos] = await Promise.all([
-    getCachedTodayPosts(),
-    getCachedCoupons(),
-    getCachedFeaturedCategoryPhotos(),
-  ]);
+  const [offers, coupons] = await Promise.all([getCachedTodayPosts(), getCachedCoupons()]);
 
   return (
     <>
@@ -32,13 +28,22 @@ export default async function HomePage() {
           custo-benefício.
         </h1>
 
-        {/* Reordenado 2026-09-25 (brief real do redesign, ver memória
-            project_site_redesign_2026_09_25 -- crítica do ChatGPT que o
-            Heber trouxe: a home hoje parece "portal de cupom" porque
-            banner e cupom aparecem ANTES de produto/preço/comparação.
-            Fix: produto real primeiro, categoria compacta em seguida,
-            banner institucional e cupom descem de prioridade. */}
+        {/* Reordenado 2026-09-26 (mockup novo do Heber: categoria vem
+            ANTES dos produtos, "a categoria fica em cima dos produtos").
+            Reordenação anterior (2026-09-25, crítica do ChatGPT) já tinha
+            posto produto antes de banner/cupom -- essa parte continua
+            valendo, só a posição relativa categoria x produto mudou. */}
         <section className="dc-section" style={{ paddingBlock: "10px 4px" }}>
+          <div className="dc-coupon-section-head">
+            <h2 className="dc-icon-inline">⚡ Explore por categoria</h2>
+            <a className="dc-coupon-see-all" href="/categorias">
+              Ver todas →
+            </a>
+          </div>
+          <FeaturedCategoryGrid />
+        </section>
+
+        <section className="dc-section" style={{ paddingBlock: "6px 4px" }}>
           <h2 className="dc-icon-inline">
             <img src="/OFERTAS-ICON.png" alt="" aria-hidden="true" className="dc-offers-icon" />
             Ofertas de hoje
@@ -48,16 +53,6 @@ export default async function HomePage() {
             emptyMessage="Ainda não temos ofertas publicadas aqui — em breve. Enquanto isso, manda uma foto no WhatsApp que a gente procura na hora."
             layout="scroll"
           />
-        </section>
-
-        <section className="dc-section" style={{ paddingBlock: "6px 4px" }}>
-          <div className="dc-coupon-section-head">
-            <h2 className="dc-icon-inline">⚡ Explore por categoria</h2>
-            <a className="dc-coupon-see-all" href="/categorias">
-              Ver todas →
-            </a>
-          </div>
-          <FeaturedCategoryGrid photos={categoryPhotos} />
         </section>
 
         {/* Achado real (2026-09-25): Heber não viu os guias porque não

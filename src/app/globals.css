@@ -449,15 +449,53 @@ a.dc-cat-page-tile:hover .dc-cat-tile-fallback {
 
 /* "Explore por categoria" da home -- ladrilho com foto real (ver
    FeaturedCategoryGrid.tsx), diferente do ícone+texto do dc-cat-grid
-   acima (que continua em /categoria/[slug]). 3 colunas fixas (6
-   categorias = 2 linhas), igual ao mockup. */
+   acima (que continua em /categoria/[slug]). Achado real 2026-09-26
+   (Heber, referência): linha única com rolagem horizontal, mesmo padrão
+   de .dc-grid-scroll -- não grade 3x2. */
 .dc-featured-cat-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  /* padding-top: com overflow-x:auto, overflow-y vira "auto" também (regra
+     do spec CSS -- não dá pra ter um eixo visible e o outro auto), então
+     o translateY(-3px) do hover/toque (achado real 2026-09-26, print do
+     Heber: borda cortada em cima ao pressionar) ficava cortado sem esse
+     respiro. */
+  padding-top: 6px;
+  padding-bottom: 4px;
+  margin: 0 -18px;
+  padding-inline: 18px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+/* Barra de scroll escondida nas fileiras horizontais do cliente (achado
+   real 2026-09-26, print do Heber: a barrinha cinza aparecia visível
+   embaixo do carrossel) -- funciona igual, só não mostra a barra nativa. */
+.dc-sort-bar,
+.dc-cat-grid-scroll,
+.dc-featured-cat-grid,
+.dc-promo-scroll,
+.dc-grid-scroll,
+.dc-coupon-scroll {
+  scrollbar-width: none;
+}
+
+.dc-sort-bar::-webkit-scrollbar,
+.dc-cat-grid-scroll::-webkit-scrollbar,
+.dc-featured-cat-grid::-webkit-scrollbar,
+.dc-promo-scroll::-webkit-scrollbar,
+.dc-grid-scroll::-webkit-scrollbar,
+.dc-coupon-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .dc-featured-cat-tile {
+  flex: 0 0 clamp(84px, 23vw, 108px);
+  width: clamp(84px, 23vw, 108px);
+  scroll-snap-align: start;
   display: block;
   text-decoration: none;
   color: var(--dc-text);
@@ -475,32 +513,34 @@ a.dc-cat-page-tile:hover .dc-cat-tile-fallback {
 
 .dc-featured-cat-photo {
   aspect-ratio: 1 / 1;
-  background: #f2ede6;
+  background: #ffffff;
   overflow: hidden;
 }
 
 .dc-featured-cat-photo img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .dc-featured-cat-text {
-  padding: 8px 9px 10px;
+  padding: 6px 7px 8px;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 1px;
+  text-align: center;
 }
 
 .dc-featured-cat-label {
   font-family: var(--font-heading);
   font-weight: 700;
-  font-size: 12.5px;
+  font-size: 11.5px;
   line-height: 1.2;
 }
 
 .dc-featured-cat-subtitle {
-  font-size: 10.5px;
+  font-size: 9.5px;
   color: var(--dc-text-muted);
   line-height: 1.25;
   display: -webkit-box;

@@ -599,39 +599,3 @@ export function getCachedTodayPosts(): Promise<SiteProduct[]> {
   })();
 }
 
-/**
- * Uma foto real de produto por categoria (o mais vendido com imagem),
- * pra usar como capa nos ladrilhos "Explore por categoria" da home
- * (achado real 2026-09-26, pedido do Heber pra bater com o mockup: foto
- * de verdade, não ícone genérico). Nunca produto inventado -- se a
- * categoria não tiver nenhum produto com imagem, simplesmente não entra
- * no mapa (o componente decide o que fazer).
- */
-async function queryFeaturedCategoryPhotos(): Promise<Record<string, { imageUrl: string; productName: string }>> {
-  if (!hasSupabaseEnv()) return {};
-  const db = getDb();
-  const slugs = ["eletronicos", "casa", "beleza", "moda", "esporte", "infantil"];
-  const { data, error } = await db
-    .from("site_catalog")
-    .select("category_slug, product_name, image_url, sales, rating_star")
-    .in("category_slug", slugs)
-    .not("image_url", "is", null)
-    .order("sales", { ascending: false, nullsFirst: false });
-
-  if (error) throw new Error(`Falha ao buscar fotos de categoria: ${error.message}`);
-
-  const bySlug: Record<string, { imageUrl: string; productName: string }> = {};
-  for (const row of data ?? []) {
-    const slug = row.category_slug as string;
-    if (bySlug[slug]) continue;
-    bySlug[slug] = { imageUrl: row.image_url as string, productName: row.product_name as string };
-  }
-  return bySlug;
-}
-
-export function getCachedFeaturedCategoryPhotos(): Promise<Record<string, { imageUrl: string; productName: string }>> {
-  return unstable_cache(queryFeaturedCategoryPhotos, ["featured-category-photos"], {
-    tags: ["home:offers"],
-    revalidate: 3600,
-  })();
-}

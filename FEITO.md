@@ -260,6 +260,47 @@ Testado ao vivo (preview local, mobile): home, produto e cupons
 conferidos visualmente, zero verde fora do admin, `tsc` e `next build`
 limpos.
 
+## 2026-09-26 (continuação) — Curadoria manual das fotos de categoria + 2 bugs reais de mobile
+
+Heber revisou a seção "Explore por categoria" e pediu ajustes em sequência,
+com print a cada rodada (mudou de dinâmico "mais vendido" pra curadoria
+manual):
+
+1. **Fotos inconsistentes** ("ou fundo png ou colorido, não dá pra
+   misturar", "evite foto de pessoas", "apenas o produto na imagem", "um
+   produto por categoria", "pegue o produto que representa a categoria").
+   Baixei e abri ~15 fotos candidatas de verdade (não só olhei o nome)
+   antes de fixar 6, uma por categoria. Achado real: o feed Kabum/Awin
+   (`images2.productserve.com`) força `bg=white` na própria URL -- usado
+   pra Esporte (tênis Nike) direto do CDN da Nike (a Kabum bloqueia
+   hotlink do nosso domínio com 403, então eletrônicos ficou com foto
+   Shopee mesmo). Roupa Nike/Olympikus no feed é sempre foto COM modelo
+   vestindo -- trocado por acessório (relógio) sem gente. Trocado pra
+   lista fixa em código (`FeaturedCategoryGrid.tsx`), não mais "mais
+   vendido" automático -- isso é o que causava a mistura de estilos.
+2. **"Fundo cinza claro não é branco"** -- a foto da chaleira (Casa) não
+   tinha fundo branco garantido (nenhum produto de Casa vem do feed com
+   `bg=white`). Aplicado `filter: brightness(1.35) contrast(0.92)`
+   especificamente nessa foto pra clarear o cinza até ficar
+   equivalente ao branco das outras.
+3. **Bug real de mobile: borda cortada no topo ao tocar o card** -- achado
+   real (print do Heber): `.dc-card:hover` aplica `translateY(-3px)` +
+   borda laranja, e no toque mobile o `:hover` "trava" (comportamento
+   conhecido do Safari/Chrome mobile). Como a fileira horizontal usa
+   `overflow-x: auto`, a regra do CSS overflow faz `overflow-y` virar
+   `auto` também (não dá pra ter um eixo visible e outro auto) -- o
+   levantamento de 3px ficava cortado pela própria caixa da fileira.
+   Corrigido com `padding-top: 6px` nas fileiras horizontais, não
+   removendo o efeito.
+4. **"Ocultar a barra de scroll"** -- `scrollbar-width: none` +
+   `::-webkit-scrollbar { display: none }` em todas as fileiras
+   horizontais voltadas pro cliente (ofertas, categorias, banner,
+   cupons, ordenação) -- o scroll continua funcionando, só não mostra
+   mais a barra cinza nativa.
+
+Testado ao vivo a cada rodada (preview local, JS medindo bounding rects
+reais pro bug do hover). `tsc` e `next build` limpos.
+
 ## 2026-09-26 (continuação) — "Explore por categoria" com fotos reais (novo mockup)
 
 Heber mandou um novo mockup (home completa, referência distinta da
