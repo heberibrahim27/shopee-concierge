@@ -4,6 +4,44 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-26 — Alerta de queda de preço por WhatsApp (sem cadastro, custo zero)
+
+Recurso número um de retorno recorrente num comparador (Promotech faz
+sem conta; Zoom pede login porque avisa por e-mail). Nada novo pra pagar:
+usa a Z-API que já roda o grupo e o concierge (cobrada por instância,
+não por mensagem) e o `offer_snapshots` que os crons já alimentam.
+
+**Como funciona**
+- Página de produto ganhou, embaixo do CTA de compra, um botão discreto
+  "🔔 Me avisa no WhatsApp quando baixar" (`PriceAlertForm.tsx`). Abre um
+  formulário de WhatsApp + preço-alvo (sugerido 10% abaixo do preço
+  atual). Sem login, sem conta.
+- `POST /api/price-alert` valida telefone brasileiro de verdade
+  (`normalizeBrazilianPhone`: DDD, celular com 9, fixo 2-5; 10 casos de
+  teste passando), exige alvo MENOR que o preço atual (senão dispararia
+  na hora), limita 20 alertas ativos por número e 10 criações por hora
+  por IP (só o hash do IP vai pro banco), e manda UMA mensagem de
+  boas-vindas só no primeiro alerta de um número — confirma que o número
+  está certo sem virar vetor de spam.
+- Cron diário `/api/cron/price-alerts` (11:50 UTC, depois dos crons de
+  coleta) compara o MENOR preço atual entre o produto e os irmãos do mesmo
+  `group_id` (a oferta em destaque pode trocar de loja) com o alvo; se
+  bateu, manda a mensagem pela Z-API com link rastreado
+  (`/go?src=alerta`, pra medir clique de alerta separado) e fecha o
+  alerta (`status = sent`) — cada alerta dispara uma vez, nunca vira spam
+  diário. Produto que saiu do catálogo cancela com motivo.
+- Tabela `price_alerts` (migration aplicada em produção).
+
+**Testado**: unit test do telefone/mensagem/link com tsx; formulário
+exercitado com Playwright no Chromium do container (fechado → aberto →
+erro de alvo alto → sucesso), com a API simulada; screenshots mobile
+conferidos. **Não testado com dado real**: a rota e o cron contra o
+Supabase/Z-API (container sem `.env`). Primeira conferência depois do
+deploy: criar um alerta com o próprio número num produto qualquer e
+conferir (1) mensagem de boas-vindas chegou, (2) linha em `price_alerts`,
+(3) `curl -H "Authorization: Bearer $CRON_SECRET" /api/cron/price-alerts`
+devolve `checked: 1, sent: 0`.
+
 ## 2026-09-26 — Cupom: "clique pra ver o código" (protege a comissão)
 
 Heber perguntou se cupom rende algo além de tráfego. Rende: o botão do

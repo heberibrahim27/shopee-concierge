@@ -2267,3 +2267,99 @@ a.dc-partner-card:hover {
   border-color: var(--dc-brand-deep);
   transform: translateY(-1px);
 }
+
+/* Alerta de queda de preço (PriceAlertForm.tsx) -- embaixo do CTA de
+   compra na página de produto. Fechado: link discreto; aberto: caixa no
+   mesmo padrão visual da captura de e-mail do rodapé. */
+.dc-price-alert-toggle {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1.5px dashed var(--dc-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dc-text);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.dc-price-alert-toggle:hover {
+  border-color: var(--dc-brand);
+  color: var(--dc-brand-deep);
+}
+.dc-price-alert {
+  margin-top: 10px;
+  padding: 14px;
+  border-radius: var(--dc-radius);
+  background: var(--dc-card-bg);
+  border: 1.5px solid var(--dc-border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dc-price-alert p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--dc-text-muted);
+}
+.dc-price-alert-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.dc-price-alert-field input {
+  border: 1.5px solid var(--dc-border);
+  border-radius: var(--dc-radius-sm);
+  padding: 10px 12px;
+  font-size: 15px;
+  font-family: inherit;
+  font-weight: 500;
+}
+.dc-price-alert-field input:focus {
+  outline: none;
+  border-color: var(--dc-brand);
+}
+.dc-price-alert-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.dc-price-alert-actions button[type="submit"] {
+  flex: 1;
+  background: var(--dc-brand);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 11px 16px;
+  font: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}
+.dc-price-alert-actions button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.dc-price-alert-cancel {
+  background: transparent;
+  border: none;
+  color: var(--dc-text-muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 8px;
+}
+.dc-price-alert-error {
+  font-size: 12.5px;
+  color: #b3261e;
+  font-weight: 600;
+}
+.dc-price-alert-done {
+  color: var(--dc-green-deep);
+  font-weight: 700;
+  font-size: 14px;
+}

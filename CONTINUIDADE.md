@@ -11,7 +11,8 @@
 - **Não feito de propósito (custam dinheiro ou dependem do Heber)**: foto no site (custo por foto na OpenAI, precisa de limite diário + Turnstile antes), Google Shopping via SerpAPI (mensalidade nova), Amazon/AliExpress (conta a aprovar), viagem na Awin (CVC, Decolar, Hoteis.com, Localiza, Rentcars, Unidas, Quero Passagem disponíveis, Heber precisa solicitar no painel).
 - **Conferir páginas por loja em produção** depois do deploy: `/cupom/kabum` (8 cupons, index), `/loja/kabum` (48 ofertas, index), `/cupom/sawary` (2 cupons, deve vir `noindex,follow`). Ver FEITO.md 2026-09-26.
 - **Cupons Lomadee com `platform = "lomadee"`** (Malwee, Anhanguera, Eco Flame, Little Duck, UVLine, Itatiaia): a marca não foi resolvida na ingestão; a página por loja contorna usando o nome do anunciante, mas vale investigar por que `fetchLomadeeBrandById` falhou pra esses IDs no cron.
-- **Próximos de custo zero ainda não começados**: indexar feeds inteiros de Nike/Olympikus (Kabum já está); alerta de queda de preço por WhatsApp (Z-API já existe); favoritos no servidor.
+- **Alerta de preço em produção**: depois do deploy, criar um alerta com o próprio número e conferir boas-vindas + linha em `price_alerts` + resposta do cron (ver FEITO.md 2026-09-26). Ainda não aparece no /admin — contar com `select status, count(*) from price_alerts group by 1`.
+- **Próximos de custo zero ainda não começados**: indexar feeds inteiros de Nike/Olympikus (Kabum já está); favoritos no servidor (hoje o alerta já captura contato, o favorito continua só no navegador); bloco de alertas no /admin.
 
 ### 🔲 Pendências abertas da madrugada de 2026-09-24
 - **Buboflow** (sistema de automação de mensagem em grupo de WhatsApp) — Heber pediu pra pesquisar o que dá pra copiar dele, ainda não pesquisado.

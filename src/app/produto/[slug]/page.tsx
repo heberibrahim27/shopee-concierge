@@ -9,6 +9,7 @@ import { getPlatformInfo } from "../../../lib/site/platforms";
 import { TrackedOfferLink } from "../../../components/site/TrackedOfferLink";
 import { ShareButton } from "../../../components/site/ShareButton";
 import { PriceSparkline } from "../../../components/site/PriceSparkline";
+import { PriceAlertForm } from "../../../components/site/PriceAlertForm";
 
 export async function generateMetadata({ params }: { params: { slug: string } }) {
   const product = await getCachedProduct(params.slug);
@@ -186,6 +187,10 @@ export default async function ProductPage({ params }: { params: { slug: string }
                 Link indisponível no momento.
               </p>
             )}
+
+            {/* Alerta de queda de preço por WhatsApp (ver lib/site/priceAlerts.ts):
+                retorno recorrente sem depender de rede social. */}
+            <PriceAlertForm productSlug={product.slug} currentPrice={bestOffer.priceMin} />
 
             {remainingOffers.length > 0 ? (
               <div className="dc-compare-box">
