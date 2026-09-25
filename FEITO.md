@@ -4,6 +4,16 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (madrugada, continuação) — Checagem de saúde de produção
+
+Depois de várias features seguidas essa madrugada (widget de sugestão,
+mídia kit, `/go`, captura de e-mail, `llms.txt`), parei pra verificar
+tudo junto em produção de verdade (curl real, não suposição): home,
+mídia kit, `llms.txt`, sitemap — todos 200. `/api/suggestions` e
+`/api/subscribe` recusando corpo vazio como esperado (400). HTML da
+home confirmado com o widget de sugestão e o formulário de e-mail
+realmente renderizando. Nada quebrado.
+
 ## 2026-09-25 (madrugada, continuação) — llms.txt no ar
 
 Endereça a preocupação original do Heber ("não aparece como sugestão de
