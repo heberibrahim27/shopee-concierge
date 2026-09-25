@@ -260,6 +260,32 @@ Testado ao vivo (preview local, mobile): home, produto e cupons
 conferidos visualmente, zero verde fora do admin, `tsc` e `next build`
 limpos.
 
+## 2026-09-26 (continuação) — Página /categorias com o mesmo tratamento da home (18 fotos reais recortadas)
+
+Heber pediu pra analisar `/categorias` (o "Ver todas" da home) -- ainda
+estava no estilo antigo (ícone preto + texto). Confirmado com ele: mesmo
+tratamento da home pras 12 categorias que faltavam (já tinha 6 prontas).
+
+Processo (mesmo pipeline real da home, não atalho): pra cada uma das 12,
+consultei o mais vendido real no catálogo, baixei e ABRI a imagem antes
+de escolher (rejeitei ~8 candidatas por ter pessoa, banner de texto ou
+múltiplos produtos -- ex.: automotivo trocado 2x, pet 3x, brinquedos 3x,
+até achar a melhor opção real disponível). As 12 passaram por remoção de
+fundo real (Canva), baixadas como PNG RGBA de verdade, salvas em
+`public/categorias-produtos/*.png`.
+
+`CATEGORY_TILES` (categoryTiles.ts) ganhou `photoUrl`/`subtitle` pra cada
+categoria -- fonte única de dado, usada tanto por `FeaturedCategoryGrid`
+(home, 6 categorias) quanto pela página `/categorias` reescrita (18
+categorias, grade que quebra linha em vez de rolar -- scroll horizontal
+não faz sentido pra uma listagem completa). CSS morto do estilo antigo
+(`dc-cat-page-tile`, `dc-cat-page-img`, `dc-category-grid`) removido,
+confirmado sem uso em nenhum lugar antes de apagar.
+
+Testado ao vivo: 18 fotos carregando (`complete:true` via JS em todas),
+grade 3 colunas mobile / 4 desktop, mesmo visual da home. `tsc` e
+`next build` limpos.
+
 ## 2026-09-26 (continuação) — Fundo branco de verdade nas fotos de categoria (recorte real) + ordenado por busca real
 
 Heber apontou (com print) que o filtro de brilho não deixava o fundo
