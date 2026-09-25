@@ -4,6 +4,40 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (manhã, continuação) — 2 bugs reais no sitemap, corrigidos e testados antes de confiar
+
+Logo depois do SEO_INDEX_GATE v1 ir pro ar, o ChatGPT pegou um bug real:
+o sitemap filtrava `isProductIndexable` em cima dos "24 produtos mais
+recentes" em vez do conjunto indexável de verdade -- no dia do backfill
+Kabum isso zerou o sitemap (as 24 mais recentes eram 100% Kabum sem
+sinal de valor ainda), mesmo com 2.754 produtos indexáveis reais no
+banco. Ele apontou certo: "não se resolve sozinho", já que o refresh
+diário sempre toca `updated_at`.
+
+**Corrigido**: `getCachedIndexableProducts()` busca o conjunto indexável
+direto (sem o limit(24) que só fazia sentido pro card da home), aplica
+`dedupeByGroup` antes do filtro (nunca 2 URLs pro mesmo produto físico),
+`lastModified` passa a usar `priceCheckedAt` real.
+
+**Testei ANTES de subir de novo** (depois de já ter sido pego uma vez na
+mesma hora, decidi não arriscar de novo às cegas): rodei um script real
+contra o banco de produção replicando a nova query -- resultado: 328
+indexáveis, não os 1.801 esperados (já conferidos por SQL antes).
+**Segundo bug real, achado por mim mesmo antes de qualquer deploy**: o
+Supabase/PostgREST corta silenciosamente `.select()` sem `.range()` em
+~1.000 linhas -- sem erro, só trunca. Ordenando por slug ascendente,
+isso cortava o catálogo pela metade alfabética. Corrigido: pagina em
+blocos de 1.000 até esgotar. Testei de novo com o mesmo script real:
+6.336 linhas brutas → 5.383 canônicas (dedup por grupo) → exatamente
+1.801 indexáveis, batendo com o SQL de verificação.
+
+**Deploy final verificado ao vivo** (não assumido): busquei
+`sitemap.xml` de produção direto via fetch depois do build -- 1.801 URLs
+de produto reais, batendo exatamente com o número calculado. Lição de
+processo: qualquer query Supabase que pode voltar mais de ~1.000 linhas
+precisa de `.range()` explícito -- o cliente falha calado, sem erro, só
+truncando; só um teste real contra dado de produção pega isso.
+
 ## 2026-09-25 (manhã, continuação) — SEO_INDEX_GATE v1: catálogo ≠ indexação (verificado ao vivo antes e depois)
 
 Próximo item da lista do ChatGPT depois de fechar o matcher: "ingerir
