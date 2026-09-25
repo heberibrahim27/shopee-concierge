@@ -48,7 +48,10 @@ Mais: abaixo do mínimo → null; teto respeitado (sintético, não há cupom
 real com teto hoje); Malwee "acima de R$499 ganhe câmera" → sem
 desconto, sem estimativa; "na compra de 2 peças" → restrito. Cobertura
 real de estimativa no catálogo Kabum caiu de 380 pra 152 produtos (JBL
-116 + ASRock 36) — os outros 228 continuam vendo o cupom, só sem número.
+116 + ASRock 36). Dos outros 228: os 211 Apple continuam vendo o cupom
+COMPREJUNTOAPPLE, só sem número; os 17 "VGA" (adaptadores/cabos/
+monitores) NÃO veem o VGA8 -- só os 2 cupons genéricos da Kabum, que é o
+comportamento certo (correção de frase apontada pelo revisor).
 
 **Limitação que continua**: nada disso prova que a Kabum aceita o cupom
 naquele produto no checkout; por isso o texto diz "pode valer" e "a loja
