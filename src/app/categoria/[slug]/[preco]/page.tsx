@@ -4,7 +4,11 @@ import { Footer } from "../../../../components/site/Footer";
 import { CategoryGrid } from "../../../../components/site/CategoryGrid";
 import { ProductGrid } from "../../../../components/site/ProductGrid";
 import { getCategoryBySlug } from "../../../../lib/site/categories";
-import { getCachedCategoryUnderPrice, listViablePriceCategoryPages } from "../../../../lib/site/catalog";
+import {
+  getCachedCategoryUnderPrice,
+  getCachedViablePriceThresholds,
+  listViablePriceCategoryPages,
+} from "../../../../lib/site/catalog";
 
 // Páginas de intenção de compra ("achados de casa até R$50") -- ver
 // nota em catalog.ts. Só gera a página quando existe produto real o
@@ -47,7 +51,10 @@ export default async function CategoryUnderPricePage({
   const preco = parsePreco(params.preco);
   if (!category || !preco) notFound();
 
-  const products = await getCachedCategoryUnderPrice(category.slug, preco);
+  const [products, priceThresholds] = await Promise.all([
+    getCachedCategoryUnderPrice(category.slug, preco),
+    getCachedViablePriceThresholds(category.slug),
+  ]);
   if (products.length === 0) notFound();
 
   return (
@@ -63,6 +70,21 @@ export default async function CategoryUnderPricePage({
             maior desconto.
           </p>
         </section>
+        {priceThresholds.length > 0 ? (
+          <section className="dc-section" style={{ paddingBlock: "0 4px" }}>
+            <div className="dc-price-filter-row">
+              {priceThresholds.map((t) => (
+                <a
+                  key={t}
+                  href={`/categoria/${category.slug}/ate-${t}`}
+                  className={`dc-price-filter-pill${t === preco ? " dc-price-filter-pill-active" : ""}`}
+                >
+                  Até R${t}
+                </a>
+              ))}
+            </div>
+          </section>
+        ) : null}
         <section className="dc-section">
           <CategoryGrid activeSlug={category.slug} />
         </section>

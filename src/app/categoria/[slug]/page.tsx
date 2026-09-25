@@ -4,7 +4,7 @@ import { Footer } from "../../../components/site/Footer";
 import { CategoryGrid } from "../../../components/site/CategoryGrid";
 import { ProductGrid } from "../../../components/site/ProductGrid";
 import { getCategoryBySlug, SITE_CATEGORIES } from "../../../lib/site/categories";
-import { getCachedCategory } from "../../../lib/site/catalog";
+import { getCachedCategory, getCachedViablePriceThresholds } from "../../../lib/site/catalog";
 import { CATEGORY_ICONS } from "../../../components/site/icons";
 
 export function generateStaticParams() {
@@ -25,7 +25,10 @@ export default async function CategoryPage({ params }: { params: { slug: string 
   const category = getCategoryBySlug(params.slug);
   if (!category) notFound();
 
-  const products = await getCachedCategory(category.slug);
+  const [products, priceThresholds] = await Promise.all([
+    getCachedCategory(category.slug),
+    getCachedViablePriceThresholds(category.slug),
+  ]);
   const Icon = CATEGORY_ICONS[category.slug];
 
   return (
@@ -38,6 +41,17 @@ export default async function CategoryPage({ params }: { params: { slug: string 
             {category.label}
           </h1>
         </section>
+        {priceThresholds.length > 0 ? (
+          <section className="dc-section" style={{ paddingBlock: "0 4px" }}>
+            <div className="dc-price-filter-row">
+              {priceThresholds.map((preco) => (
+                <a key={preco} href={`/categoria/${category.slug}/ate-${preco}`} className="dc-price-filter-pill">
+                  Até R${preco}
+                </a>
+              ))}
+            </div>
+          </section>
+        ) : null}
         <section className="dc-section">
           <CategoryGrid activeSlug={category.slug} />
         </section>

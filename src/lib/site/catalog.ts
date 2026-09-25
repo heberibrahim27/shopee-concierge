@@ -264,6 +264,33 @@ export async function listViablePriceCategoryPages(): Promise<Array<{ slug: stri
   return viable;
 }
 
+// Link interno da página de categoria normal pras páginas de intenção
+// de compra (ver project_price_intent_seo_pages na memória) -- sem
+// isso elas só existiam via sitemap, nenhum visitante real chegava
+// nelas navegando. Cacheado igual ao resto (tag category:<slug>).
+async function queryViablePriceThresholdsForCategory(categorySlug: string): Promise<number[]> {
+  if (!hasSupabaseEnv()) return [];
+  const db = getDb();
+  const viable: number[] = [];
+  for (const threshold of PRICE_THRESHOLDS) {
+    const { count, error } = await db
+      .from("site_catalog")
+      .select("id", { count: "exact", head: true })
+      .eq("category_slug", categorySlug)
+      .lte("price_min", threshold);
+    if (!error && (count ?? 0) >= MIN_PRODUCTS_FOR_PRICE_PAGE) viable.push(threshold);
+  }
+  return viable;
+}
+
+export function getCachedViablePriceThresholds(categorySlug: string): Promise<number[]> {
+  return unstable_cache(
+    () => queryViablePriceThresholdsForCategory(categorySlug),
+    ["category-price-thresholds", categorySlug],
+    { tags: [`category:${categorySlug}`], revalidate: FALLBACK_REVALIDATE_SECONDS }
+  )();
+}
+
 export function getCachedProduct(slug: string): Promise<SiteProduct | null> {
   return unstable_cache(() => queryProductBySlug(slug), ["product", slug], {
     tags: [`product:${slug}`],

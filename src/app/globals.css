@@ -952,6 +952,35 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   text-decoration: none;
 }
 
+.dc-price-filter-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dc-price-filter-pill {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1.5px solid var(--dc-border);
+  background: var(--dc-card-bg);
+  color: var(--dc-text);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.dc-price-filter-pill:hover {
+  border-color: var(--dc-green);
+  color: var(--dc-green-deep);
+}
+
+.dc-price-filter-pill-active {
+  background: var(--dc-green);
+  border-color: var(--dc-green);
+  color: #fff;
+}
+
 .dc-choice-badge {
   display: inline-flex;
   align-items: center;

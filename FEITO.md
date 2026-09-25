@@ -4,6 +4,14 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (madrugada, continuação) — Link interno pras páginas de preço
+
+As páginas "Casa até R$30" só existiam via sitemap, nenhum visitante
+real chegava nelas navegando. Adicionei pills de filtro ("Até R$30 /
+R$50 / R$100") tanto na categoria normal quanto na própria página de
+preço, só mostrando limiar que a categoria realmente suporta. Testado
+local: clica, navega, destaca a ativa, produto real aparece.
+
 ## 2026-09-25 (madrugada, continuação) — Páginas de intenção de compra (SEO real de aquisição)
 
 Como quase tudo mais dependia do Heber acordar, ataquei o problema que
