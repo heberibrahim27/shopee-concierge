@@ -4,6 +4,17 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (madrugada, continuação) — /go ligado também no WhatsApp
+
+Investiguei de verdade (lendo `zapi.ts`, não supondo) se trocar o link
+do WhatsApp pelo `/go` quebraria o card de prévia já ajustado — não
+quebra: o card (imagem/título/descrição) vem de parâmetros explícitos
+que já mandamos, o `linkUrl` só define pra onde o clique vai. Liguei o
+redirecionador lá também (`src=whatsapp`), respeitando a regra de que a
+mensagem precisa terminar com o mesmo valor do `linkUrl`. Testado local
+(dry-run + redirect real pro Mercado Livre). Se o card aparecer
+diferente num post real, é o primeiro lugar pra olhar.
+
 ## 2026-09-25 (madrugada, continuação) — Achado real: app do Pinterest já existe
 
 Ia "preparar a aplicação do Pinterest" (próximo passo do plano de
