@@ -4,6 +4,32 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (tarde, continuação 13) — Chips de loja removidos do cabeçalho + menu hambúrguer no mobile (lacuna real corrigida)
+
+Heber pediu pra terminar o redesign. Nenhuma das 4 imagens de
+referência mostra a fileira de chips de loja (Shopee/KaBuM!/etc) no
+cabeçalho -- removi (essa informação já existe de verdade na página
+/lojas-parceiras, com contagem ao vivo, não duplicada).
+
+Achado real ao tirar a fileira de chips: percebi que no mobile o menu
+de texto (`Lojas Parceiras`, `Cupons`, `Blog`) já ficava escondido
+sem nenhuma substituição -- a barra inferior só cobre Início/Buscar/
+Favoritos/Categorias/WhatsApp. Essas 3 páginas ficavam inalcançáveis
+pelo cabeçalho no celular. O menu hambúrguer do mockup não é só
+estética, resolve isso de verdade.
+
+Construí `MobileNavDrawer.tsx` -- botão hambúrguer (só aparece no
+mobile, mesmo breakpoint que já existia) que abre um painel lateral
+com os mesmos links do menu desktop, fecha ao clicar fora ou num
+link. Testado ao vivo: abre, fecha, navega de verdade pra
+Lojas Parceiras (confirmei a página carregando). Desktop sem nenhuma
+mudança visual (hambúrguer fica escondido).
+
+tsc limpo, `next build` completo sem erro. Um erro de console
+"BellIcon is not defined" que continuava aparecendo era histórico
+acumulado de uma aba antiga (3+ horas de sessão) -- confirmei abrindo
+uma aba nova do zero, zero erro real.
+
 ## 2026-09-25 (tarde, continuação 12) — Ajustes reais pedidos pelo ChatGPT + benchmark de receita real do mercado
 
 ChatGPT revisou o que publiquei (sparkline + comissão Awin no admin)
