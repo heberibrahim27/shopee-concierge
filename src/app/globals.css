@@ -1368,6 +1368,24 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   color: var(--dc-text-muted, #666);
 }
 
+.dc-coupon-description {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--dc-text-muted, #666);
+}
+
+.dc-coupon-copied {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--dc-green-deep);
+}
+
+.dc-coupon-code strong.dc-coupon-code-masked {
+  letter-spacing: 0.12em;
+  color: #b8965a;
+}
+
 .dc-coupon-code strong {
   font-family: var(--font-heading);
   font-size: 15px;
@@ -1395,6 +1413,13 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   font-weight: 700;
   font-size: 13px;
   text-decoration: none;
+  /* .dc-coupon-cta também vira <button> no passo "Revelar cupom" (ver
+     CouponCard.tsx) -- reset dos estilos nativos de botão pra ficar
+     idêntico ao link. */
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  display: block;
 }
 
 /* ==========================================================================

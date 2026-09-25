@@ -4,6 +4,38 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (tarde, continuação 17) — Página de cupons: fluxo revelar/copiar
+
+Heber mandou continuar o redesign. Próximo item real e ainda aberto:
+cupons (pesquisa de UX de concorrente já feita, ver memória
+project_competitor_cuponomia_coupon_ux). `CouponCard` virou client
+component com estado de "revelado":
+
+- Código do cupom vem mascarado (bolinhas) até clicar "Revelar cupom".
+- Ao revelar: copia pro clipboard automaticamente (melhor esforço --
+  se o navegador bloquear, o código continua visível pra copiar na
+  mão, não quebra nada) e SÓ DEPOIS mostra "Ir para a loja →" -- não
+  no mesmo clique, senão a aba muda antes da pessoa conseguir ver o
+  cupom (esse é o padrão real testado na Cuponomia, não inventado).
+- Campo `description` do cupom (já existia no banco, nunca tinha sido
+  renderizado) agora aparece no card.
+- Cupom sem código (promoção automática) continua com "Aproveitar"
+  direto, sem etapa de revelar (nada pra copiar).
+
+Não implementei "N pessoas usaram esse cupom" (padrão real da
+Cuponomia) -- checado ao vivo: `click_events` não tem coluna
+`coupon_id`, e o volume de clique em cupom hoje é baixo demais pra um
+número real ser um bom sinal de confiança. Melhor não mostrar do que
+inventar ou mostrar "1 uso".
+
+Testado ao vivo: revelar funciona (cupom aparece, botão troca pra "Ir
+pra loja"), testado na página /cupons E no carrossel da home (mesmo
+componente, dois lugares). Cópia pro clipboard não disparou no clique
+sintético do teste automatizado (limite conhecido de teste headless,
+não bloqueia a funcionalidade -- clique real de usuário é um gesture
+válido). Zero erro de console nos dois lugares. `tsc` e `next build`
+limpos.
+
 ## 2026-09-25 (tarde, continuação 16) — Rolagem horizontal em "Ofertas de hoje"
 
 Heber notou que a home ficou muito grande e sugeriu rolagem horizontal.
