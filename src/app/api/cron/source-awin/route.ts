@@ -9,6 +9,7 @@ import {
   persistAwinProduct,
 } from "../../../../lib/awin/ingest";
 import { findShopeeMatchByMpn } from "../../../../lib/awin/matchShopee";
+import { findMatchConflicts } from "../../../../lib/awin/matchValidation";
 import { createDealCandidate, persistOfferSnapshot, linkProductsToGroup } from "../../../../lib/db/snapshots";
 import { buildProductSlug } from "../../../../lib/site/slug";
 import { getDb } from "../../../../lib/db/client";
@@ -71,11 +72,31 @@ async function matchAndLinkShopee(params: {
   mpn: string | null;
   brand: string | null;
   referencePrice: number;
+  productName: string;
 }) {
   if (params.groupId || !params.mpn) return { linked: false as const };
 
   const match = await findShopeeMatchByMpn({ mpn: params.mpn, brand: params.brand, referencePrice: params.referencePrice });
   if (!match) return { linked: false as const };
+
+  // MATCH_VALIDATION_GATE v1 (2026-09-25) -- MPN+marca acha o candidato,
+  // mas não é identidade de produto sozinha (achado real na QA amostral:
+  // "DJI214" batia em duas câmeras de linha diferente). Antes de criar o
+  // group_id, exige que o nome dos dois lados não contradiga atributo
+  // crítico (armazenamento, potência, taxa de atualização, peso/
+  // capacidade, voltagem, tela, resolução, diâmetro, edição/versão,
+  // número de modelo solto). Na dúvida, NÃO agrupa -- falso negativo é
+  // bem menos grave que mostrar dois produtos diferentes como se fossem
+  // o mesmo (ver src/lib/awin/matchValidation.ts).
+  const conflicts = findMatchConflicts(params.productName, match.productName);
+  if (conflicts.length > 0) {
+    console.warn(
+      `[awin][match-shopee] rejeitado por conflito de atributo (${params.awinProductId} x ${match.itemId}): ${conflicts
+        .map((c) => c.detail)
+        .join(" | ")}`
+    );
+    return { linked: false as const };
+  }
 
   const { productId: shopeeProductId } = await persistOfferSnapshot(match);
 
@@ -154,6 +175,7 @@ async function ingestBatch(params: {
             mpn: item.mpn,
             brand: item.brand,
             referencePrice: item.price,
+            productName: item.productName,
           });
           if (result.linked) comparados.push(item.awProductId);
         } catch (err) {
