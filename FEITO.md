@@ -4,6 +4,19 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (madrugada) — Fase 0 do plano: redirecionador de clique real
+
+Construí `/go` (`src/app/go/route.ts`) — fecha o buraco real que a
+revisão do ChatGPT apontou: clique que sai direto do Instagram/WhatsApp
+nunca passava por `click_events`, só o que vinha da própria página de
+produto do site. `/go?u=...&src=...` registra e redireciona (302), com
+lista de domínio real de afiliado (testei e confirmei: qualquer domínio
+fora dela é recusado, não virou redirecionador aberto). Testado local
+de ponta a ponta antes de subir. Liguei só na legenda do Instagram por
+enquanto — WhatsApp fica de fora de propósito, o link de lá alimenta o
+card de prévia automático (Z-API sendLink) que já foi bem ajustado, e
+trocar sem testar arrisca quebrar isso.
+
 ## 2026-09-25 (madrugada) — Plano de negócio estruturado publicado
 
 Heber pediu explicitamente "não genérico, não meia boca" antes de dormir.
