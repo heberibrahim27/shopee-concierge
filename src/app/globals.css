@@ -1337,6 +1337,36 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   color: var(--dc-text-muted, #777);
 }
 
+/* "Clique pra ver o código" (CouponCodeReveal.tsx): código mascarado
+   antes do clique, botão de copiar depois. */
+.dc-coupon-code-masked {
+  letter-spacing: 0.12em;
+  opacity: 0.85;
+}
+
+.dc-coupon-cta-button {
+  border: 0;
+  cursor: pointer;
+  width: 100%;
+  font: inherit;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.dc-coupon-copy {
+  margin-left: auto;
+  border: 1px solid var(--dc-border);
+  background: var(--dc-card-bg);
+  color: var(--dc-text);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .dc-coupon-cta {
   margin-top: auto;
   text-align: center;

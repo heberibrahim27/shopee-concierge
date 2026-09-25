@@ -4,6 +4,27 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-26 — Cupom: "clique pra ver o código" (protege a comissão)
+
+Heber perguntou se cupom rende algo além de tráfego. Rende: o botão do
+cupom abre o `url_tracking` da Awin/Lomadee, link de afiliado igual ao
+de produto, comissão na venda confirmada. Mas o código ficava escrito no
+card — quem copiava e ia direto na loja comprava sem passar pelo nosso
+link. Padrão de cuponeiro real (Cuponomia/Promobit) aplicado:
+`CouponCodeReveal.tsx` mostra o código mascarado ("•••••10") e um botão
+"Ver cupom e ir pra loja"; o clique registra em `click_events` (mesmo
+beacon do TrackedOfferLink), abre a loja pelo link rastreado em nova aba
+(síncrono no handler, pra não cair no bloqueador de pop-up), revela o
+código e copia pra área de transferência. Cupom sem código continua com
+"Aproveitar" direto.
+
+Testado de verdade com Playwright no Chromium do container (página
+temporária, apagada antes do commit): texto antes/depois conferido,
+área de transferência = "GAMER10", beacon recebido com
+`source: "cupom"`, nova aba aberta (a URL da Awin não carrega aqui só
+porque a rede do container é bloqueada). Screenshots mobile 420px
+conferidos visualmente.
+
 ## 2026-09-26 — Páginas de cupom por loja (`/cupom/[loja]`) e de loja (`/loja/[slug]`), custo zero
 
 Item que a outra sessão deixou registrado como meu. Padrão de SEO de

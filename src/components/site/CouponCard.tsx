@@ -2,6 +2,7 @@ import { SiteCoupon } from "../../lib/site/coupons";
 import { getPlatformInfo } from "../../lib/site/platforms";
 import { AFFILIATE_LINK_REL } from "../../lib/site/affiliateLink";
 import { TrackedOfferLink } from "./TrackedOfferLink";
+import { CouponCodeReveal } from "./CouponCodeReveal";
 
 function formatEndsAt(iso: string | null): string | null {
   if (!iso) return null;
@@ -26,24 +27,29 @@ export function CouponCard({ coupon }: { coupon: SiteCoupon }) {
         <span className="dc-coupon-badge">{coupon.advertiserName}</span>
       )}
       <p className="dc-coupon-title">{coupon.title}</p>
-      {coupon.code ? (
-        <div className="dc-coupon-code">
-          <span>Cupom</span>
-          <strong>{coupon.code}</strong>
-        </div>
-      ) : null}
       {endsLabel ? <p className="dc-coupon-ends">{endsLabel}</p> : null}
-      <TrackedOfferLink
-        className="dc-coupon-cta"
-        platform={coupon.platform ?? "awin"}
-        productName={coupon.title}
-        source="cupom"
-        href={coupon.urlTracking}
-        target="_blank"
-        rel={AFFILIATE_LINK_REL}
-      >
-        {coupon.code ? "Usar cupom" : "Aproveitar"}
-      </TrackedOfferLink>
+      {coupon.code ? (
+        // Código só aparece depois do clique (ver CouponCodeReveal) --
+        // o clique abre a loja pelo link rastreado, senão a comissão some.
+        <CouponCodeReveal
+          code={coupon.code}
+          href={coupon.urlTracking}
+          platform={coupon.platform ?? "awin"}
+          title={coupon.title}
+        />
+      ) : (
+        <TrackedOfferLink
+          className="dc-coupon-cta"
+          platform={coupon.platform ?? "awin"}
+          productName={coupon.title}
+          source="cupom"
+          href={coupon.urlTracking}
+          target="_blank"
+          rel={AFFILIATE_LINK_REL}
+        >
+          Aproveitar
+        </TrackedOfferLink>
+      )}
     </div>
   );
 }
