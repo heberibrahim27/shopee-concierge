@@ -4,6 +4,30 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (tarde, continuação 14) — Barra de compra fixa no mobile + verdes literais residuais corrigidos
+
+Terminando o redesign: barra de compra fixa na página de produto no
+mobile (preço + "Ver oferta" sempre visível, item real do mockup).
+Construída como bloco só da página de produto (não mexe no layout
+global), encaixa ACIMA da barra de navegação inferior que já existe
+globalmente -- as duas ficam visíveis juntas, sem sobrepor.
+
+Achado real testando ao vivo: o botão flutuante "sugerir melhoria"
+(lâmpada) ficava em cima da barra nova. Empurrei ele mais pra cima só
+na página de produto (`body:has(.dc-sticky-buy-bar)`).
+
+Enquanto mexia nessa área, achei e corrigi verde literal residual que
+o find/replace de token não pegava porque não era `var(--dc-green)`,
+era `rgba(22, 163, 74, ...)` direto no CSS -- na sombra do botão de
+comprar e do botão de sugestão, os dois reais e visíveis. Varri o
+arquivo inteiro atrás de mais ocorrências, não achei nenhuma. Deixei
+uma regra morta (`.dc-cta-button`, sem nenhuma referência em código)
+sem mexer, não vale o risco por algo que não renderiza em lugar
+nenhum.
+
+Testado: barra fixa funciona durante o scroll, não tampa o rodapé,
+some no desktop, `next build` completo sem erro.
+
 ## 2026-09-25 (tarde, continuação 13) — Chips de loja removidos do cabeçalho + menu hambúrguer no mobile (lacuna real corrigida)
 
 Heber pediu pra terminar o redesign. Nenhuma das 4 imagens de
