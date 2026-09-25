@@ -190,7 +190,12 @@ export async function GET(request: NextRequest) {
       platform: "kabum",
       category: "eletronicos",
       categorySlug: "eletronicos",
-      limit: 12,
+      // 12 -> 50 (2026-09-25, pedido do Heber: "catálogo completo", não só
+      // 12/dia -- o catálogo cheio (~4.690 produtos) foi trazido de uma vez
+      // via scripts/backfill-kabum-full-catalog.ts; esse limite diário agora
+      // só precisa manter preço/estoque frescos e pegar produto novo do
+      // feed. 50 ainda cabe com folga no maxDuration=120s do cron.
+      limit: 50,
     }),
   ]);
 

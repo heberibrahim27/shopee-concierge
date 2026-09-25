@@ -4,6 +4,38 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (manhã, continuação) — Cupom expirado sendo exibido de verdade, corrigido
+
+Puxando o fio da conversa de "premium/confiança" com o Heber, investiguei se
+os cupons mostrados no site (`/cupons`, home) ficam mesmo em dia sozinhos.
+Achado real, não hipotético: a query que decide quais cupons aparecer
+(`queryActiveCoupons` em `src/lib/site/coupons.ts`) **nunca filtrava por
+`status`, só por data** (`ends_at`). O cron da Awin (`source-coupons`) já
+marca cupom como `status: 'expired'` quando ele some do feed "active" da
+Awin de verdade (ex: anunciante encerrou a promoção antes da data que
+tínhamos salva) — mas como a página nunca olhava esse campo, isso não
+tinha efeito nenhum na exibição.
+
+**Conferido no banco antes de mexer em código**: 11 cupons reais (Kabum,
+Nike, Olympikus — ex: "25% OFF JBL", "AQUECE20") estavam com
+`status='expired'` (a Awin já não reconhece mais essas promoções como
+ativas) mas ainda apareciam no site porque a data salva (`ends_at`) ainda
+não tinha passado. Ou seja: visitante real podia estar clicando em cupom
+que a própria rede já tinha puxado.
+
+**Segundo achado, mesmo problema por outro ângulo**: o cron da Lomadee
+(`source-lomadee`) nunca tinha essa lógica de expirar cupom sumido do feed
+— só a Awin tinha. 3 de 24 cupons Lomadee hoje não têm `ends_at` nenhum,
+então ficariam visíveis pra sempre mesmo que a campanha real acabasse.
+
+**Corrigido**: (1) `queryActiveCoupons` agora filtra `status = 'active'`
+também, não só data — reativa a lógica que a Awin já tinha; (2)
+`source-lomadee/route.ts` ganhou a mesma lógica de expirar cupom que
+sumiu do feed "onTime" da Lomadee, igual ao padrão já usado pela Awin.
+Testado local em `/cupons` antes de subir: os 11 cupons reais que
+deveriam ter sumido, sumiram; os que continuam válidos continuam
+aparecendo. `npx tsc --noEmit` limpo.
+
 ## 2026-09-25 (manhã, continuação) — ChatGPT pegou 2 furos reais nos selos, corrigidos
 
 Levei os selos novos pro ChatGPT debater (não só validar). Achou 2 problemas
@@ -29,6 +61,39 @@ com dado real ("Menor preço que monitoramos nos últimos 12 dias" + "Preço
 atualizado há 2 dias", batendo com o snapshot real de 23/09). `npx tsc
 --noEmit` limpo (bateu erro real em `favoritos/page.tsx`, que montava um
 `SiteProduct` manual sem o campo novo — corrigido também).
+
+## 2026-09-25 (manhã, continuação) — Correção crítica: pipeline Kabum×Shopee já existia, limite de 12/dia era o problema real
+
+Heber apontou (com razão): "KABUM já tava liberada mano tem tempo, o que
+é que tá acontecendo que tá perdendo memória?" Investigação confirmou:
+**existe desde 21/09 um pipeline completo e funcionando** —
+`src/lib/awin/matchShopee.ts` (`findShopeeMatchByMpn`, casa por MPN+marca
+no nome do produto Shopee, já que a Shopee não tem EAN) +
+`src/app/api/cron/source-awin/route.ts` (cron diário, já ingeria Kabum e
+já linkava com Shopee via `product_groups`). Confirmado ao vivo antes de
+qualquer mudança: 29 produtos Kabum já no banco, 5 já com comparação
+Shopee real linkada, atualizado às 8h21 desta manhã (o cron já tinha
+rodado hoje).
+
+Essa informação nunca tinha sido registrada na memória de longo prazo
+entre sessões — por isso reinvestiguei tudo essa manhã como se fosse
+novo. Corrigido na memória pra não repetir (ver
+`project_multistore_comparator_real_paths.md`).
+
+**O problema real que existia**: o cron só ingeria 12 produtos Kabum por
+dia (limite arbitrário no código, não da Awin) — no ritmo levaria quase
+um ano pros ~4.600 produtos do feed. Corrigido:
+1. Limite diário do cron subiu de 12 → 50 (`source-awin/route.ts`) —
+   ainda cabe com folga no timeout de 120s da Vercel.
+2. `scripts/backfill-kabum-full-catalog.ts` (novo) — script único, roda
+   fora do limite de tempo do serverless, reaproveita exatamente as
+   mesmas funções já testadas do cron (`persistAwinProduct`,
+   `findShopeeMatchByMpn`), traz o catálogo Kabum inteiro de uma vez
+   (4.397 produtos únicos ≥R$40 confirmados no feed real), com pausa de
+   350ms entre chamadas de match na Shopee (sem limite documentado da
+   Shopee, ritmo conservador escolhido por precaução). Rodado em
+   background nesta sessão — conferir o resumo final impresso antes de
+   considerar concluído.
 
 ## 2026-09-25 (manhã) — Selos de confiança reais na página de produto (preço + atualização)
 

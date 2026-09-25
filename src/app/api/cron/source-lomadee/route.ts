@@ -61,6 +61,7 @@ async function ingestCoupons(resolveBrand: ReturnType<typeof makeBrandResolver>)
 
   const falhas: string[] = [];
   let publicados = 0;
+  const activeCampaignIds: string[] = [];
 
   for (const c of campaigns) {
     const link = c.channels?.[0]?.shortUrls?.[0];
@@ -89,7 +90,22 @@ async function ingestCoupons(resolveBrand: ReturnType<typeof makeBrandResolver>)
       falhas.push(`${c.id}: ${error.message}`);
       continue;
     }
+    activeCampaignIds.push(c.id);
     publicados++;
+  }
+
+  // Expira (marca inactive) cupons Lomadee que já não vêm mais como "onTime"
+  // na API -- mesma lógica do cron da Awin (source-coupons). Achado real
+  // 2026-09-25: sem isso, um cupom sem ends_at (12,5% dos cupons Lomadee
+  // hoje) ficava visível pra sempre mesmo que a campanha real tivesse
+  // acabado, porque o filtro de exibição só olhava data, nunca status.
+  if (activeCampaignIds.length > 0) {
+    await db
+      .from("coupons")
+      .update({ status: "expired" })
+      .eq("status", "active")
+      .not("lomadee_campaign_id", "is", null)
+      .not("lomadee_campaign_id", "in", `(${activeCampaignIds.join(",")})`);
   }
 
   return { publicados, falhas };

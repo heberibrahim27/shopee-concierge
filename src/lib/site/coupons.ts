@@ -45,6 +45,7 @@ async function queryActiveCoupons(): Promise<SiteCoupon[]> {
   const { data, error } = await db
     .from("coupons")
     .select("id, advertiser_name, platform, title, description, code, url_tracking, ends_at, status")
+    .eq("status", "active")
     .or(`ends_at.is.null,ends_at.gte.${nowIso}`)
     .order("ends_at", { ascending: true })
     .limit(20);
