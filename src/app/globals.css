@@ -621,18 +621,29 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
 
 .dc-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
-@media (min-width: 480px) {
+/* 3 colunas só a partir de 600px (card >= ~176px). Achado real
+   (2026-09-26, print do Heber): entre 480 e 640px -- celular com zoom de
+   página do Safari abaixo de 100%, ou navegador embutido de app -- a
+   regra antiga de 480px dava 3 cards de ~145px, apertados e feios, ainda
+   com a navegação inferior de celular. */
+@media (min-width: 600px) {
   .dc-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
 .dc-card {
-  display: block;
+  /* Coluna flex (não block): numa linha da grade todos os cards têm a
+     altura do mais alto; com flex o botão "Ver melhor oferta" gruda no
+     rodapé do card e a sobra fica entre conteúdo e botão, em vez de um
+     vazio embaixo do botão (print do Heber, 2026-09-26). */
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   position: relative;
   background: var(--dc-card-bg);
   border: 1px solid var(--dc-border);
@@ -659,6 +670,7 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
 
 .dc-card-image {
   position: relative;
+  flex: none;
   aspect-ratio: 1 / 1;
   background: #e6f2ea;
   overflow: hidden;
@@ -672,6 +684,16 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
 
 .dc-card-body {
   padding: 12px 13px 15px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+/* O que vem logo antes do botão mantém o respiro de 10px; o botão em si
+   usa margin-top:auto pra ir pro rodapé do card. */
+.dc-card-body > :nth-last-child(2) {
+  margin-bottom: 10px;
 }
 
 .dc-card-badge {
@@ -801,7 +823,7 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   align-items: center;
   justify-content: center;
   gap: 6px;
-  margin-top: 10px;
+  margin-top: auto;
   padding: 9px;
   border-radius: 999px;
   background: var(--dc-brand);

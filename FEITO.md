@@ -4,6 +4,34 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-26 — Home "quebrada" no celular do Heber: 3 cards apertados e esticados (corrigido)
+
+Print do Heber: "Ofertas de hoje" com 3 cards de ~145px lado a lado
+(terceiro cortado) e cada card com um vazio enorme embaixo do botão,
+tudo isso com a navegação inferior de celular visível. Reproduzido
+localmente antes de mexer: em iPhone puro (390/430px) a grade estava
+certa (2 colunas); o print só bate com viewport entre 480 e 640px —
+Safari com zoom de página abaixo de 100% (menu "aA") ou navegador
+embutido de app. Nessa faixa a regra antiga (`min-width: 480px` → 3
+colunas) dava exatamente os 3 cards de 147px do print, e o vazio vem de
+a linha da grade ter a altura do card mais alto (card Shopee com nota +
+vendas + selo + "de/por" + economia + mini-comparativo é ~170px mais
+alto que um card Kabum de título + preço).
+
+**Correção (só CSS, `globals.css`)**: 3 colunas só a partir de 600px
+(card >= ~176px); `.dc-card` virou coluna flex com `.dc-card-body`
+`flex: 1` e o botão com `margin-top: auto` — o botão gruda no rodapé
+do card e a sobra fica entre conteúdo e botão, padrão de grade de
+e-commerce; colunas `minmax(0, 1fr)` + `min-width: 0` pra título com
+SKU longo nunca alargar a grade. Vale pros três cards que usam a classe
+(ProductCard, LiveProductCard, LomadeeLiveCard).
+
+**Medido com Playwright depois** (página temporária com card Kabum
+simples, card com SKU longo e card Shopee rico na mesma linha): 390,
+430, 506, 573 e 599px → 2 colunas, botão a 16px do rodapé em todos os
+cards; 600 e 700px → 3 colunas; largura do documento = viewport em
+todos (sem rolagem horizontal). Screenshots em 430 e 506 conferidos.
+
 ## 2026-09-26 — Alerta de queda de preço por WhatsApp (sem cadastro, custo zero)
 
 Recurso número um de retorno recorrente num comparador (Promotech faz
