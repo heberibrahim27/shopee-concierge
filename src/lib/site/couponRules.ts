@@ -8,19 +8,37 @@
  * OFF na compra de 2 Peças", "Em compras acima de R$ 499", "Use o cupom:
  * EXTRA20" (código no título, coluna code vazia).
  *
+ * Revisão 2026-09-26 (4 pontos do revisor, todos confirmados no dado):
+ *  - "produtos de VGA" é CATEGORIA, não marca -- os 17 produtos Kabum com
+ *    "vga" no nome são adaptadores/cabos/monitores, nenhuma placa de vídeo.
+ *    Escopo capturado com "de" vira `scopeKind: "category"` e NÃO casa com
+ *    produto por substring; só escopo de marca ("produtos JBL", "produtos
+ *    da Sacy", "linha PlayNinja") casa.
+ *  - "selecionados", "itens da promoção", "na compra de 2 peças" etc.
+ *    marcam `eligibilityRestricted`: o cupom pode valer, mas NÃO se calcula
+ *    preço -- os dados não sustentam.
+ *  - "só hoje", "relâmpago", "tempo limitado" marcam `validityUnknown`.
+ *  - A Awin grava `endDate = data da busca + 366 dias` (início 1 ano antes)
+ *    quando a campanha não tem fim de verdade: `isAwinOpenEnded` reconhece
+ *    exatamente esse marcador, sem esconder validade real distante.
+ *
  * Funções puras, sem banco: testáveis com tsx.
  */
 export interface CouponRule {
-  /** Percentual de desconto (ex: 12) ou null. */
   percentOff: number | null;
-  /** Valor fixo de desconto em reais (ex: 50) ou null. */
   amountOff: number | null;
   /** Valor mínimo de compra em reais, quando o texto diz. */
   minPurchase: number | null;
   /** Teto do desconto em reais ("limitado a R$20"), quando o texto diz. */
   maxDiscount: number | null;
-  /** Termos de escopo (marca/linha) em minúsculas sem acento: ["apple"], ["jbl"]. Vazio = genérico ou desconhecido. */
+  /** Termos de escopo em minúsculas sem acento. Vazio = genérico ou desconhecido. */
   scopeTerms: string[];
+  /** "brand" casa com nome de produto; "category" não (palavra de categoria aparece em produto errado). */
+  scopeKind: "brand" | "category" | "none";
+  /** Texto restringe a itens selecionados / promoção / quantidade: pode valer, mas sem estimar preço. */
+  eligibilityRestricted: boolean;
+  /** Texto diz "só hoje", "relâmpago", "tempo limitado": validade não confiável. */
+  validityUnknown: boolean;
   /** Código encontrado no texto quando a coluna `code` veio vazia. */
   codeFromText: string | null;
 }
@@ -35,6 +53,23 @@ const SCOPE_STOP = new Set([
   "selecionados", "selecionadas", "usando", "aproveite", "oferta", "valido", "valida", "com", "no", "na",
   "e", "ou", "por", "para", "ate", "so", "promocao", "relampago", "nao", "perca",
 ]);
+
+const RESTRICTION_PATTERNS = [
+  /selecionad[oa]s/,
+  /itens da promocao/,
+  /produtos da promocao/,
+  /participantes/,
+  /na compra de \d+/,
+  /comprando \d+/,
+  /em \d+ pecas/,
+  /a partir de \d+ (?:pecas|unidades|itens)/,
+  /kit/,
+  /primeira compra/,
+  /novos clientes/,
+  /clientes? vip/,
+];
+
+const VALIDITY_PATTERNS = [/so hoje/, /relampago/, /tempo limitado/, /enquanto durarem/, /ultimas? (?:horas|unidades)/];
 
 export function normalizeText(t: string): string {
   return t
@@ -58,26 +93,28 @@ export function parseCouponRule(params: { title: string; description?: string | 
     /(?:acima de|a partir de|apartir de|minimo de|minima de)\s*r\$\s?(\d{1,3}(?:\.\d{3})*(?:,\d{2})?)/i.exec(norm);
   const cap = /(?:limitado a|limitada a|teto de|maximo de)\s*r\$\s?(\d{1,3}(?:\.\d{3})*(?:,\d{2})?)/i.exec(norm);
 
-  // Código escrito no texto ("use o cupom: EXTRA20", "cupom PRIMAVERAL") --
-  // só maiúsculas/dígitos, 4 a 20 caracteres, pra não pegar palavra comum.
   let codeFromText: string | null = null;
   if (!params.code) {
     const m = /cupom:?\s+([A-Z][A-Z0-9]{3,19})\b/.exec(text);
     if (m) codeFromText = m[1];
   }
 
-  // Escopo: "em produtos Apple selecionados", "produtos JBL.", "itens da
-  // linha PlayNinja", "produtos de VGA", "produtos da Sacy".
+  // Escopo. Grupo 1 = preposição usada ("de" → categoria; "da/do/das/dos"
+  // ou nenhuma → marca), grupo 2 = termo.
   const scopeTerms: string[] = [];
-  const scopeRe = /(?:produtos|itens|pecas|linha|colecao)\s+(?:d[aeo]s?\s+)?(?:linha\s+)?([a-z0-9]+(?:\s+[a-z0-9]+)?)/g;
+  let scopeKind: CouponRule["scopeKind"] = "none";
+  const scopeRe = /(?:produtos|itens|pecas|linha|colecao)\s+(?:(d[aeo]s?)\s+)?(?:linha\s+)?([a-z0-9]+(?:\s+[a-z0-9]+)?)/g;
   let sm: RegExpExecArray | null;
   while ((sm = scopeRe.exec(norm)) !== null) {
-    const words = sm[1].split(" ").filter((w) => !SCOPE_STOP.has(w));
-    const term = words.slice(0, 2).join(" ").trim();
+    const prep = sm[1] ?? "";
+    const words = sm[2].split(" ").filter((w) => !SCOPE_STOP.has(w));
     const first = words[0] ?? "";
     if (!first || GENERIC_SCOPE.has(first) || first.length < 2) continue;
-    // Só a primeira palavra quando a segunda é genérica ("apple selecionados" já filtrado; "jbl oferta" idem).
-    scopeTerms.push(GENERIC_SCOPE.has(words[1] ?? "") ? first : term);
+    const term = GENERIC_SCOPE.has(words[1] ?? "") ? first : words.slice(0, 2).join(" ").trim();
+    scopeTerms.push(term);
+    const kind: CouponRule["scopeKind"] = prep === "de" ? "category" : "brand";
+    // Se qualquer captura for categoria, o cupom inteiro é tratado como categoria (mais conservador).
+    scopeKind = scopeKind === "category" || kind === "category" ? "category" : "brand";
   }
 
   return {
@@ -86,11 +123,14 @@ export function parseCouponRule(params: { title: string; description?: string | 
     minPurchase: min ? parseMoney(min[1]) : null,
     maxDiscount: cap ? parseMoney(cap[1]) : null,
     scopeTerms: Array.from(new Set(scopeTerms)),
+    scopeKind,
+    eligibilityRestricted: RESTRICTION_PATTERNS.some((re) => re.test(norm)),
+    validityUnknown: VALIDITY_PATTERNS.some((re) => re.test(norm)),
     codeFromText,
   };
 }
 
-/** Linha curta de condições pro card ("12% OFF · em Apple · a partir de R$100"). */
+/** Linha curta de condições pro card ("12% OFF · em Apple · itens selecionados"). */
 export function describeRule(rule: CouponRule): string | null {
   const parts: string[] = [];
   if (rule.percentOff) parts.push(`${rule.percentOff}% OFF`);
@@ -98,41 +138,69 @@ export function describeRule(rule: CouponRule): string | null {
   if (rule.scopeTerms.length > 0) parts.push(`em ${rule.scopeTerms.map(labelScope).join(", ")}`);
   if (rule.minPurchase) parts.push(`a partir de R$${formatBRLShort(rule.minPurchase)}`);
   if (rule.maxDiscount) parts.push(`limitado a R$${formatBRLShort(rule.maxDiscount)}`);
+  if (rule.eligibilityRestricted) parts.push("itens selecionados");
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
 /**
- * O cupom pode valer pra este produto? Escopo vazio = genérico (pode
- * valer, mas com aviso); escopo preenchido exige que algum termo apareça
- * no nome do produto. Nunca afirma elegibilidade: é "pode valer".
+ * O cupom pode valer pra este produto?
+ *  - "specific": escopo de MARCA e a marca está no nome do produto;
+ *  - "generic": sem escopo (cupom de loja inteira / desconhecido);
+ *  - "no": marca não bate, ou escopo é de categoria (não dá pra casar por nome).
+ * Nunca afirma elegibilidade: é "pode valer".
  */
 export function ruleMatchesProduct(rule: CouponRule, productName: string): "specific" | "generic" | "no" {
+  if (rule.scopeKind === "category") return "no";
   if (rule.scopeTerms.length === 0) return "generic";
   const name = normalizeText(productName);
-  return rule.scopeTerms.some((t) => name.includes(t)) ? "specific" : "no";
+  return rule.scopeTerms.some((t) => new RegExp(`(^|[^a-z0-9])${escapeRe(t)}([^a-z0-9]|$)`).test(name)) ? "specific" : "no";
 }
 
-/** Preço estimado depois do cupom, ou null quando não dá pra estimar (sem valor, ou abaixo do mínimo). */
+/**
+ * Preço estimado depois do cupom. null quando não dá pra sustentar o
+ * número: sem valor no texto, abaixo do mínimo, ou elegibilidade
+ * restrita ("itens selecionados" -- a loja decide quais).
+ */
 export function estimatePriceWithCoupon(rule: CouponRule, price: number): number | null {
   if (!(price > 0)) return null;
+  if (rule.eligibilityRestricted) return null;
   if (rule.minPurchase && price < rule.minPurchase) return null;
-  let discount = 0;
-  if (rule.percentOff) discount = price * (rule.percentOff / 100);
-  else if (rule.amountOff) discount = rule.amountOff;
+  // Conta em centavos pra ser determinística (é estimativa: 1 centavo de
+  // arredondamento não muda a decisão de ninguém).
+  const priceCents = Math.round(price * 100);
+  let discountCents = 0;
+  if (rule.percentOff) discountCents = Math.round((priceCents * rule.percentOff) / 100);
+  else if (rule.amountOff) discountCents = Math.round(rule.amountOff * 100);
   else return null;
-  if (rule.maxDiscount) discount = Math.min(discount, rule.maxDiscount);
-  const final = price - discount;
-  return final > 0 ? Math.round(final * 100) / 100 : null;
+  if (rule.maxDiscount) discountCents = Math.min(discountCents, Math.round(rule.maxDiscount * 100));
+  const finalCents = priceCents - discountCents;
+  return finalCents > 0 ? finalCents / 100 : null;
+}
+
+/**
+ * Marcador da Awin pra campanha sem fim: endDate = data da busca + 365/366
+ * dias (conferido no banco: 9 cupons Kabum com fim 2027-09-26, busca
+ * 2026-09-25, início 2025-09-19). Tolerância de 2 dias. Validade real
+ * distante (ex.: 2026-12-21 da Brinox) NÃO cai aqui.
+ */
+export function isAwinOpenEnded(endsAt: string | null, fetchedAt: string | null): boolean {
+  if (!endsAt || !fetchedAt) return false;
+  const days = (new Date(endsAt).getTime() - new Date(fetchedAt).getTime()) / 86400_000;
+  return Math.abs(days - 365.5) <= 2.5;
 }
 
 function formatBRLShort(v: number): string {
   return Number.isInteger(v) ? String(v) : v.toFixed(2).replace(".", ",");
 }
 
-/** Marca curta (até 4 letras) em caixa alta ("JBL", "VGA"), o resto capitalizado ("Apple", "Playninja"). */
+/** Marca curta (até 4 letras) em caixa alta ("JBL"), o resto capitalizado ("Apple"). */
 function labelScope(s: string): string {
   return s
     .split(" ")
     .map((w) => (w.length <= 4 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
     .join(" ");
+}
+
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

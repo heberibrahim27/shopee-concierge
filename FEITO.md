@@ -4,6 +4,58 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-26 — Revisão do GPT sobre o cálculo de cupom: 4 pontos, 4 confirmados no dado real, 4 corrigidos
+
+O revisor pediu quatro garantias antes de considerar o "preço estimado
+com cupom" pronto. Conferi cada uma no banco antes de mexer:
+
+1. **Elegibilidade** — "12% OFF em produtos Apple selecionados" gerava
+   estimativa pra qualquer produto Apple. Agora `eligibilityRestricted`
+   (selecionados, itens da promoção, "na compra de 2 peças", kit,
+   primeira compra…) bloqueia o cálculo: o cupom aparece como
+   possibilidade, sem número, e a linha de regra diz "itens
+   selecionados". Só cupom de marca SEM restrição estima (JBL25,
+   ASROCK100).
+2. **"VGA"** — confirmado que é categoria: os 17 produtos Kabum com "vga"
+   no nome são adaptadores, cabos e monitores, nenhuma placa de vídeo.
+   Escopo capturado com "de" ("produtos de VGA") vira
+   `scopeKind: "category"` e não casa com produto por nome. Marca ("produtos
+   JBL", "produtos da Sacy", "linha PlayNinja") casa por palavra inteira
+   (não mais substring: "jbl" não casa em "jblue").
+3. **"Conferido em" → "Atualizado em"** — `fetched_at` é a atualização
+   da integração, não conferência no checkout. Rótulo corrigido.
+4. **Validade da Awin** — marcador confirmado exato no banco: 9 cupons
+   Kabum com `ends_at = fetched_at + 366 dias` e `starts_at` 1 ano antes.
+   `isAwinOpenEnded` reconhece só esse padrão (±2,5 dias); validade real
+   distante (Brinox 21/12, Apple 15/10) continua aparecendo. Quando não há
+   validade e o texto diz "só hoje"/"relâmpago"/"tempo limitado", o card
+   mostra "validade não informada pela loja".
+
+**Validação com dado real, sem chaves** (`scripts/test-coupon-rules.ts`,
+`npm run test:coupon-rules` — os 8 cupons Kabum e 2 Malwee copiados do
+banco, e 6 nomes de produto reais com preço real):
+
+| Produto real | Cupons mostrados | Estimativa |
+|---|---|---|
+| JBL PartyBox Ultimate R$9.399,90 | JBL25 + 2 genéricos | R$7.049,92 (só no JBL25) |
+| iPhone 18 Pro Max R$11.699,10 | COMPREJUNTOAPPLE + 2 genéricos | nenhuma ("selecionados") |
+| Placa-mãe ASRock R$512,99 | ASROCK100 + 2 genéricos | R$412,99 |
+| Adaptador HDMI→VGA R$49,90 | só 2 genéricos | nenhuma (VGA8 não casa) |
+| SSD SanDisk R$1.599,99 | só 2 genéricos | nenhuma |
+| Fone Shopee R$15,44 | nenhum | — |
+
+Mais: abaixo do mínimo → null; teto respeitado (sintético, não há cupom
+real com teto hoje); Malwee "acima de R$499 ganhe câmera" → sem
+desconto, sem estimativa; "na compra de 2 peças" → restrito. Cobertura
+real de estimativa no catálogo Kabum caiu de 380 pra 152 produtos (JBL
+116 + ASRock 36) — os outros 228 continuam vendo o cupom, só sem número.
+
+**Limitação que continua**: nada disso prova que a Kabum aceita o cupom
+naquele produto no checkout; por isso o texto diz "pode valer" e "a loja
+decide". A validação com produto real renderizado no site depende do
+ambiente com credenciais (outra sessão / pós-deploy). Migrations
+`coupon_feedback` e `shopee_offer_key` já aplicadas — não reaplicar.
+
 ## 2026-09-26 — Documento do "GPT 6 Astra" sobre o modelo Cuponomia: o que já existia, o que entrou agora
 
 Heber trouxe uma pesquisa longa (40 oportunidades + plano em 7 etapas).

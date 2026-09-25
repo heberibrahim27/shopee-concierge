@@ -26,10 +26,10 @@ export function pickCouponsForProduct(params: {
     const rule = parseCouponRule({ title: coupon.title, description: coupon.description, code: coupon.code });
     const match = ruleMatchesProduct(rule, productName);
     if (match === "no") continue;
-    // Preço estimado só quando a marca/linha do cupom está no nome do
-    // produto; cupom genérico ("produtos selecionados") mostra "pode
-    // valer" sem número -- estimar ali seria prometer desconto que a loja
-    // aplica só em parte do catálogo.
+    // Preço estimado só quando a MARCA do cupom está no nome do produto E
+    // o texto não restringe a "itens selecionados" (estimatePriceWithCoupon
+    // devolve null nesse caso). Cupom de categoria ("produtos de VGA") já
+    // saiu em ruleMatchesProduct: não dá pra casar categoria por nome.
     const estimated = match === "specific" && price !== null ? estimatePriceWithCoupon(rule, price) : null;
     out.push({ coupon, match, estimated });
   }
@@ -73,7 +73,8 @@ export function ProductCoupons({
         </p>
       ) : (
         <p className="dc-product-coupons-estimate">
-          Pode valer pra este produto, mas a {storeLabel} decide a elegibilidade no carrinho.
+          Pode valer pra este produto, mas o texto do cupom não permite calcular: a {storeLabel} decide a
+          elegibilidade no carrinho.
         </p>
       )}
       <div className="dc-coupon-grid">
