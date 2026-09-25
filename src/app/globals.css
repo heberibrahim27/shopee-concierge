@@ -386,41 +386,25 @@ img {
 
 /* ---------- Categorias (página índice) ---------- */
 
-.dc-category-grid {
+/* Página /categorias (listagem completa, 18 itens) -- mesmo ladrilho
+   .dc-featured-cat-tile da home, só que numa grade que quebra linha em
+   vez de rolar (scroll horizontal não faz sentido pra 18 itens). Achado
+   real 2026-09-26: pedido do Heber pra usar o mesmo tratamento visual. */
+.dc-cat-page-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
 }
 
 @media (min-width: 480px) {
-  .dc-category-grid {
-    grid-template-columns: repeat(3, 1fr);
+  .dc-cat-page-grid {
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 
-.dc-cat-page-tile {
-  position: relative;
-  display: block;
-  text-decoration: none;
-  transition: transform 0.25s ease;
-}
-
-a.dc-cat-page-tile:hover {
-  transform: translateY(-3px);
-}
-
-a.dc-cat-page-tile:hover .dc-cat-page-img,
-a.dc-cat-page-tile:hover .dc-cat-tile-fallback {
-  box-shadow: 16px 16px 30px rgba(0, 0, 0, 0.16), -16px -16px 30px rgba(255, 255, 255, 1);
-}
-
-.dc-cat-page-img {
-  display: block;
+.dc-cat-page-grid .dc-featured-cat-tile {
   width: 100%;
-  height: auto;
-  border-radius: 14px;
-  box-shadow: 11px 11px 22px rgba(0, 0, 0, 0.13), -11px -11px 22px rgba(255, 255, 255, 0.95);
-  transition: box-shadow 0.25s ease;
+  flex: none;
 }
 
 /* ---------- Grade de categorias (Home, carrossel de 2 linhas) ---------- */

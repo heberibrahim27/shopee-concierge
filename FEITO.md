@@ -58,6 +58,19 @@ naquele produto no checkout; por isso o texto diz "pode valer" e "a loja
 decide". A validação com produto real renderizado no site depende do
 ambiente com credenciais (outra sessão / pós-deploy). Migrations
 `coupon_feedback` e `shopee_offer_key` já aplicadas — não reaplicar.
+## 2026-09-26 — Merge do branch da sessão paralela (`claude/descontos-chegando-monetizacao-oe55gy`) na main
+
+3 commits do branch paralelo incorporados via `git merge` (sem conflitos,
+"ort" strategy, 18 arquivos, 924 inserções): `cd9ac38` (cupons oficiais
+Shopee via shopeeOfferV2), `9f53e52` ("Veja também" + guias na página de
+produto, buscas populares em `/busca`), `2a3224b` (regras estruturadas de
+cupom no contexto do produto com preço estimado, voto funcionou/não
+funcionou). `catalog.ts` não foi tocado além do que o próprio merge trouxe
+(os 3 `export` de `mapRow`/`dedupeByGroup`/`SITE_CATALOG_COLUMNS` já
+estavam na main). `npx tsc --noEmit` e `next build` limpos antes do push.
+Pendente: rodar as 4 checagens pós-deploy que dependem de chaves reais
+(dry-run do cron `source-shopee-offers`, cupom de produto Kabum JBL/Apple,
+fluxo de alerta de preço via WhatsApp, seção Lomadee em `/busca`).
 
 ## 2026-09-26 — Documento do "GPT 6 Astra" sobre o modelo Cuponomia: o que já existia, o que entrou agora
 
@@ -439,6 +452,32 @@ mantinha verde só pra selo de economia/menor preço. Aplicado:
 Testado ao vivo (preview local, mobile): home, produto e cupons
 conferidos visualmente, zero verde fora do admin, `tsc` e `next build`
 limpos.
+
+## 2026-09-26 (continuação) — Página /categorias com o mesmo tratamento da home (18 fotos reais recortadas)
+
+Heber pediu pra analisar `/categorias` (o "Ver todas" da home) -- ainda
+estava no estilo antigo (ícone preto + texto). Confirmado com ele: mesmo
+tratamento da home pras 12 categorias que faltavam (já tinha 6 prontas).
+
+Processo (mesmo pipeline real da home, não atalho): pra cada uma das 12,
+consultei o mais vendido real no catálogo, baixei e ABRI a imagem antes
+de escolher (rejeitei ~8 candidatas por ter pessoa, banner de texto ou
+múltiplos produtos -- ex.: automotivo trocado 2x, pet 3x, brinquedos 3x,
+até achar a melhor opção real disponível). As 12 passaram por remoção de
+fundo real (Canva), baixadas como PNG RGBA de verdade, salvas em
+`public/categorias-produtos/*.png`.
+
+`CATEGORY_TILES` (categoryTiles.ts) ganhou `photoUrl`/`subtitle` pra cada
+categoria -- fonte única de dado, usada tanto por `FeaturedCategoryGrid`
+(home, 6 categorias) quanto pela página `/categorias` reescrita (18
+categorias, grade que quebra linha em vez de rolar -- scroll horizontal
+não faz sentido pra uma listagem completa). CSS morto do estilo antigo
+(`dc-cat-page-tile`, `dc-cat-page-img`, `dc-category-grid`) removido,
+confirmado sem uso em nenhum lugar antes de apagar.
+
+Testado ao vivo: 18 fotos carregando (`complete:true` via JS em todas),
+grade 3 colunas mobile / 4 desktop, mesmo visual da home. `tsc` e
+`next build` limpos.
 
 ## 2026-09-26 (continuação) — Fundo branco de verdade nas fotos de categoria (recorte real) + ordenado por busca real
 
