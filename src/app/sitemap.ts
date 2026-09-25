@@ -21,6 +21,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.6,
     })),
     { url: `${SITE_URL}/guia`, changeFrequency: "weekly" as const, priority: 0.6 },
+    { url: `${SITE_URL}/lojas-parceiras`, changeFrequency: "weekly" as const, priority: 0.5 },
     // Conteúdo editorial real (ver lib/site/guides.ts) -- sempre
     // indexável, diferente do gate de produto: é texto original de
     // verdade, não risco de página fina.

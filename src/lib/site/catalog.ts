@@ -229,6 +229,40 @@ export function getCachedIndexableProducts(): Promise<SiteProduct[]> {
   })();
 }
 
+/**
+ * Contagem real de produto publicado por plataforma -- página de
+ * transparência "Lojas Parceiras" (pedido do Heber 2026-09-25, ideia já
+ * registrada mais cedo no mesmo dia pesquisando a Promotech, ver memória
+ * project_competitor_promotech_research). Usa `count: "exact", head:
+ * true` por plataforma (só conta, não baixa linha nenhuma) -- de
+ * propósito, pra não repetir o bug real de hoje mais cedo (select sem
+ * `.range()` trunca em ~1000 linhas no PostgREST/Supabase; buscar as
+ * 6.336 linhas só pra contar seria o mesmo erro de novo).
+ */
+async function queryPlatformStats(): Promise<{ platform: string; count: number }[]> {
+  if (!hasSupabaseEnv()) return [];
+  const db = getDb();
+  const platforms = ["shopee", "kabum", "mercadolivre", "nike", "olympikus"];
+  const results = await Promise.all(
+    platforms.map(async (platform) => {
+      const { count, error } = await db
+        .from("site_catalog")
+        .select("*", { count: "exact", head: true })
+        .eq("platform", platform);
+      if (error) throw new Error(`Falha ao contar plataforma ${platform}: ${error.message}`);
+      return { platform, count: count ?? 0 };
+    })
+  );
+  return results.filter((r) => r.count > 0).sort((a, b) => b.count - a.count);
+}
+
+export function getCachedPlatformStats(): Promise<{ platform: string; count: number }[]> {
+  return unstable_cache(queryPlatformStats, ["platform-stats"], {
+    tags: ["platform-stats"],
+    revalidate: FALLBACK_REVALIDATE_SECONDS,
+  })();
+}
+
 async function queryCategoryProducts(categorySlug: string): Promise<SiteProduct[]> {
   if (!hasSupabaseEnv()) return [];
 
