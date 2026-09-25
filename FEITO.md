@@ -4,6 +4,27 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (madrugada, continuação) — Mídia kit mostra clique real, 3º concorrente (Pelando)
+
+**Mídia kit lendo click_events pela primeira vez** — a tabela existia e
+era escrita há tempos, mas nunca lida em lugar nenhum. Agora `/media-kit`
+mostra clique real por canal (`source`), testado local com dado real
+(Produto: 6, Instagram_hoje: 1).
+
+**Terceiro concorrente real (Pelando.com.br)** — modelo de comunidade/
+fórum: "temperatura" (score de aquecimento por voto), aba
+Destaques/Recentes/Quentes/Comentadas, contagem de "+X viram agora" por
+oferta, e o mesmo padrão de "postar oferta" que já vi no Promobit —
+confirma que conteúdo enviado por usuário é padrão validado em 2 dos 3
+concorrentes reais checados, não invenção de uma empresa só. Não
+construí a funcionalidade ainda (precisa moderação/anti-spam pra não
+virar trabalho manual) — fica registrado pra um ciclo dedicado.
+
+**Nota**: o Chrome do Heber ficou indisponível esse ciclo (provavelmente
+computador em standby durante a noite) — não consegui debater com o
+ChatGPT nesse ciclo especificamente, segui com o que dava sem depender
+disso.
+
 ## 2026-09-25 (madrugada) — Fase 0 do plano: redirecionador de clique real
 
 Construí `/go` (`src/app/go/route.ts`) — fecha o buraco real que a
