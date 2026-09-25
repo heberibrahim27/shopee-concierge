@@ -4,6 +4,21 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-26 — Busca por "cupom" trazia só impressora de cupom (corrigido)
+
+Heber: "quando pesquiso cupom, só abre impressora de cupons". Causa: a
+busca é de produto, e "cupom" casa com o nome "Impressora Térmica de
+Cupom". Correção em `src/lib/site/couponIntent.ts` + `/busca`: termo com
+"cupom/cupons/voucher/código de desconto" mostra, ANTES dos produtos, um
+bloco de cupons ativos (até 6, com código primeiro) + chips das lojas
+com cupom + link pra /cupons. Se o termo cita uma loja com cupom ativo
+("cupom kabum", "cupons da KaBuM!", "cupom malwee kids"), mostra só os
+dela e o atalho pra `/cupom/[loja]`. "Impressora de cupom" continua
+mostrando os produtos logo abaixo, sob o título "Produtos com esse
+termo". Testes puros em `scripts/test-coupon-intent.ts`
+(`npm run test:coupon-intent`); `tsc` limpo. Não renderizado com dado
+real (sem chave no container).
+
 ## 2026-09-26 — Validação real do painel `/admin` (rótulos, `/admin/cupons`, cliques por origem)
 
 Depois do merge do commit `9c8edec`, login real em produção (a senha do
