@@ -150,7 +150,13 @@ export default async function ProductPage({ params }: { params: { slug: string }
             {priceHistory.dailySeries.length >= 7 ? (
               <div style={{ marginTop: 10 }}>
                 <p style={{ fontSize: 11.5, fontWeight: 700, color: "var(--dc-text-muted)", marginBottom: 4 }}>
-                  Histórico de preço
+                  Histórico monitorado: {priceHistory.dailySeries.length} dias
+                  {/* Achado real do ChatGPT (2026-09-25): não dizer "40 dias"
+                      antes da hora, e deixar claro de qual loja é o
+                      histórico quando o produto tem oferta em mais de uma
+                      (o preço mostrado é sempre da oferta em destaque, que
+                      pode trocar de loja ao longo do tempo). */}
+                  {remainingOffers.length > 0 ? ` nessa loja (${bestPlatform.label})` : ""}
                 </p>
                 <PriceSparkline series={priceHistory.dailySeries} />
               </div>

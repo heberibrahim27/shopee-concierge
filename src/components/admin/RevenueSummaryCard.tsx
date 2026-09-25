@@ -58,8 +58,11 @@ export function RevenueSummaryCard({
           </p>
           <RevenueRow label="Cliques enviados (nosso site)" value={cliques7d} />
           <RevenueRow label="Pedidos" value={last7d ? last7d.pedidos : "—"} />
+          {/* Achado real do ChatGPT (2026-09-25): comissão pendente não é
+              receita realizada -- o rótulo precisa deixar isso explícito,
+              não só somar os dois números como se já fosse ganho certo. */}
           <RevenueRow
-            label="Receita gerada (comissão)"
+            label="Comissão total (pendente + validada)"
             value={last7d?.receitaTotal !== undefined ? formatBRL(last7d.receitaTotal) : "—"}
           />
           <RevenueRow label="Comissão validada" value={last7d ? formatBRL(last7d.comissaoValidada) : "—"} />
@@ -86,7 +89,7 @@ export function RevenueSummaryCard({
             </p>
             <RevenueRow label="Pedidos" value={awinLast7d ? awinLast7d.pedidos : "—"} />
             <RevenueRow
-              label="Receita gerada (comissão)"
+              label="Comissão total (pendente + validada)"
               value={awinLast7d?.receitaTotal !== undefined ? formatBRL(awinLast7d.receitaTotal) : "—"}
             />
             <RevenueRow label="Comissão validada" value={awinLast7d ? formatBRL(awinLast7d.comissaoValidada) : "—"} />
