@@ -12,7 +12,8 @@
     "test:deals": "tsx scripts/test-deal-scoring.ts",
     "source:deals": "tsx scripts/source-deals.ts",
     "remotion:studio": "remotion studio remotion/index.ts",
-    "remotion:render": "remotion render remotion/index.ts"
+    "remotion:render": "remotion render remotion/index.ts",
+    "test:coupon-rules": "tsx scripts/test-coupon-rules.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.116.0",

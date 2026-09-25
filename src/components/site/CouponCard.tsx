@@ -4,22 +4,22 @@ import { useState } from "react";
 import { SiteCoupon } from "../../lib/site/coupons";
 import { getPlatformInfo } from "../../lib/site/platforms";
 import { AFFILIATE_LINK_REL } from "../../lib/site/affiliateLink";
-import { describeRule, parseCouponRule } from "../../lib/site/couponRules";
+import { describeRule, isAwinOpenEnded, parseCouponRule } from "../../lib/site/couponRules";
 
-function formatEndsAt(iso: string | null): string | null {
+function formatEndsAt(iso: string | null, fetchedAt: string | null): string | null {
   if (!iso) return null;
-  const date = new Date(iso);
-  // Awin manda "1 ano à frente" quando a campanha não tem fim de verdade --
-  // isso não é validade, é ausência dela (achado real: cupons Kabum com
-  // ends_at 2027 e "válido até 20/09" no texto). Não mostra nesse caso.
-  if (date.getTime() - Date.now() > 300 * 86400_000) return null;
-  return `Válido até ${date.toLocaleDateString("pt-BR")}`;
+  // Marcador da Awin pra campanha sem fim (busca + 366 dias) não é
+  // validade -- ver isAwinOpenEnded. Validade real distante continua
+  // aparecendo.
+  if (isAwinOpenEnded(iso, fetchedAt)) return null;
+  return `Válido até ${new Date(iso).toLocaleDateString("pt-BR")}`;
 }
 
-function formatCheckedAt(iso: string | null): string | null {
+/** fetched_at é a última atualização pela integração -- não prova uso no checkout, por isso "Atualizado", não "Conferido". */
+function formatUpdatedAt(iso: string | null): string | null {
   if (!iso) return null;
   const date = new Date(iso);
-  return `Conferido em ${date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`;
+  return `Atualizado em ${date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`;
 }
 
 async function sendFeedback(couponId: string, worked: boolean): Promise<void> {
@@ -62,12 +62,16 @@ export function CouponCard({ coupon }: { coupon: SiteCoupon }) {
   const [voted, setVoted] = useState<null | boolean>(null);
   const rule = parseCouponRule({ title: coupon.title, description: coupon.description, code: coupon.code });
   const ruleLine = describeRule(rule);
-  const checkedLabel = formatCheckedAt(coupon.fetchedAt);
+  const endsLabel = formatEndsAt(coupon.endsAt, coupon.fetchedAt);
+  const checkedLabel = formatUpdatedAt(coupon.fetchedAt);
+  const validityNote =
+    !endsLabel && (rule.validityUnknown || isAwinOpenEnded(coupon.endsAt, coupon.fetchedAt))
+      ? "validade não informada pela loja"
+      : null;
   // "lomadee" é o valor genérico gravado quando a marca não foi resolvida
   // na ingestão — nesse caso o nome do anunciante é o rótulo certo, não
   // o nome da rede de afiliados.
   const info = coupon.platform && coupon.platform !== "lomadee" ? getPlatformInfo(coupon.platform) : null;
-  const endsLabel = formatEndsAt(coupon.endsAt);
 
   function handleReveal() {
     setRevealed(true);
@@ -92,8 +96,8 @@ export function CouponCard({ coupon }: { coupon: SiteCoupon }) {
       <p className="dc-coupon-title">{coupon.title}</p>
       {ruleLine ? <p className="dc-coupon-rule">{ruleLine}</p> : null}
       {coupon.description ? <p className="dc-coupon-description">{coupon.description}</p> : null}
-      {endsLabel || checkedLabel ? (
-        <p className="dc-coupon-ends">{[endsLabel, checkedLabel].filter(Boolean).join(" · ")}</p>
+      {endsLabel || validityNote || checkedLabel ? (
+        <p className="dc-coupon-ends">{[endsLabel, validityNote, checkedLabel].filter(Boolean).join(" · ")}</p>
       ) : null}
 
       {coupon.code ? (
