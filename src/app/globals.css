@@ -995,6 +995,20 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   margin: 0 0 10px;
 }
 
+.dc-product-description {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--dc-border);
+  max-width: 720px;
+}
+
+.dc-product-description p:not(.dc-compare-title) {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--dc-text);
+  white-space: pre-line;
+}
+
 .dc-compare-list {
   list-style: none;
   margin: 0;

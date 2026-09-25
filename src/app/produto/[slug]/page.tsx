@@ -14,11 +14,17 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   const product = await getCachedProduct(params.slug);
   if (!product) return {};
 
+  const metaDescription =
+    product.highlightReason ??
+    (product.description ? product.description.slice(0, 155).trim() : null) ??
+    // Fallback genérico corrigido 2026-09-25: dizia "na Shopee" pra QUALQUER
+    // plataforma, inclusive Kabum/Awin -- achado real ao adicionar o campo
+    // description, não inventado.
+    `${product.productName}, comparado pelo Desconto Chegando pelo custo-benefício.`;
+
   return {
     title: product.productName,
-    description:
-      product.highlightReason ??
-      `${product.productName} na Shopee, escolhido pelo Desconto Chegando pelo custo-benefício.`,
+    description: metaDescription,
     alternates: { canonical: `/produto/${product.slug}` },
     openGraph: {
       title: product.productName,
@@ -74,6 +80,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
     "@type": "Product",
     name: product.productName,
     image: product.imageUrl ?? undefined,
+    description: product.description ?? undefined,
     aggregateRating:
       product.ratingStar && product.sales
         ? {
@@ -224,6 +231,15 @@ export default async function ProductPage({ params }: { params: { slug: string }
             ) : null}
           </div>
         </div>
+
+        {product.description ? (
+          <div className="dc-product-description">
+            <p className="dc-compare-title">Sobre o produto</p>
+            {/* Texto puro do vendedor (Kabum/Awin), já sem HTML -- ver
+                decodeAwinDescription. Nunca dangerouslySetInnerHTML aqui. */}
+            <p>{product.description}</p>
+          </div>
+        ) : null}
 
         <a className="dc-back-link" href="/">
           ← Voltar pra Home

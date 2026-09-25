@@ -4,6 +4,60 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (tarde, continuação 15) — Descrição real do produto (Kabum) + resposta técnica sobre fotos múltiplas
+
+Heber comparou uma página real nossa (mouse) com a imagem de referência
+(air fryer, com galeria de fotos e specs formatadas) e perguntou "tem
+como puxar mais fotos?", depois esclareceu o motivo: "o Desconto
+Chegando é um site de vendas... temos que ter a foto do catálogo, as
+características do produto cadastrado pelo vendedor... tudo no
+padrão!".
+
+Investigação real (não assumi, testei ao vivo):
+- **Fotos múltiplas: não dá, confirmado nas duas fontes.** Puxei o
+  schema real da resposta da Shopee (`productOfferV2`) e o CSV real do
+  feed da Kabum na Awin -- os dois só têm 1 imagem por produto. Não é
+  falta de código, é limite da fonte (feed de afiliado, não catálogo
+  completo). Expliquei isso pro Heber sem prometer o que não existe.
+- **Características do vendedor: parcial, real, e SHIPPADO.** O feed
+  da Kabum tem um campo `description` que achei rico de verdade --
+  testei numa amostra de 8 produtos de valor (>R$200): 0/8 vinham
+  iguais ao título (só item muito barato, tipo cabo de R$9,90, tem
+  descrição fraca -- exceção, não regra). O comentário antigo em
+  catalog.ts dizia "a Awin não tem descrição" -- estava desatualizado/
+  errado, corrigido.
+
+Implementado:
+- Migration (`20260925200000_add_products_description.sql`) -- coluna
+  `products.description`, view `site_catalog` atualizada (teve que
+  reconstruir a partir da definição REAL via `pg_get_viewdef`, o
+  arquivo de migration antigo já estava desatualizado sem `group_id`).
+- `decodeAwinDescription` em `lib/awin/ingest.ts` -- decodifica
+  entidades HTML nomeadas + numéricas do feed (`&ccedil;` etc), remove
+  tags soltas, nunca guarda/renderiza como HTML (sempre texto puro).
+- Capturado no ingest (cron diário `source-awin` já pega sozinho a
+  partir de agora) + gate de indexabilidade (`isProductIndexable`)
+  agora também aceita descrição real (>=60 chars) como sinal de valor,
+  igual já fazia com `highlightReason`.
+- Bloco "Sobre o produto" na página do produto -- só aparece quando
+  existe (produto Shopee sem esse campo simplesmente não mostra a
+  seção, nada inventado/preenchido). Também entrou no `<meta
+  description>` (fallback melhor que o texto genérico antigo, que
+  dizia "na Shopee" pra QUALQUER plataforma -- corrigido de
+  passagem) e no JSON-LD schema.org.
+- Backfill (`scripts/backfill-kabum-description.ts`) rodado contra o
+  banco real -- achado real no meio do caminho: o SELECT do Supabase
+  limita 1000 linhas por padrão, primeira rodada só pegou 1000 dos
+  4.412 produtos Kabum já publicados; corrigido com paginação
+  (`.range()`). Resultado final real: **4.381 de 4.412 produtos Kabum
+  (99,3%) agora têm descrição real do vendedor**, 31 sem match/
+  descrição no feed (aceitável, resíduo pequeno).
+
+Testado: `tsc --noEmit` limpo, `next build` completo sem erro,
+verificado ao vivo no preview local (placa-mãe Gigabyte real,
+descrição renderizando limpa, sem quebra de layout, zero erro de
+console).
+
 ## 2026-09-25 (tarde, continuação 14) — Barra de compra fixa no mobile + verdes literais residuais corrigidos
 
 Terminando o redesign: barra de compra fixa na página de produto no
