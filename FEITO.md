@@ -4,6 +4,32 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (manhã, continuação) — ChatGPT pegou 2 furos reais nos selos, corrigidos
+
+Levei os selos novos pro ChatGPT debater (não só validar). Achou 2 problemas
+reais:
+
+1. **Bug real**: o selo de atualização usava `updatedAt` (campo genérico
+   `products.updated_at`, que muda por qualquer edição — categoria, slug —
+   não só checagem de preço). O timestamp certo é
+   `offer_snapshots.captured_at` (via `site_catalog.snapshot_captured_at`),
+   que eu nunca tinha exposto no `SiteProduct`. Corrigido: novo campo
+   `priceCheckedAt` em `catalog.ts`, coluna adicionada em
+   `SITE_CATALOG_COLUMNS`, `page.tsx` trocado pra usar o campo certo.
+2. **Wording**: "Menor preço dos últimos N dias" podia soar como "menor
+   preço do mercado inteiro" quando na real é só o que a gente monitorou
+   (hoje só Shopee/Awin). Trocado pra "Menor preço que monitoramos nos
+   últimos N dias" — mais defensável, mesma ideia.
+
+Testado local depois da correção: bati um cache antigo do Next (`.next`
+tinha um `unstable_cache` guardado de antes de eu adicionar a coluna nova
+na query) — o selo de atualização sumiu na primeira checagem. Limpei
+`.next`, reiniciei o dev server, conferi de novo: os dois selos voltaram
+com dado real ("Menor preço que monitoramos nos últimos 12 dias" + "Preço
+atualizado há 2 dias", batendo com o snapshot real de 23/09). `npx tsc
+--noEmit` limpo (bateu erro real em `favoritos/page.tsx`, que montava um
+`SiteProduct` manual sem o campo novo — corrigido também).
+
 ## 2026-09-25 (manhã) — Selos de confiança reais na página de produto (preço + atualização)
 
 Heber acordou, mandou 2 mockups de referência de um site "premium" (tabela

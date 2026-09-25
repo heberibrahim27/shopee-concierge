@@ -33,6 +33,13 @@ export interface SiteProduct {
   sales: number | null;
   offerLink: string | null;
   updatedAt: string;
+  /** Timestamp real da última captura de preço dessa oferta específica
+   * (`offer_snapshots.captured_at`, via `site_catalog.snapshot_captured_at`)
+   * -- diferente de `updatedAt`, que é só o `updated_at` genérico da linha
+   * do produto (pode mudar por edição de categoria/slug, não reflete
+   * checagem de preço real). Usar SEMPRE este campo pro selo de
+   * "preço atualizado há X" -- ver correção do ChatGPT 2026-09-25. */
+  priceCheckedAt: string | null;
   /** Só preenchido em listagens (busca/categoria/home) quando o produto tem
    * outras ofertas no mesmo group_id — mostra um mini comparativo no card
    * sem precisar clicar (a página de produto já mostra o comparativo
@@ -90,7 +97,7 @@ function hasSupabaseEnv(): boolean {
 }
 
 const SITE_CATALOG_COLUMNS =
-  "id, slug, product_name, category_slug, platform, group_id, highlight_reason, image_url, price_min, price_max, price_discount_rate, rating_star, sales, offer_link, updated_at";
+  "id, slug, product_name, category_slug, platform, group_id, highlight_reason, image_url, price_min, price_max, price_discount_rate, rating_star, sales, offer_link, updated_at, snapshot_captured_at";
 
 function mapRow(row: Record<string, unknown>): SiteProduct {
   return {
@@ -112,6 +119,7 @@ function mapRow(row: Record<string, unknown>): SiteProduct {
     sales: row.sales === null || row.sales === undefined ? null : Number(row.sales),
     offerLink: (row.offer_link as string | null) ?? null,
     updatedAt: String(row.updated_at),
+    priceCheckedAt: (row.snapshot_captured_at as string | null) ?? null,
   };
 }
 

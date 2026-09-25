@@ -57,7 +57,11 @@ export default async function ProductPage({ params }: { params: { slug: string }
     priceHistory.lowestPrice !== null &&
     bestOffer.priceMin <= priceHistory.lowestPrice &&
     priceHistory.daysTracked >= 2;
-  const freshness = formatRelativeTime(bestOffer.updatedAt);
+  // ChatGPT pegou uma correção real (2026-09-25): usar sempre o timestamp
+  // da última captura de preço real (priceCheckedAt), nunca o updatedAt
+  // genérico da linha do produto -- esse pode mudar por edição de
+  // categoria/slug sem nenhuma verificação de preço ter acontecido.
+  const freshness = bestOffer.priceCheckedAt ? formatRelativeTime(bestOffer.priceCheckedAt) : null;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -121,7 +125,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
                   {isLowestPrice ? (
                     <span className="dc-trust-badge dc-trust-badge-lowest">
                       <TrendingDownIcon size={13} />
-                      Menor preço dos últimos {priceHistory.daysTracked} dias
+                      Menor preço que monitoramos nos últimos {priceHistory.daysTracked} dias
                     </span>
                   ) : null}
                   {freshness ? (

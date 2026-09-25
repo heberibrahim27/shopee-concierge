@@ -24,6 +24,7 @@ function toSiteProduct(favorite: FavoriteProduct): SiteProduct {
     sales: favorite.sales,
     offerLink: null,
     updatedAt: "",
+    priceCheckedAt: null,
   };
 }
 
