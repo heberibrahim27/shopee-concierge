@@ -4,6 +4,7 @@ import { Footer } from "../../../../components/site/Footer";
 import { CategoryGrid } from "../../../../components/site/CategoryGrid";
 import { ProductGrid } from "../../../../components/site/ProductGrid";
 import { getCategoryBySlug } from "../../../../lib/site/categories";
+import { Breadcrumb } from "../../../../components/site/Breadcrumb";
 import {
   getCachedCategoryUnderPrice,
   getCachedViablePriceThresholds,
@@ -62,6 +63,13 @@ export default async function CategoryUnderPricePage({
       <Header />
       <main className="dc-shell">
         <section className="dc-hero">
+          <Breadcrumb
+            items={[
+              { label: "Início", href: "/" },
+              { label: category.label, href: `/categoria/${category.slug}` },
+              { label: `Até R$${preco}` },
+            ]}
+          />
           <h1>
             {category.label} até R${preco}
           </h1>

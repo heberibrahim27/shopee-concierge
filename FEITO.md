@@ -4,6 +4,19 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (madrugada, continuação) — Breadcrumb real + verificação de HTML
+
+ChatGPT confirmou que o link interno era a prioridade certa e sugeriu
+mais: breadcrumb real (Início › Casa › Até R$30, com BreadcrumbList em
+JSON-LD) — construído e testado, confirmei no HTML puro do servidor
+(não só na tela) que o schema aparece e que os 48 links de produto são
+`<a href>` reais, não só JS. Uma sugestão dele eu NÃO segui de graça:
+pediu pra rastrear clique de saída dessas páginas via `/go` — mas
+chequei o fluxo real primeiro e o card de produto da listagem linka
+pra página interna do produto, não direto pro link externo (isso já é
+rastreado lá, um passo depois) — a sugestão não batia com a arquitetura
+real, registrado em vez de implementar às cegas.
+
 ## 2026-09-25 (madrugada, continuação) — Link interno pras páginas de preço
 
 As páginas "Casa até R$30" só existiam via sitemap, nenhum visitante

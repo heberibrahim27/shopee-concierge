@@ -5,6 +5,7 @@ import { CategoryGrid } from "../../../components/site/CategoryGrid";
 import { ProductGrid } from "../../../components/site/ProductGrid";
 import { getCategoryBySlug, SITE_CATEGORIES } from "../../../lib/site/categories";
 import { getCachedCategory, getCachedViablePriceThresholds } from "../../../lib/site/catalog";
+import { Breadcrumb } from "../../../components/site/Breadcrumb";
 import { CATEGORY_ICONS } from "../../../components/site/icons";
 
 export function generateStaticParams() {
@@ -36,6 +37,7 @@ export default async function CategoryPage({ params }: { params: { slug: string 
       <Header />
       <main className="dc-shell">
         <section className="dc-hero">
+          <Breadcrumb items={[{ label: "Início", href: "/" }, { label: category.label }]} />
           <h1 className="dc-icon-inline">
             {Icon ? <Icon size={24} /> : null}
             {category.label}
