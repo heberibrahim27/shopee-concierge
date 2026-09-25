@@ -4,6 +4,26 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (tarde, continuação 4) — Canal real do Telegram encontrado (Bench Promos), mesma categoria do nosso estoque Kabum
+
+Pesquisa de concorrente real desse ciclo: achei um canal ativo do
+Telegram (Bench Promos, `t.me/BenchPromos`) postando ofertas de
+hardware/notebook/periférico -- exatamente a mesma categoria do nosso
+estoque real da Kabum (4.412 produtos). Posts com 1,7K-4,7K
+visualizações, dezenas por dia (a cada 5-40min), sem o limite de ~25
+posts/24h que já bateu no Instagram. Formato de post copiável direto:
+título curto + preço, specs em uma linha, cupom quando existe, preço
+parcelado, link (que passa pelo site próprio deles antes da loja,
+igual ao nosso /go). Também usam a hashtag `#anúncio` em todo post
+(sinal de transparência publicitária, barato de copiar).
+
+Isso não é mais só pesquisa teórica (já tínhamos concluído que
+Telegram era a aposta mais forte, ver CONTINUIDADE): agora tem um
+exemplo real funcionando na nossa categoria exata. Falta só uma coisa
+que só o Heber pode fazer: criar um bot via @BotFather (2 minutos) e
+adicionar como admin de um canal -- daí dá pra automatizar 100% via
+cron, sem CNPJ, sem toque manual recorrente.
+
 ## 2026-09-25 (tarde, continuação 3) — Quarta peça do redesign: removida a última fonte real de verde (fundo do cabeçalho)
 
 Heber mandou correção real: "Mantenha o verde onde tiver verde no
