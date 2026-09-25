@@ -111,6 +111,18 @@ function withinPriceCeiling(row: any): boolean {
   return price != null && Number(price) <= GROUP_PRICE_CEILING;
 }
 
+// Heber (2026-09-25, mesmo dia do teto de preço acima): "só tem produtos
+// da Awin no grupo, cadê a Shopee?" -- o teto resolveu "caro", não
+// resolveu "só uma origem". Causa: o backfill do catálogo Kabum criou
+// pares (categoria, awin) nunca postados em massa; "nunca postado" vence
+// QUALQUER par já postado (linha 306+ abaixo), e Shopee/ML têm histórico
+// recente em quase toda categoria -- então awin ganha a prioridade de
+// "mais desatualizado" toda vez, em toda categoria, até o catálogo
+// inteiro ser revisitado (pode levar dias). Mesmo padrão já usado pra
+// farmácia (FARMACIA_ROTATION_STREAK acima): depois de N posts seguidos
+// do mesmo bucket de marketplace, força o próximo a vir de outro.
+const BUCKET_ROTATION_STREAK = 3;
+
 type PostedRecord = {
   productId: string;
   productName: string;
@@ -299,6 +311,14 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>, excludeProdu
     (recentFarmacia ?? []).length === FARMACIA_ROTATION_STREAK &&
     (recentFarmacia ?? []).every((r: any) => r.deal_candidates?.score_breakdown?.origem === FARMACIA_ORIGEM);
 
+  // postedHistory já vem ordenado por posted_at desc (fetchPostedHistory) --
+  // os N mais recentes são só um slice, sem query extra.
+  const recentBuckets = postedHistory.slice(0, BUCKET_ROTATION_STREAK).map((r) => platformBucket(r.platform));
+  const forceNonBucket =
+    recentBuckets.length === BUCKET_ROTATION_STREAK && recentBuckets.every((b) => b === recentBuckets[0])
+      ? recentBuckets[0]
+      : null;
+
   const rows = (await fetchAvailableCandidateRows(db, postedProductIds)).filter(withinPriceCeiling);
   const groups = groupByCategoryAndBucket(rows);
   const lastPosted = lastPostedAtByCategoryBucket(postedHistory);
@@ -328,6 +348,7 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>, excludeProdu
 
   for (const key of pairs) {
     const bucket = key.split("::")[1];
+    if (forceNonBucket && bucket === forceNonBucket) continue;
     const bucketHistory = postedHistory.filter((r) => platformBucket(r.platform) === bucket);
     for (const row of groups.get(key)!) {
       if (forceNonFarmacia && isFarmaciaRow(row)) continue;
