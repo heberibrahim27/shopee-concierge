@@ -1,5 +1,6 @@
 import { getDbFresh } from "../db/client";
 import { getConversionReport } from "../shopee/queries";
+import { getAwinTransactions, summarizeAwinTransactions } from "../awin/revenue";
 import { classifyLinkCheck, LinkHealthKind } from "./linkHealth";
 import { marketplaceDisplayLabel } from "./marketplaces";
 
@@ -417,39 +418,81 @@ function sumCommission(conversions: { totalCommission: string }[]): number {
  * o gap de "Receita e conversões" que antes só mostrava "—". Se a API da
  * Shopee falhar (rate limit, credencial, rede), a página não pode quebrar
  * por causa disso — devolve `error: true` e a UI mostra "—" como sempre.
+ *
+ * Awin (Kabum/Nike/Olympikus) é buscado em bloco separado de propósito —
+ * pergunta real do Heber 2026-09-25 ("temos que colocar no admin se
+ * chegar comissão via API?"). Testado ao vivo antes de integrar: o
+ * endpoint funciona, mas retorna 0 transações nos últimos 30 dias (conta
+ * ainda não teve venda confirmada por esses 3 programas) — isso é dado
+ * real, não bug, e a UI precisa deixar isso claro em vez de mostrar "—"
+ * como se fosse erro. Falha da Awin não pode derrubar o bloco da Shopee
+ * (e vice-versa) — try/catch independente pra cada fonte.
  */
 export async function getRevenueStats() {
   const nowEpoch = Math.floor(Date.now() / 1000);
   const todayStartEpoch = startOfTodayBrtEpoch();
   const sevenDaysAgoEpoch = nowEpoch - 7 * 24 * 60 * 60;
 
-  try {
-    const [todayConversions, last7dConversions] = await Promise.all([
-      getConversionReport({ purchaseTimeStart: todayStartEpoch, purchaseTimeEnd: nowEpoch, limit: 200 }),
-      getConversionReport({ purchaseTimeStart: sevenDaysAgoEpoch, purchaseTimeEnd: nowEpoch, limit: 200 }),
-    ]);
+  const shopeeResult = await (async () => {
+    try {
+      const [todayConversions, last7dConversions] = await Promise.all([
+        getConversionReport({ purchaseTimeStart: todayStartEpoch, purchaseTimeEnd: nowEpoch, limit: 200 }),
+        getConversionReport({ purchaseTimeStart: sevenDaysAgoEpoch, purchaseTimeEnd: nowEpoch, limit: 200 }),
+      ]);
 
-    const pendingToday = todayConversions.filter((c) => c.conversionStatus === "PENDING");
-    const completedToday = todayConversions.filter((c) => c.conversionStatus === "COMPLETED");
-    const pending7d = last7dConversions.filter((c) => c.conversionStatus === "PENDING");
-    const completed7d = last7dConversions.filter((c) => c.conversionStatus === "COMPLETED");
+      const pendingToday = todayConversions.filter((c) => c.conversionStatus === "PENDING");
+      const completedToday = todayConversions.filter((c) => c.conversionStatus === "COMPLETED");
+      const pending7d = last7dConversions.filter((c) => c.conversionStatus === "PENDING");
+      const completed7d = last7dConversions.filter((c) => c.conversionStatus === "COMPLETED");
 
-    return {
-      error: false as const,
-      today: {
-        pedidos: new Set(todayConversions.flatMap((c) => c.orderIds)).size,
-        comissaoPendente: sumCommission(pendingToday),
-        comissaoValidada: sumCommission(completedToday),
-      },
-      last7d: {
-        pedidos: new Set(last7dConversions.flatMap((c) => c.orderIds)).size,
-        comissaoPendente: sumCommission(pending7d),
-        comissaoValidada: sumCommission(completed7d),
-        receitaTotal: sumCommission([...pending7d, ...completed7d]),
-      },
-    };
-  } catch (err) {
-    console.error("[admin] falha ao buscar conversionReport da Shopee:", err);
-    return { error: true as const, today: null, last7d: null };
-  }
+      return {
+        error: false as const,
+        today: {
+          pedidos: new Set(todayConversions.flatMap((c) => c.orderIds)).size,
+          comissaoPendente: sumCommission(pendingToday),
+          comissaoValidada: sumCommission(completedToday),
+        },
+        last7d: {
+          pedidos: new Set(last7dConversions.flatMap((c) => c.orderIds)).size,
+          comissaoPendente: sumCommission(pending7d),
+          comissaoValidada: sumCommission(completed7d),
+          receitaTotal: sumCommission([...pending7d, ...completed7d]),
+        },
+      };
+    } catch (err) {
+      console.error("[admin] falha ao buscar conversionReport da Shopee:", err);
+      return { error: true as const, today: null, last7d: null };
+    }
+  })();
+
+  const awinResult = await (async () => {
+    try {
+      const todayStart = new Date(todayStartEpoch * 1000);
+      const sevenDaysAgo = new Date(sevenDaysAgoEpoch * 1000);
+      const now = new Date(nowEpoch * 1000);
+      const [todayTx, last7dTx] = await Promise.all([
+        getAwinTransactions(todayStart, now),
+        getAwinTransactions(sevenDaysAgo, now),
+      ]);
+      const todaySummary = summarizeAwinTransactions(todayTx);
+      const last7dSummary = summarizeAwinTransactions(last7dTx);
+      return {
+        error: false as const,
+        today: todaySummary,
+        last7d: { ...last7dSummary, receitaTotal: last7dSummary.comissaoPendente + last7dSummary.comissaoValidada },
+      };
+    } catch (err) {
+      console.error("[admin] falha ao buscar transactions da Awin:", err);
+      return { error: true as const, today: null, last7d: null };
+    }
+  })();
+
+  return {
+    error: shopeeResult.error,
+    today: shopeeResult.today,
+    last7d: shopeeResult.last7d,
+    awinError: awinResult.error,
+    awinToday: awinResult.today,
+    awinLast7d: awinResult.last7d,
+  };
 }

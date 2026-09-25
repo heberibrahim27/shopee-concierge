@@ -48,6 +48,9 @@ export default async function AdminOverviewPage() {
           today={revenue.today}
           last7d={revenue.last7d}
           shopeeError={revenue.error}
+          awinToday={revenue.awinToday}
+          awinLast7d={revenue.awinLast7d}
+          awinError={revenue.awinError}
         />
       </section>
 
