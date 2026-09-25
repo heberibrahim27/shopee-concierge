@@ -4,6 +4,57 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (manhã, continuação) — SEO_INDEX_GATE v1: catálogo ≠ indexação (verificado ao vivo antes e depois)
+
+Próximo item da lista do ChatGPT depois de fechar o matcher: "ingerir
+4.412 produtos não significa indexar 4.412 páginas automaticamente."
+Investiguei ao vivo antes de escrever qualquer linha (mesma disciplina
+usada no matcher):
+
+- O sitemap (`src/app/sitemap.ts`) já era limitado a 24 URLs de produto
+  no total (`.limit(24)`, ordenado por snapshot mais recente) -- NÃO
+  lista os 4.412 da Kabum de uma vez. Conferido ao vivo em
+  `descontochegando.com.br/sitemap.xml` antes de supor qualquer coisa.
+- MAS a página de produto (`/produto/[slug]/page.tsx`) não tinha NENHUM
+  campo `robots`, e o `robots.ts` libera tudo (`allow: "/"`) -- toda
+  página de produto vira `index,follow` por padrão se o Google achar o
+  link (link interno de categoria, compartilhamento, etc), não importa o
+  quão fina seja.
+- Confirmado ao vivo visitando uma página real Kabum sem `group_id`: o
+  corpo inteiro da página é literalmente "NOSSA ESCOLHA / [título] /
+  preço atualizado há X / R$ preço / Ver oferta no KaBuM! / Voltar" --
+  sem descrição, sem ficha técnica, sem nota/venda (o feed da Awin
+  estruturalmente não tem isso). Exatamente o "thin content" que o
+  ChatGPT alertou.
+
+**Corrigido**: `isProductIndexable()` em `src/lib/site/catalog.ts` --
+exige preço e imagem válidos, título com pelo menos 15 caracteres, E
+pelo menos UM sinal real de valor: comparação multi-loja (`group_id`),
+descrição curada (`highlight_reason`, hoje só Shopee) ou prova social de
+verdade (nota + vendas ≥10, também só Shopee tem). De propósito, NÃO
+gateado só em "tem comparação" -- o ChatGPT alertou que isso jogaria
+fora produto Shopee bom sem par cross-store. Ligado no `sitemap.ts`
+(filtra produtos) e no `generateMetadata` da página de produto
+(`robots: { index: isProductIndexable(product), follow: true }` --
+continua crawleável/linkável, só não pede indexação).
+
+**Impacto real medido no banco antes de subir**: Shopee fica quase
+100% indexável (1.725/1.762 = 98%, já tem nota+venda de verdade --
+confirma que o gate não é agressivo demais pra quem já tem sinal
+próprio). Kabum cai pros 968/4.412 indexáveis -- exatamente o número de
+comparações reais, porque hoje só ganha indexabilidade via match com
+Shopee. Nike/Olympikus ~26/51-55 (metade). Total: 2.754/6.336 produtos
+publicados (~43%) indexáveis.
+
+**Deploy verificado ao vivo depois do build (commit `affce52`)**, não só
+assumido: `sitemap.xml` agora tem 0 URLs de produto (esperado -- a janela
+dos "24 mais recentes" está saturada de Kabum recém-chegado sem sinal
+ainda; deve se recompor sozinha conforme os crons diários intercalam
+Shopee de novo nessa ordenação); uma página Kabum real sem comparação
+agora serve `<meta name="robots" content="noindex, follow">`; uma página
+Shopee real continua servindo `index, follow`. Os dois conferidos no
+HTML renderizado de verdade, não assumidos pelo código.
+
 ## 2026-09-25 (manhã, continuação) — Gate de validação de atributo pros matches Kabum×Shopee (988 → 968, auditoria retroativa aplicada)
 
 Seguindo a recomendação do ChatGPT ("esse índice já justifica endurecer
