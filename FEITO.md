@@ -4,6 +4,28 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (madrugada, continuação) — ChatGPT revisou o /go de verdade, testei os achados
+
+Mandei um resumo de tudo que fiz essa madrugada pro ChatGPT (Chrome
+voltou) e ele devolveu crítica real, não elogio: (1) risco de política
+de afiliado no `/go` — Awin pode proibir redirect que mascare origem
+em alguns programas, Shopee exige clique voluntário. Pesquisei de
+verdade: Awin permite cloaking transparente via 302 padrão desde que
+não esconda a relação de afiliado de forma enganosa — o `/go` é
+exatamente isso (302 no nosso próprio domínio, link original sem
+alteração, só dispara com clique real). Risco baixo, não zero, fica
+registrado pra revisitar se algum problema de comissão aparecer.
+(2) Vetores de ataque específicos (subdomínio falso, punycode,
+userinfo@host) — **testei cada um de verdade** com um script real:
+todos já bloqueados pelo código atual, porque uso `new URL().hostname`
+em vez de comparação de string ingênua. Nenhuma mudança de código
+necessária aí. (3) Contagem de clique no mídia kit não distingue clique
+de bot/preview de clique real — corrigi o texto pra deixar isso claro
+(não construí filtro de bot ainda, não vale o esforço com o volume
+atual). (4) Reordenou a prioridade: conectar e-mail não "fecha a Fase
+1" (isso resolve retenção, não resolve os 163 visitas/mês de aquisição,
+que segue em aberto).
+
 ## 2026-09-25 (madrugada, continuação) — QA visual real no mobile
 
 Conferi ao vivo (screenshot real, não suposição) o rodapé em produção

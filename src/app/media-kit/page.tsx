@@ -108,8 +108,9 @@ export default async function MediaKitPage() {
         <h2 style={{ fontSize: 18, marginBottom: 8 }}>Cliques por canal (30 dias)</h2>
         <p style={{ color: "var(--dc-text-muted)", fontSize: 13, marginBottom: 12 }}>
           Fase 0 do plano de receita: cada clique de afiliado que passa pelo redirecionador{" "}
-          <code>/go</code> é registrado por origem. Ainda em rollout — só a legenda do Instagram usa
-          o redirecionador por enquanto, então este número cresce aos poucos.
+          <code>/go</code> é registrado por origem. Contagem bruta de eventos, ainda sem filtro de
+          bot/preview/crawler — não representa compradores nem cliques únicos, só volume de eventos
+          registrados. Ainda em rollout.
         </p>
         {clicks.total === 0 ? (
           <p style={{ color: "var(--dc-text-muted)", fontSize: 13 }}>Sem cliques registrados ainda.</p>
