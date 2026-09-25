@@ -4,6 +4,41 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (madrugada, continuação) — Auditoria final das páginas de preço + fim de ciclo, modo prontidão
+
+ChatGPT revisou o internal linking/breadcrumb e apontou dois pontos antes de
+liberar pra "modo prontidão": (1) risco de as 53 páginas `/categoria/[slug]/[preco]`
+oscilarem 200→404→200 se o estoque cair abaixo do mínimo de 6 produtos depois
+de já indexadas; (2) rodar uma auditoria real nas 53 URLs em produção antes de
+declarar pronto.
+
+**Investiguei o ponto 1 antes de "consertar"**: reli `page.tsx` — o componente
+só chama `notFound()` quando `!category || !preco` ou quando
+`products.length === 0`. O limiar de 6 produtos (`MIN_PRODUCTS_FOR_PRICE_PAGE`)
+só é usado em `listViablePriceCategoryPages()` (sitemap/generateStaticParams) e
+em `queryViablePriceThresholdsForCategory()` (pills de link interno) — nunca
+no runtime da própria página. Ou seja: se uma categoria+faixa cair de 7 pra 2
+produtos, a página continua servindo 200 com os 2 produtos que sobraram, só
+sai do sitemap e das pills na próxima geração. Só 404 de verdade quando o
+produto real chega a zero, que é o comportamento correto. **Conclusão: o risco
+que o ChatGPT apontou não existe nessa implementação — não precisou de código
+novo.** Evitei construir uma "histerese" que já estava resolvida por acidente
+de design (o gate de 6 produtos nunca foi aplicado no lado do render).
+
+**Rodei a auditoria real (ponto 2)**: script Node (`scratchpad/audit_price_pages.mjs`)
+buscou as 53 URLs do sitemap.xml de produção e, pra cada uma, verificou status
+200, `<title>` presente, canonical presente e igual à própria URL (sem
+duplicata entre páginas), exatamente 1 `<h1>`, schema `BreadcrumbList`
+presente, pelo menos 1 link real `<a href="/produto/...">`, sem `noindex`.
+**Resultado: 53/53 sem problema.** Nada pra corrigir.
+
+Com isso, fechei o pedido do ChatGPT de "não codar mais enquanto não houver
+sinal externo" — próximos passos reais dependem de: Heber confirmar status do
+app do Pinterest, verificar token/permissão do Facebook, criar o bot do
+Telegram, e o Google começar a indexar/mandar tráfego pras páginas novas.
+Nenhum desses precisa de mais código agora. Ver [[project_price_intent_seo_pages]]
+na memória.
+
 ## 2026-09-25 (madrugada, continuação) — Breadcrumb real + verificação de HTML
 
 ChatGPT confirmou que o link interno era a prioridade certa e sugeriu
