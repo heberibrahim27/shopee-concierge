@@ -29,11 +29,22 @@ export default async function HomePage() {
           custo-benefício.
         </h1>
 
+        {/* Reordenado 2026-09-25 (brief real do redesign, ver memória
+            project_site_redesign_2026_09_25 -- crítica do ChatGPT que o
+            Heber trouxe: a home hoje parece "portal de cupom" porque
+            banner e cupom aparecem ANTES de produto/preço/comparação.
+            Fix: produto real primeiro, categoria compacta em seguida,
+            banner institucional e cupom descem de prioridade. */}
         <section className="dc-section" style={{ paddingBlock: "10px 4px" }}>
-          <PromoBanner />
+          <h2 className="dc-icon-inline">
+            <img src="/OFERTAS-ICON.png" alt="" aria-hidden="true" className="dc-offers-icon" />
+            Ofertas de hoje
+          </h2>
+          <ProductGrid
+            products={offers}
+            emptyMessage="Ainda não temos ofertas publicadas aqui — em breve. Enquanto isso, manda uma foto no WhatsApp que a gente procura na hora."
+          />
         </section>
-
-        <CouponSection coupons={coupons.slice(0, 4)} showViewAll={coupons.length > 4} />
 
         <section className="dc-section" style={{ paddingBlock: "6px 4px" }}>
           <CategoryGrid />
@@ -41,11 +52,7 @@ export default async function HomePage() {
 
         {/* Achado real (2026-09-25): Heber não viu os guias porque não
             tinham NENHUM ponto de entrada visível na home -- só rodapé
-            (texto pequeno) e fim de 2 páginas de categoria. Primeira
-            tentativa colocou essa section DEPOIS de "Ofertas de hoje",
-            mas essa lista tem 70+ produtos -- na prática continuava
-            enterrado. Movido pra ANTES da lista longa, logo depois das
-            categorias, pra ficar visível sem precisar rolar muito. */}
+            (texto pequeno) e fim de 2 páginas de categoria. */}
         <section className="dc-section">
           <h2 className="dc-icon-inline">📖 Guias de compra</h2>
           <div className="dc-guide-list">
@@ -59,15 +66,10 @@ export default async function HomePage() {
         </section>
 
         <section className="dc-section">
-          <h2 className="dc-icon-inline">
-            <img src="/OFERTAS-ICON.png" alt="" aria-hidden="true" className="dc-offers-icon" />
-            Ofertas de hoje
-          </h2>
-          <ProductGrid
-            products={offers}
-            emptyMessage="Ainda não temos ofertas publicadas aqui — em breve. Enquanto isso, manda uma foto no WhatsApp que a gente procura na hora."
-          />
+          <PromoBanner />
         </section>
+
+        <CouponSection coupons={coupons.slice(0, 4)} showViewAll={coupons.length > 4} />
       </main>
       <Footer />
     </>
