@@ -19,6 +19,18 @@ termo". Testes puros em `scripts/test-coupon-intent.ts`
 (`npm run test:coupon-intent`); `tsc` limpo. Não renderizado com dado
 real (sem chave no container).
 
+**Validado no site real após o merge (`2adb918`)**: `/busca?q=cupom` →
+bloco "🏷️ Cupons ativos" no topo (6 cupons, chips de loja com contagem,
+"Ver todos os cupons →"), produtos normais logo abaixo; `/busca?q=cupom+kabum`
+→ só "🏷️ Cupons KaBuM!" (os 8 cupons da loja) com "Todos os cupons da
+KaBuM! →", sem mistura de outra loja; `/busca?q=impressora+de+cupom` →
+mesmo bloco de cupons genérico no topo (nenhuma loja citada no termo) e
+os produtos de impressora aparecem normalmente logo abaixo — só que sem
+o cabeçalho visível "Produtos com esse termo" citado na descrição (a
+seção de produtos não tem esse título como texto na página; é só a
+barra de ordenação seguida da lista). Funcionalmente correto (ninguém
+perde resultado), só a descrição do cabeçalho não bate ao pé da letra.
+
 ## 2026-09-26 — Validação real do painel `/admin` (rótulos, `/admin/cupons`, cliques por origem)
 
 Depois do merge do commit `9c8edec`, login real em produção (a senha do
