@@ -203,3 +203,13 @@ export function ShareIcon({ size = 18, style }: IconProps) {
     </svg>
   );
 }
+
+export function BulbIcon({ size = 18, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...lineProps} aria-hidden="true" style={style}>
+      <path d="M9 18h6" />
+      <path d="M10 21h4" />
+      <path d="M12 3a6 6 0 0 0-3.5 10.9c.6.45 1 1.15 1 1.95V16h5v-.15c0-.8.4-1.5 1-1.95A6 6 0 0 0 12 3Z" />
+    </svg>
+  );
+}

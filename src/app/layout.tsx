@@ -1,6 +1,7 @@
 import { Poppins } from "next/font/google";
 import { BottomNav } from "../components/site/BottomNav";
 import { TrackPageView } from "../components/site/TrackPageView";
+import { SuggestionWidget } from "../components/site/SuggestionWidget";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -56,6 +57,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <BottomNav />
         <TrackPageView />
+        <SuggestionWidget />
       </body>
     </html>
   );

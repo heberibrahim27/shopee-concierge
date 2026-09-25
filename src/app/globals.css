@@ -1714,3 +1714,135 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
     padding-bottom: 24px;
   }
 }
+
+/* ---------- Suggestion widget (botão flutuante "sugerir melhoria") ---------- */
+
+.dc-suggestion-fab {
+  position: fixed;
+  right: 18px;
+  bottom: 22px;
+  z-index: 25;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  background: var(--dc-green);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 24px rgba(22, 163, 74, 0.4);
+  cursor: pointer;
+}
+
+.dc-suggestion-fab:hover {
+  background: var(--dc-green-deep);
+}
+
+@media (max-width: 640px) {
+  .dc-suggestion-fab {
+    bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    right: 14px;
+    width: 46px;
+    height: 46px;
+  }
+}
+
+.dc-suggestion-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(13, 31, 22, 0.55);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+}
+
+@media (min-width: 640px) {
+  .dc-suggestion-overlay {
+    align-items: center;
+  }
+}
+
+.dc-suggestion-modal {
+  background: var(--dc-card-bg);
+  border-radius: var(--dc-radius);
+  padding: 22px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 20px 50px rgba(13, 31, 22, 0.3);
+}
+
+.dc-suggestion-modal h3 {
+  margin: 0 0 6px;
+  color: var(--dc-text);
+  font-size: 18px;
+}
+
+.dc-suggestion-modal p {
+  margin: 0 0 14px;
+  color: var(--dc-text-muted);
+  font-size: 14px;
+}
+
+.dc-suggestion-modal textarea,
+.dc-suggestion-modal input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1.5px solid var(--dc-border);
+  border-radius: var(--dc-radius-sm);
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--dc-text);
+  margin-bottom: 10px;
+  resize: vertical;
+}
+
+.dc-suggestion-modal textarea:focus,
+.dc-suggestion-modal input:focus {
+  outline: none;
+  border-color: var(--dc-green);
+}
+
+.dc-suggestion-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.dc-suggestion-cancel {
+  background: none;
+  border: none;
+  color: var(--dc-text-muted);
+  font-weight: 600;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.dc-suggestion-submit {
+  background: var(--dc-green);
+  color: #fff;
+  border: none;
+  border-radius: var(--dc-radius-sm);
+  padding: 10px 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dc-suggestion-submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.dc-suggestion-thanks {
+  color: var(--dc-green-deep) !important;
+  font-weight: 700;
+}
+
+.dc-suggestion-error {
+  color: var(--dc-urgency);
+  font-size: 13px;
+  margin-top: 8px;
+}
