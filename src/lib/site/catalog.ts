@@ -197,13 +197,29 @@ async function queryIndexableProductsForSitemap(): Promise<SiteProduct[]> {
   if (!hasSupabaseEnv()) return [];
 
   const db = getDb();
-  const { data, error } = await db
-    .from("site_catalog")
-    .select(SITE_CATALOG_COLUMNS)
-    .order("slug", { ascending: true });
+  // Segundo bug real, achado testando este mesmo fix ao vivo: a query
+  // sem `.range()` volta só as primeiras ~1000 linhas (limite padrão do
+  // PostgREST/Supabase, silencioso -- não dá erro, só trunca). Ordenando
+  // por slug ascendente, isso cortava o catálogo alfabeticamente pela
+  // metade (sitemap real caiu pra 328 URLs de produto em vez das 1.801
+  // esperadas, conferidas por SQL antes do deploy). Pagina em blocos de
+  // 1000 até esgotar pra pegar o `site_catalog` inteiro.
+  const PAGE_SIZE = 1000;
+  const rows: Record<string, unknown>[] = [];
+  for (let page = 0; ; page++) {
+    const { data, error } = await db
+      .from("site_catalog")
+      .select(SITE_CATALOG_COLUMNS)
+      .order("slug", { ascending: true })
+      .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
 
-  if (error) throw new Error(`Falha ao buscar produtos pro sitemap: ${error.message}`);
-  return dedupeByGroup((data ?? []).map(mapRow)).filter(isProductIndexable);
+    if (error) throw new Error(`Falha ao buscar produtos pro sitemap (página ${page}): ${error.message}`);
+    if (!data || data.length === 0) break;
+    rows.push(...data);
+    if (data.length < PAGE_SIZE) break;
+  }
+
+  return dedupeByGroup(rows.map(mapRow)).filter(isProductIndexable);
 }
 
 export function getCachedIndexableProducts(): Promise<SiteProduct[]> {
