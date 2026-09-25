@@ -1,4 +1,5 @@
 import { buildWhatsAppLink, WHATSAPP_GROUP_LINK } from "./constants";
+import { EmailCapture } from "./EmailCapture";
 
 export function Footer() {
   return (
@@ -15,6 +16,7 @@ export function Footer() {
         <a href={WHATSAPP_GROUP_LINK} target="_blank" rel="noopener noreferrer" className="dc-footer-group-cta">
           📲 Entre no grupo do WhatsApp e receba as ofertas em primeira mão
         </a>
+        <EmailCapture />
       </div>
       <footer className="dc-footer">
         <p>

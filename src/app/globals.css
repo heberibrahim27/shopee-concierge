@@ -781,6 +781,72 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   text-decoration: none;
 }
 
+.dc-email-capture {
+  margin-top: 10px;
+  padding: 16px;
+  border-radius: var(--dc-radius);
+  background: var(--dc-card-bg);
+  border: 1.5px solid var(--dc-border);
+  text-align: center;
+}
+
+.dc-email-capture p {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dc-text);
+}
+
+.dc-email-capture-row {
+  display: flex;
+  gap: 8px;
+}
+
+.dc-email-capture-row input {
+  flex: 1;
+  min-width: 0;
+  border: 1.5px solid var(--dc-border);
+  border-radius: var(--dc-radius-sm);
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.dc-email-capture-row input:focus {
+  outline: none;
+  border-color: var(--dc-green);
+}
+
+.dc-email-capture-row button {
+  background: var(--dc-green);
+  color: #fff;
+  border: none;
+  border-radius: var(--dc-radius-sm);
+  padding: 10px 16px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dc-email-capture-row button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.dc-email-capture-thanks {
+  color: var(--dc-green-deep);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.dc-email-capture-error {
+  display: block;
+  margin-top: 8px;
+  color: var(--dc-urgency);
+  font-size: 12.5px;
+}
+
 .dc-footer {
   padding: 26px 16px 44px;
   text-align: center;
