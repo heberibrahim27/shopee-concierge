@@ -4,6 +4,37 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 — WhatsApp: rotação por marketplace + categoria "Casa" com produto errado
+
+**Grupo só postando Awin mesmo depois do teto de preço**: Heber ao vivo
+"só tem produtos da Awin no grupo, cadê a Shopee?". O teto de R$150
+(entrada anterior) resolveu "caro", não "só uma origem": o backfill do
+catálogo Kabum criou pares (categoria, awin) nunca postados em massa, e
+"nunca postado" vence qualquer par já postado alguma vez — Shopee/ML,
+com histórico recente em quase toda categoria, perdiam a prioridade de
+"mais desatualizado" toda vez. Corrigido com o mesmo padrão já usado pra
+farmácia: depois de 3 posts seguidos do mesmo bucket de marketplace,
+força o próximo a vir de outro (`BUCKET_ROTATION_STREAK`).
+
+**Categoria "Casa" com produto nada a ver**: Heber, com print real —
+`/categoria/casa` mostrando controladora de DJ (R$21.500), drone DJI
+(R$16.262), placa de vídeo, SSD. Causa raiz (`guessCategorySlug` em
+`src/lib/site/categorize.ts`): "casa" é o catch-all quando nenhuma
+palavra-chave bate, e a lista de eletrônicos não cobria placa de vídeo,
+processador, SSD, drone, monitor, storage, etc. Auditoria real: dos 646
+produtos em `category_slug='casa'`, amostra aleatória de 30 mostrou
+~90% peça de PC/eletrônico, só ~10% "casa" de verdade (papel higiênico,
+airfryer, panela de pressão). Lista de eletrônicos ampliada com os
+termos reais que faltavam. Backfill único
+(`scripts/backfill-recategorize-casa.ts`) rodado contra o banco real:
+**388 de 749 produtos recategorizados** (todos foram pra "eletronicos"),
+**361 continuam "casa" de verdade** (não mexido). Cache do site
+(`unstable_cache` por tag) ainda não revalidado na hora — endpoint
+interno de revalidação precisa do `REVALIDATION_SECRET` real de
+produção, que não está no `.env` local (desatualizado, mesmo caso do
+`ADMIN_PASSWORD`); sem isso, o `/categoria/casa` ao vivo reflete a
+correção sozinho em até 1h (fallback de cache já existente).
+
 ## 2026-09-25 — Grupo WhatsApp: teto de preço + navegação de categoria consistente
 
 **Grupo "Descontos Chegando #GR42" mandando só Kabum caro** (irmão do

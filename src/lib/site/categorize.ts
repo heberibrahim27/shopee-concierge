@@ -7,7 +7,21 @@
  * confiável de fonte nenhuma). "casa" é o catch-all, não uma aposta forte.
  */
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  eletronicos: ["fone", "celular", "notebook", "tv ", "smart tv", "carregador", "mouse", "teclado", "caixa de som", "câmera", "camera"],
+  // Achado real (2026-09-25, Heber: "categoria nada com nada" em /categoria/
+  // casa): "casa" é o catch-all, e placa de vídeo/processador/SSD/drone/
+  // monitor (nenhum keyword batia) caíam lá por padrão -- produto de R$20 mil
+  // (controladora de DJ, drone, GPU) aparecendo como "Casa". Lista de
+  // eletrônicos/informática ampliada com os termos reais que faltavam
+  // (auditoria dos 20 produtos mais caros da categoria "casa").
+  eletronicos: [
+    "fone", "celular", "notebook", "tv ", "smart tv", "carregador", "mouse", "teclado", "caixa de som",
+    "câmera", "camera", "placa de vídeo", "placa de video", "placa-mãe", "placa mãe", "placa mae",
+    "processador", "ssd", "hd externo", "hd interno", "memória", "memoria", "ddr3", "ddr4", "ddr5",
+    "monitor", "webcam", "roteador", "nobreak", "storage", "drone", "impressora", "fonte atx",
+    "fonte de alimentação", "gabinete", "headset", "microfone", "water cooler", "air cooler", "ventoinha",
+    "pasta térmica", "pasta termica", "pendrive", "cartão de memória", "cartao de memoria", "hub usb",
+    "switch", "controladora para dj", "controladora de dj",
+  ],
   esporte: ["tênis", "tenis", "bicicleta", "bike", "academia", "musculação", "esteira", "halter"],
   beleza: ["maquiagem", "batom", "perfume", "shampoo", "creme", "skincare", "secador"],
   moda: ["camiseta", "calça", "vestido", "jaqueta", "blusa", "jeans", "bermuda"],
