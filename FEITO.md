@@ -4,6 +4,28 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (tarde) — Promobit tem blog editorial de verdade (valida nossa estratégia) + é a mesma empresa do Méliuz
+
+Depois de linkar os guias, fui checar se um concorrente real já faz algo
+parecido -- a home do Promobit é só feed de ofertas (sem conteúdo
+editorial nenhum ali), mas achei um subdomínio separado e ativo:
+`blog.promobit.com.br`, com posts reais tipo "Os Melhores Colchões em
+Caixa", "Qual o melhor iPhone?", "Tênis de corrida feminino: as 5
+melhores" -- um deles descrito como "com histórico de preço real do
+Promobit", ou seja, eles também misturam texto editorial com dado real
+de preço, exatamente o padrão técnico que acabei de construir. Confirma
+de forma independente que a estratégia faz sentido, não foi invenção
+isolada. Cadência de posts é modesta (poucos por mês) -- bate com a
+escolha de fazer 6 guias bons em vez de um monte genérico.
+
+**Achado estrutural à parte**: o rodapé do blog lista "Empresas do Grupo
+CASH3": IDinheiro, Melhor Plano, Méliuz, Minha Conexão, Muambator --
+**Promobit é a mesma empresa do Méliuz**, não concorrente separado.
+Segunda confirmação real do padrão de consolidação multi-marca (a
+primeira foi Zoom/Buscapé/Bondfaro sob a Mosaico, achado mais cedo hoje).
+Não muda nada do que já construímos, só reforça o material de referência
+de longo prazo já registrado na memória.
+
 ## 2026-09-25 (tarde) — 6 guias de compra reais no ar (/guia), aprovado pelo Heber
 
 Heber topou direto ("Não precisa de exemplo pode fazer") depois de eu
