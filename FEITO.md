@@ -4,6 +4,18 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (manhã, continuação) — Mandei pro Heber os 2 pontos que dependem dele (Search Console + conteúdo editorial)
+
+Os dois itens que sobraram da pesquisa de monetização precisam de
+decisão/ação do Heber, não são engenharia pura -- mandei mensagem direta
+pro WhatsApp pessoal dele (número já confirmado nesta sessão) pedindo:
+(1) ele verificar a propriedade `descontochegando.com.br` no Google
+Search Console (conta dele, 2 minutos, grátis) e me mandar o código da
+tag HTML de verificação; (2) decisão de prioridade sobre começar a
+escrever 6-10 páginas editoriais reais ligadas ao catálogo (guias de
+compra tipo "Kabum ou Shopee: onde SSD é mais barato?"). Ainda sem
+resposta -- registrar aqui quando ele responder.
+
 ## 2026-09-25 (manhã, continuação) — Correção real: AdSense não trava em Search Console nem em "20-30 posts" (o ChatGPT pegou, verifiquei de novo)
 
 O ChatGPT corrigiu a pesquisa de AdSense de cedo: não existe exigência
