@@ -4,6 +4,18 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (madrugada, continuação) — Achado real: app do Pinterest já existe
+
+Ia "preparar a aplicação do Pinterest" (próximo passo do plano de
+receita) e descobri que **já existe** — `.env` tem `PINTEREST_APP_ID`
+(app "Desconto Chegando Publicador", id 1612260), datado de 22/09, 3
+dias antes dessa sessão começar. Chave secreta só libera depois da
+aprovação de Acesso Trial — não sei se já foi aprovado. Corrigi o
+checklist do plano de receita (artefato v3) pra pedir o Heber confirmar
+o status real em vez de eu tentar "criar" um app que talvez já exista
+e já esteja em fila. Nenhum código de integração foi escrito ainda (só
+o ID no .env).
+
 ## 2026-09-25 (madrugada, continuação) — Mídia kit mostra clique real, 3º concorrente (Pelando)
 
 **Mídia kit lendo click_events pela primeira vez** — a tabela existia e
