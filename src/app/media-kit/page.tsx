@@ -49,12 +49,32 @@ async function getSiteStats() {
   };
 }
 
+// Fase 0 do plano de receita (ver memória project_click_tracking_redirect):
+// primeira leitura real de click_events, agrupado por canal (`source`) --
+// antes disso a tabela só era escrita, nunca lida em lugar nenhum.
+async function getClickStatsByChannel(): Promise<{ total: number; bySource: Array<{ source: string; n: number }> }> {
+  const db = getDb();
+  const { data } = await db
+    .from("click_events")
+    .select("source")
+    .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+  const counts = new Map<string, number>();
+  for (const row of data ?? []) {
+    const key = (row as any).source || "desconhecido";
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const bySource = [...counts.entries()]
+    .map(([source, n]) => ({ source, n }))
+    .sort((a, b) => b.n - a.n);
+  return { total: data?.length ?? 0, bySource };
+}
+
 function fmt(n: number) {
   return n.toLocaleString("pt-BR");
 }
 
 export default async function MediaKitPage() {
-  const [site, instagram] = await Promise.all([getSiteStats(), getInstagramStats()]);
+  const [site, instagram, clicks] = await Promise.all([getSiteStats(), getInstagramStats(), getClickStatsByChannel()]);
   const updatedAt = new Date().toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "long",
@@ -82,6 +102,38 @@ export default async function MediaKitPage() {
         <StatCard label="Posts publicados" value={instagram ? fmt(instagram.posts) : "—"} />
         <StatCard label="Produtos no catálogo" value={fmt(site.produtos)} />
         <StatCard label="Ofertas ativas" value={fmt(site.ofertas)} />
+      </section>
+
+      <section style={{ marginBottom: 28 }}>
+        <h2 style={{ fontSize: 18, marginBottom: 8 }}>Cliques por canal (30 dias)</h2>
+        <p style={{ color: "var(--dc-text-muted)", fontSize: 13, marginBottom: 12 }}>
+          Fase 0 do plano de receita: cada clique de afiliado que passa pelo redirecionador{" "}
+          <code>/go</code> é registrado por origem. Ainda em rollout — só a legenda do Instagram usa
+          o redirecionador por enquanto, então este número cresce aos poucos.
+        </p>
+        {clicks.total === 0 ? (
+          <p style={{ color: "var(--dc-text-muted)", fontSize: 13 }}>Sem cliques registrados ainda.</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {clicks.bySource.map(({ source, n }) => (
+              <div
+                key={source}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  background: "var(--dc-card-bg)",
+                  border: "1px solid var(--dc-border)",
+                  borderRadius: "var(--dc-radius-sm)",
+                  padding: "8px 14px",
+                  fontSize: 14,
+                }}
+              >
+                <span style={{ textTransform: "capitalize" }}>{source}</span>
+                <strong style={{ color: "var(--dc-green-deep)" }}>{fmt(n)}</strong>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section style={{ marginBottom: 28 }}>
