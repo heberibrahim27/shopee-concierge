@@ -10,6 +10,7 @@ import { TrackedOfferLink } from "../../../components/site/TrackedOfferLink";
 import { ShareButton } from "../../../components/site/ShareButton";
 import { PriceSparkline } from "../../../components/site/PriceSparkline";
 import { PriceAlertForm } from "../../../components/site/PriceAlertForm";
+import { StickyBuyBar } from "../../../components/site/StickyBuyBar";
 
 export async function generateMetadata({ params }: { params: { slug: string } }) {
   const product = await getCachedProduct(params.slug);
@@ -178,6 +179,7 @@ export default async function ProductPage({ params }: { params: { slug: string }
 
             {affiliateHref ? (
               <TrackedOfferLink
+                id="dc-inline-buy-button"
                 className="dc-buy-button"
                 href={affiliateHref}
                 target="_blank"
@@ -256,23 +258,20 @@ export default async function ProductPage({ params }: { params: { slug: string }
           protagonismo e há uma barra de compra fixa embaixo"). Fica
           acima da barra de navegação inferior (que já é global, via
           layout.tsx), não substitui -- as duas cabem juntas. Escondida
-          no desktop via CSS, mesmo padrão do resto do site. */}
+          no desktop via CSS, mesmo padrão do resto do site. Só aparece
+          de verdade depois que o botão normal (#dc-inline-buy-button)
+          sai da tela por scroll -- ver StickyBuyBar.tsx, achado real
+          2026-09-26 de sobreposição com o botão normal. */}
       {price && affiliateHref ? (
-        <div className="dc-sticky-buy-bar">
-          <span className="dc-sticky-buy-bar-price">{price}</span>
-          <TrackedOfferLink
-            className="dc-sticky-buy-bar-cta"
-            href={affiliateHref}
-            target="_blank"
-            rel={AFFILIATE_LINK_REL}
-            platform={bestOffer.platform}
-            productSlug={bestOffer.slug}
-            productName={bestOffer.productName}
-            source="produto-sticky"
-          >
-            Ver oferta {bestPlatform.ctaPreposition}
-          </TrackedOfferLink>
-        </div>
+        <StickyBuyBar
+          price={price}
+          href={affiliateHref}
+          platform={bestOffer.platform}
+          productSlug={bestOffer.slug}
+          productName={bestOffer.productName}
+          ctaLabel={`Ver oferta ${bestPlatform.ctaPreposition}`}
+          anchorId="dc-inline-buy-button"
+        />
       ) : null}
     </>
   );

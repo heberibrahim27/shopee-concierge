@@ -10,7 +10,19 @@ import { AwardIcon, CartIcon, StarIcon } from "./icons";
 import { FavoriteButton } from "./FavoriteButton";
 import { getPlatformInfo } from "../../lib/site/platforms";
 
-export function ProductCard({ product }: { product: SiteProduct }) {
+export function ProductCard({
+  product,
+  compact = false,
+}: {
+  product: SiteProduct;
+  /** true no carrossel horizontal (achado real 2026-09-26, print do Heber:
+   * nota/vendas + comparação de outras lojas variam muito de card pra
+   * card, e numa única fileira flex a altura de TODOS os cards segue o
+   * mais "cheio" -- deixava um respiro grande embaixo dos cards simples.
+   * Compacto omite os blocos mais variáveis; comparação completa continua
+   * na página do produto, não é informação perdida. */
+  compact?: boolean;
+}) {
   const price = formatPriceBRL(product.priceMin);
   const originalPrice = formatOriginalPriceBRL(product.priceMin, product.priceDiscountRate);
   const savings = formatSavingsBRL(product.priceMin, product.priceDiscountRate);
@@ -40,7 +52,7 @@ export function ProductCard({ product }: { product: SiteProduct }) {
       </div>
       <div className="dc-card-body">
         <p className="dc-card-title">{product.productName}</p>
-        {rating || sales ? (
+        {!compact && (rating || sales) ? (
           <div className="dc-card-meta dc-icon-inline">
             {rating ? (
               <span className="dc-icon-inline">
@@ -52,23 +64,27 @@ export function ProductCard({ product }: { product: SiteProduct }) {
             {sales ?? ""}
           </div>
         ) : null}
-        {product.platform === "shopee" ? (
+        {!compact && product.platform === "shopee" ? (
           <span className="dc-card-best-price">
             <AwardIcon size={12} />
             Menor preço encontrado
           </span>
-        ) : product.highlightReason ? (
+        ) : !compact && product.highlightReason ? (
           <span className="dc-card-best-price">
             <AwardIcon size={12} />
             {product.highlightReason}
           </span>
         ) : null}
         <div className="dc-card-prices">
-          {originalPrice ? <span className="dc-card-price-original">{originalPrice}</span> : null}
+          {/* Preço riscado fora do modo compacto: em card estreito (carrossel)
+              risco + preço não cabem numa linha só e quebram pra 2, um dos
+              fatores reais de variação de altura -- o selo "Economize" logo
+              abaixo já comunica o desconto sem precisar do risco. */}
+          {!compact && originalPrice ? <span className="dc-card-price-original">{originalPrice}</span> : null}
           {price ? <div className="dc-card-price">{price}</div> : null}
         </div>
         {savings ? <span className="dc-card-savings">Economize {savings}</span> : null}
-        {product.otherOffers && product.otherOffers.length > 0 ? (
+        {!compact && product.otherOffers && product.otherOffers.length > 0 ? (
           <div className="dc-card-other-offers">
             {product.otherOffers.map((offer) => {
               const info = getPlatformInfo(offer.platform);

@@ -879,6 +879,10 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  /* min-height reserva sempre 2 linhas, mesmo pra título curto de 1 linha
+     só -- achado real 2026-09-26 (print do Heber): título é o maior fator
+     de variação de altura entre cards numa mesma fileira horizontal. */
+  min-height: calc(13.5px * 1.35 * 2);
 }
 
 .dc-card-price {
@@ -2062,8 +2066,16 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
 }
 
 @media (max-width: 640px) {
+  /* A barra existe sempre no DOM (StickyBuyBar.tsx) pra `body:has()` logo
+     abaixo nunca pular o padding-bottom quando ela aparece/some -- mas só
+     FICA visível de verdade (classe dc-sticky-buy-bar-visible, controlada
+     por IntersectionObserver no botão normal) quando o botão de compra
+     normal já saiu da tela por scroll. Achado real 2026-09-26: sem isso,
+     em produto com foto promocional alta, a barra fixa (sempre grudada
+     embaixo) caía em cima do botão normal já na primeira tela, sem
+     precisar rolar nada -- parecia "Ver oferta" duplicado/bagunçado. */
   .dc-sticky-buy-bar {
-    display: flex;
+    display: none;
     align-items: center;
     gap: 10px;
     position: fixed;
@@ -2078,6 +2090,10 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
     border-top: 1px solid var(--dc-border);
     box-shadow: 0 -6px 18px rgba(17, 26, 44, 0.08);
     padding: 10px 14px;
+  }
+
+  .dc-sticky-buy-bar.dc-sticky-buy-bar-visible {
+    display: flex;
   }
 
   .dc-sticky-buy-bar-price {

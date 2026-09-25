@@ -14,6 +14,7 @@ export function TrackedOfferLink({
   className,
   target,
   rel,
+  id,
   children,
 }: {
   href: string;
@@ -24,6 +25,7 @@ export function TrackedOfferLink({
   className?: string;
   target?: string;
   rel?: string;
+  id?: string;
   children: React.ReactNode;
 }) {
   function handleClick() {
@@ -37,7 +39,7 @@ export function TrackedOfferLink({
   }
 
   return (
-    <a href={href} target={target} rel={rel} className={className} onClick={handleClick}>
+    <a id={id} href={href} target={target} rel={rel} className={className} onClick={handleClick}>
       {children}
     </a>
   );

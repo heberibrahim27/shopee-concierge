@@ -20,7 +20,7 @@ export function ProductGrid({
   return (
     <div className={layout === "scroll" ? "dc-grid-scroll" : "dc-grid"}>
       {products.map((product) => (
-        <ProductCard key={product.id} product={product} />
+        <ProductCard key={product.id} product={product} compact={layout === "scroll"} />
       ))}
     </div>
   );

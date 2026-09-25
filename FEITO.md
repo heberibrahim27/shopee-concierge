@@ -227,6 +227,50 @@ abrir `/busca?q=fone+bluetooth` e ver se a terceira seção aparece.
 `npx tsc --noEmit` limpo; `next build` compilou todas as rotas (o único
 erro é o pré-render de `/media-kit` sem `SUPABASE_URL` no container,
 anterior a esta mudança e inexistente na Vercel).
+## 2026-09-26 — Merge com outra sessão + 3 bugs reais corrigidos (barra fixa sobreposta, cards estourando no carrossel, altura desigual)
+
+Outra sessão (branch `claude/descontos-chegando-monetizacao-oe55gy`) tinha
+trabalho real pronto em paralelo: full-text search de verdade
+(pg_trgm+tsvector, testado contra o catálogo real), alerta de queda de
+preço por WhatsApp (`price_alerts` + cron diário), páginas `/loja/[slug]`
+e `/cupom/[loja]` via Lomadee, e uma correção pro mesmo bug de esticamento
+de card que eu também tinha achado. Revisei o diff inteiro (26 arquivos,
+migrations já aplicadas no banco real) antes de mesclar -- fast-forward
+limpo, `tsc`+`next build` ok, sem conflito. Documentado em
+[[project_monetizacao_branch_merge_2026_09_26]].
+
+Depois do merge, 3 bugs reais reportados pelo Heber com print/celular real:
+
+1. **Barra de compra fixa cobrindo o botão normal** -- em produto com foto
+   promocional alta, a barra fixa (sempre grudada embaixo da tela) já
+   caía em cima do preço/botão normal na PRIMEIRA tela, sem precisar
+   rolar nada -- parecia "Ver oferta" duplicado. Corrigido com o padrão
+   real de e-commerce (Shopee, Mercado Livre): a barra só aparece depois
+   que o botão normal sai da tela por scroll (`StickyBuyBar.tsx`, novo
+   client component com `IntersectionObserver` no botão normal, id
+   `dc-inline-buy-button`). A `<div>` continua sempre no DOM (pro
+   `body:has(.dc-sticky-buy-bar)` não pular o padding-bottom quando
+   aparece), só troca de `display:none` pra `flex` via classe
+   `dc-sticky-buy-bar-visible`.
+2. **Cards do carrossel "Ofertas de hoje" com altura MUITO desigual** --
+   medido ao vivo: 326px a 439px entre os 84 produtos (a correção da
+   outra sessão já tinha resolvido o vazio embaixo de CADA botão, mas a
+   fileira inteira ainda herdava a altura do card mais "cheio", deixando
+   um respiro grande embaixo dos cards simples). Heber pediu "mantenha o
+   tamanho padrão dos cards". Causa raiz real: título variável (1 vs 2
+   linhas), nota/vendas, comparação de outras lojas e preço riscado
+   quebrando pra 2 linhas em card estreito -- tudo somado. Corrigido com
+   `ProductCard` ganhando um modo `compact` (usado só no carrossel, a
+   grade normal de categoria/busca continua igual): omite nota/vendas,
+   comparação, "menor preço encontrado" e preço riscado (o selo
+   "Economize R$X" já comunica o desconto sem precisar do risco);
+   título ganhou `min-height` de 2 linhas sempre reservada. Resultado
+   medido: variação caiu de 113px pra 21px (só a diferença de ter ou não
+   selo de economia).
+
+Todos os 3 testados ao vivo (preview local + JS medindo bounding rects
+reais, não só olhando), `tsc` e `next build` limpos.
+
 ## 2026-09-25 (tarde, continuação 17) — Página de cupons: fluxo revelar/copiar
 
 Heber mandou continuar o redesign. Próximo item real e ainda aberto:
