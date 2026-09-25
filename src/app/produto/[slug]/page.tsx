@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Header } from "../../../components/site/Header";
 import { Footer } from "../../../components/site/Footer";
-import { getCachedProduct, getCachedGroupOffers, getCachedProductPriceHistory } from "../../../lib/site/catalog";
+import { getCachedProduct, getCachedGroupOffers, getCachedProductPriceHistory, isProductIndexable } from "../../../lib/site/catalog";
 import { formatPriceBRL, formatRating, formatSales, formatRelativeTime } from "../../../lib/site/format";
 import { getProductAffiliateHref, AFFILIATE_LINK_REL } from "../../../lib/site/affiliateLink";
 import { AwardIcon, StarIcon, ClockIcon, TrendingDownIcon } from "../../../components/site/icons";
@@ -23,6 +23,11 @@ export async function generateMetadata({ params }: { params: { slug: string } })
       title: product.productName,
       images: product.imageUrl ? [product.imageUrl] : undefined,
     },
+    // SEO_INDEX_GATE v1 (ver isProductIndexable em lib/site/catalog.ts) --
+    // continua acessível/crawleável (follow) mesmo sem indexar, só não
+    // pede pro Google indexar página fina (sem nota, venda, descrição ou
+    // comparação -- caso comum de produto Kabum recém-chegado).
+    robots: { index: isProductIndexable(product), follow: true },
   };
 }
 

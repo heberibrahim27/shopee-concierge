@@ -90,6 +90,43 @@ function dedupeByGroup(rows: SiteProduct[]): SiteProduct[] {
   return order;
 }
 
+/**
+ * SEO_INDEX_GATE v1 (2026-09-25, pedido do ChatGPT depois do backfill da
+ * Kabum). Catálogo e indexação são coisas diferentes: um produto pode
+ * existir/aparecer no site e gerar comissão sem precisar ser indexado
+ * pelo Google. Verificado ao vivo antes de escrever qualquer código: o
+ * sitemap já é limitado a 24 produtos (.limit(24) em queryHomeOffers,
+ * não os 4.412 da Kabum inteira), mas as páginas de produto não tinham
+ * NENHUM sinal de robots -- qualquer uma vira indexável por padrão se o
+ * Google achar o link (categoria, compartilhamento, etc). Conferido ao
+ * vivo: um produto Kabum sem group_id tem literalmente só título + preço
+ * + 1 imagem + botão de CTA na página -- exatamente o "thin content" que
+ * o ChatGPT alertou, porque o feed da Awin não tem nota/vendas/descrição
+ * (ver project_multistore_comparator_real_paths na memória).
+ *
+ * Critério (não "só indexa se tiver comparação" -- isso jogaria fora
+ * produto Shopee bom sem comparação; o gate mede VALOR da página, não
+ * número de lojas): preço e imagem válidos, título minimamente
+ * descritivo, e pelo menos UM sinal real de valor -- comparação
+ * multi-loja (group_id), descrição curada (highlight_reason, hoje só
+ * Shopee) ou prova social real (nota + vendas, também só Shopee/Awin não
+ * traz isso). Produto sem nenhum desses sinais continua existindo e
+ * gerando comissão normalmente, só não entra no sitemap nem pede
+ * index,follow -- ganha indexabilidade depois, se acumular um desses
+ * sinais (ex: um segundo merchant sobrepor via matcher).
+ */
+export function isProductIndexable(
+  p: Pick<SiteProduct, "priceMin" | "imageUrl" | "productName" | "groupId" | "highlightReason" | "ratingStar" | "sales">
+): boolean {
+  const hasValidPrice = p.priceMin !== null && p.priceMin > 0;
+  const hasImage = Boolean(p.imageUrl);
+  const hasDecentTitle = p.productName.trim().length >= 15;
+  const hasComparison = p.groupId !== null;
+  const hasCuratedDescription = Boolean(p.highlightReason);
+  const hasSocialProof = p.ratingStar !== null && p.sales !== null && p.sales >= 10;
+  return hasValidPrice && hasImage && hasDecentTitle && (hasComparison || hasCuratedDescription || hasSocialProof);
+}
+
 const FALLBACK_REVALIDATE_SECONDS = 3600;
 
 function hasSupabaseEnv(): boolean {
