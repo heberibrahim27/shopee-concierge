@@ -4,6 +4,20 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (madrugada, continuação) — Autocorreção: parei de dar push a cada ciclo
+
+Percebi um erro real meu: dei push separado a cada um dos últimos ~10
+ciclos do loop (confirmei via Vercel MCP: 20 deploys de produção
+seguidos), e boa parte era um commit de código seguido de um SEGUNDO
+push só pra atualizar o FEITO.md — dobrando deploy pra mudança
+nenhuma no build (markdown não muda o site). É exatamente o erro que o
+Heber já tinha corrigido antes (`feedback_batch_deploys_vercel_cost`).
+Registrei a recorrência na memória com regra mais clara. Daqui pra
+frente: FEITO.md entra no MESMO commit do código que ele descreve, e
+ciclo sem mudança de código real não empurra push sozinho — só quando
+acumular com uma mudança de verdade ou o Heber voltar. Esse commit
+específico fica só local por enquanto, sem push.
+
 ## 2026-09-25 (madrugada, continuação) — 4º concorrente (Cuponomia)
 
 Cashback confirmado pela 3ª vez entre concorrentes reais (Promobit tem
