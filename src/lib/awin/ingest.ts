@@ -129,6 +129,57 @@ export function dedupeCheapestVariants(
   return [...groups.values()].sort((a, b) => a.price - b.price);
 }
 
+/**
+ * `products.updated_at` já é tocado toda vez que `persistAwinProduct`
+ * roda pra um item (upsert por `shopee_item_id`) — dá pra usar direto
+ * como "quando foi a última vez que esse produto foi atualizado", sem
+ * precisar de coluna nova. Indexado por `variantKey` (o `shopee_item_id`
+ * sem o prefixo "AWIN-").
+ */
+export async function fetchLastUpdatedByVariantKey(platform: string): Promise<Map<string, string>> {
+  const db = getDb();
+  const map = new Map<string, string>();
+  const { data, error } = await db
+    .from("products")
+    .select("shopee_item_id, updated_at")
+    .eq("platform", platform)
+    .like("shopee_item_id", "AWIN-%");
+  if (error) throw new Error(`Falha ao buscar freshness de ${platform}: ${error.message}`);
+  for (const row of data ?? []) {
+    const key = (row.shopee_item_id as string).slice("AWIN-".length);
+    map.set(key, row.updated_at as string);
+  }
+  return map;
+}
+
+/**
+ * Achado real (2026-09-25, ChatGPT flagou revisando o backfill de 4.412
+ * produtos Kabum): `dedupeCheapestVariants` sempre devolve preço
+ * crescente, e o cron diário fazia `.slice(0, limit)` direto nisso — ou
+ * seja, todo dia processava de novo quase o MESMO grupo dos N produtos
+ * mais baratos do feed (preço relativo não muda muito de um dia pro
+ * outro), deixando o resto do catálogo com `offer_snapshots` parado pra
+ * sempre depois do backfill único. Reordena priorizando (1) produto novo
+ * (nunca visto, fora do mapa de freshness) e (2) entre os já conhecidos,
+ * o que está há mais tempo sem refresh (`updated_at` mais velho) — assim
+ * o cron rotaciona pelo catálogo inteiro em vez de travar nos mesmos N.
+ */
+export function orderByFreshness(
+  items: AwinCatalogItem[],
+  lastUpdatedByVariantKey: Map<string, string>
+): AwinCatalogItem[] {
+  const isNew = (item: AwinCatalogItem) => !lastUpdatedByVariantKey.has(item.variantKey);
+  const newItems = items.filter(isNew);
+  const knownItems = items
+    .filter((item) => !isNew(item))
+    .sort((a, b) => {
+      const ta = new Date(lastUpdatedByVariantKey.get(a.variantKey)!).getTime();
+      const tb = new Date(lastUpdatedByVariantKey.get(b.variantKey)!).getTime();
+      return ta - tb;
+    });
+  return [...newItems, ...knownItems];
+}
+
 export async function persistAwinProduct(params: {
   item: AwinCatalogItem;
   platform: string;

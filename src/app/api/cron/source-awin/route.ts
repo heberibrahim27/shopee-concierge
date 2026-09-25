@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listAwinFeeds, fetchFeedProducts, AwinFeedInfo } from "../../../../lib/awin/client";
-import { dedupeCheapestVariants, isFootwear, isGiftCard, persistAwinProduct } from "../../../../lib/awin/ingest";
+import {
+  dedupeCheapestVariants,
+  fetchLastUpdatedByVariantKey,
+  isFootwear,
+  isGiftCard,
+  orderByFreshness,
+  persistAwinProduct,
+} from "../../../../lib/awin/ingest";
 import { findShopeeMatchByMpn } from "../../../../lib/awin/matchShopee";
 import { createDealCandidate, persistOfferSnapshot, linkProductsToGroup } from "../../../../lib/db/snapshots";
 import { buildProductSlug } from "../../../../lib/site/slug";
@@ -89,6 +96,8 @@ async function ingestBatch(params: {
   filterRow?: (row: Record<string, string>) => boolean;
   minPrice?: number;
   matchToShopee?: boolean;
+  /** Rotaciona a seleção diária pelo catálogo inteiro (produto mais velho sem refresh primeiro) em vez de sempre pegar os N mais baratos do feed — ver orderByFreshness em src/lib/awin/ingest.ts. Sem isso, catálogos grandes (Kabum, pós-backfill) nunca terminam de ser revisitados. */
+  prioritizeStale?: boolean;
   platform: string;
   category: string;
   categorySlug: string;
@@ -100,7 +109,18 @@ async function ingestBatch(params: {
 
   const rows = await fetchFeedProducts(params.feed.downloadUrl);
   const filteredRows = params.filterRow ? rows.filter(params.filterRow) : rows;
-  const items = dedupeCheapestVariants(filteredRows, params.minPrice ?? 0).slice(0, params.limit);
+  const priceSorted = dedupeCheapestVariants(filteredRows, params.minPrice ?? 0);
+  // Rank de preço calculado ANTES de reordenar por freshness — o score do
+  // deal_candidate continua refletindo "quão barato", não "quão velho",
+  // mesmo quando a SELEÇÃO do dia é guiada por staleness.
+  const priceRank = new Map(priceSorted.map((item, idx) => [item.variantKey, idx]));
+
+  let ordered = priceSorted;
+  if (params.prioritizeStale) {
+    const freshness = await fetchLastUpdatedByVariantKey(params.platform);
+    ordered = orderByFreshness(priceSorted, freshness);
+  }
+  const items = ordered.slice(0, params.limit);
 
   const publicados: string[] = [];
   const comparados: string[] = [];
@@ -117,8 +137,12 @@ async function ingestBatch(params: {
       });
       // Mais barato = score maior, numa faixa que compete de forma
       // razoável com os candidatos reais da Shopee (score 0-100, gate em
-      // 75 só se aplica lá — aqui não tem gate, é seleção direta).
-      const score = Math.max(50, 85 - i * 3);
+      // 75 só se aplica lá — aqui não tem gate, é seleção direta). Usa o
+      // rank de preço original, não a posição `i` pós-reordenação por
+      // staleness (senão "produto revisitado há mais tempo" viraria
+      // sinônimo de "score alto", o que não tem nada a ver com o preço).
+      const rank = priceRank.get(item.variantKey) ?? i;
+      const score = Math.max(50, 85 - rank * 3);
       await createDealCandidate({ productId, offerSnapshotId: snapshotId, status: "discovered", score });
       publicados.push(item.awProductId);
 
@@ -187,15 +211,23 @@ export async function GET(request: NextRequest) {
       filterRow: (row) => !isGiftCard(row),
       minPrice: 40,
       matchToShopee: true,
+      prioritizeStale: true,
       platform: "kabum",
       category: "eletronicos",
       categorySlug: "eletronicos",
-      // 12 -> 50 (2026-09-25, pedido do Heber: "catálogo completo", não só
-      // 12/dia -- o catálogo cheio (~4.690 produtos) foi trazido de uma vez
-      // via scripts/backfill-kabum-full-catalog.ts; esse limite diário agora
-      // só precisa manter preço/estoque frescos e pegar produto novo do
-      // feed. 50 ainda cabe com folga no maxDuration=120s do cron.
-      limit: 50,
+      // 12 -> 50 -> 150 (2026-09-25). O catálogo cheio (~4.690 produtos) foi
+      // trazido de uma vez via scripts/backfill-kabum-full-catalog.ts; só
+      // limit:50 sem rotação (bug real flagado pelo ChatGPT e confirmado
+      // lendo o código: dedupeCheapestVariants sempre ordena por preço
+      // crescente, então "os 50 mais baratos" é quase o MESMO grupo todo
+      // dia) deixaria uns ~4.362 produtos com preço parado pra sempre.
+      // Com prioritizeStale:true (rotaciona pelo mais velho sem refresh
+      // primeiro) + limit:150, uma volta completa no catálogo leva ~30
+      // dias em vez de nunca — e como persistAwinProduct é só 2 writes +
+      // webhook de revalidate (matchAndLinkShopee só custa uma busca real
+      // na Shopee pra produto NOVO, que depois do backfill é raro por
+      // dia), 150 itens cabe com folga nos 120s do maxDuration.
+      limit: 150,
     }),
   ]);
 

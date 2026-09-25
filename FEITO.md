@@ -4,6 +4,46 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (manhã, continuação) — Rotação por staleness no cron diário da Kabum (bug real do "limit:50" corrigido)
+
+O ChatGPT revisou o backfill (4.412 produtos, 988 comparações) e levantou uma
+preocupação técnica: `dedupeCheapestVariants` sempre ordena por preço
+crescente, e o cron diário fazia `.slice(0, 50)` direto nisso — ou seja,
+todo dia reprocessava quase o MESMO grupo dos 50 produtos mais baratos do
+feed (preço relativo não muda muito de um dia pro outro). Os outros ~4.362
+produtos do backfill ficariam com preço/estoque parados pra sempre, sem
+nenhum mecanismo de rotação. Confirmei lendo o código (`ingestBatch` em
+`src/app/api/cron/source-awin/route.ts`) e com uma query real no banco:
+`updated_at` da tabela `products` (platform=kabum) já mostrava um spread de
+2026-09-21 a 2026-09-25 — o problema já estava começando a se formar.
+
+**Corrigido**: `src/lib/awin/ingest.ts` ganhou `fetchLastUpdatedByVariantKey()`
+(reusa `products.updated_at`, que já é tocado a cada upsert — sem coluna
+nova) e `orderByFreshness()` (produto nunca visto primeiro, depois o mais
+velho sem refresh primeiro). Ligado no cron via `prioritizeStale: true`,
+só pra Kabum (Nike/Olympikus continuam preço-primeiro, catálogo pequeno
+não justifica). O `score` do deal_candidate continua calculado pelo rank
+de preço ORIGINAL (antes da reordenação por staleness) — staleness decide
+só quem é atualizado no dia, não quem é priorizado pra postar no
+Instagram/WhatsApp. Limite diário da Kabum subiu de 50 → 150 (refresh puro
+é barato — 2 writes + webhook não-bloqueante; match com Shopee só roda de
+verdade pra produto novo, raro pós-backfill), o que dá uma volta completa
+no catálogo a cada ~30 dias em vez de nunca. `npx tsc --noEmit` limpo.
+Ainda não observado em produção (só a próxima execução do cron confirma de
+verdade) — se `updated_at` continuar concentrado no mesmo grupo daqui a
+uns dias, a reordenação não está pegando e precisa de outro olhar.
+
+## 2026-09-25 (manhã, continuação) — Backfill do catálogo Kabum terminou: resultado real
+
+`scripts/backfill-kabum-full-catalog.ts` terminou (~66 min, rodou em
+background). Resultado conferido direto no banco de produção, não só no
+log do script: **4.412 produtos Kabum publicados no site** (4.397 do
+backfill + alguns que já existiam antes), **988 já com comparação de
+preço real linkada com a Shopee** (~22% de taxa de match por MPN+marca,
+ver `src/lib/awin/matchShopee.ts`), **0 falhas** em todo o processo.
+Catálogo completo de verdade, como o Heber pediu — não é mais só 12
+produtos/dia.
+
 ## 2026-09-25 (manhã, continuação) — Cupom expirado sendo exibido de verdade, corrigido
 
 Puxando o fio da conversa de "premium/confiança" com o Heber, investiguei se
