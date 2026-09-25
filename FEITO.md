@@ -4,6 +4,37 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (tarde, continuação 12) — Ajustes reais pedidos pelo ChatGPT + benchmark de receita real do mercado
+
+ChatGPT revisou o que publiquei (sparkline + comissão Awin no admin)
+e pegou duas coisas reais que eu não tinha coberto:
+
+1. O rótulo do sparkline não dizia quantos dias esse gráfico
+   específico cobre, e não deixava claro que o histórico é da oferta
+   em destaque (pode trocar de loja) quando o produto tem mais de uma
+   loja vinculada. Corrigido: "Histórico monitorado: X dias" + "nessa
+   loja (Nome)" quando aplicável.
+2. O admin somava comissão pendente + validada sob o rótulo "Receita
+   gerada" -- comissão pendente não é receita realizada. Renomeado
+   pra "Comissão total (pendente + validada)" nos dois blocos
+   (Shopee e Awin), deixando explícito que parte pode não se
+   confirmar.
+
+Testado local (label do sparkline confirmado com produto real de 6
+dias), tsc limpo, publicado.
+
+Também recebi (via outra sessão do Heber, Fable 5) um benchmark real
+de receita por mil visitas do nosso nicho, com fontes citadas
+(Promobit ~R$43/mil visitas na venda pra Méliuz, Zoom/Mosaico
+~R$274/mil visitas no teto do nicho). Não verifiquei cada número
+pessoalmente contra a fonte original, mas a conclusão bate com tudo
+que já sabíamos: com ~328 visualizações/30 dias (4-6 visitas/dia),
+estamos bem abaixo de qualquer modelo de monetização virar receita de
+verdade -- tráfego continua sendo o gargalo real, não falta de
+camada de receita. Documentado, não muda nenhuma decisão já tomada,
+só confirma a ordem de prioridade (SEO/tráfego antes de mais
+monetização).
+
 ## 2026-09-25 (tarde, continuação 11) — Gráfico de histórico de preço construído (versão honesta, não o gauge completo)
 
 Antes de construir o gauge de 40 dias que o Zoom tem, chequei o dado
