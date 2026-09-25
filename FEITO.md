@@ -260,6 +260,36 @@ Testado ao vivo (preview local, mobile): home, produto e cupons
 conferidos visualmente, zero verde fora do admin, `tsc` e `next build`
 limpos.
 
+## 2026-09-26 (continuação) — Fundo branco de verdade nas fotos de categoria (recorte real) + ordenado por busca real
+
+Heber apontou (com print) que o filtro de brilho não deixava o fundo
+"branco de verdade" e sugeriu a solução certa: recorte em PNG
+transparente + fundo branco do próprio card, em vez de depender do
+fundo variável de cada foto original. Implementado de verdade, não
+outro atalho de CSS:
+
+- As 6 fotos passaram por remoção de fundo real (Canva `remove-
+  background`, upload de cada JPG original + recorte, baixado como PNG
+  RGBA de verdade -- conferido byte a byte, `file` confirma alpha
+  channel real, não só visual). Salvas em `public/categorias-produtos/
+  *.png`, servidas do próprio domínio (não mais hotlink externo -- tira
+  de vez o risco de bloqueio tipo o 403 da Kabum/Awin achado antes).
+- Card usa `background: #ffffff` + PNG por cima -- as 6 ficam
+  literalmente idênticas agora, não só parecidas.
+- Filtro de brilho da chaleira (tentativa anterior) removido, não é
+  mais necessário.
+
+Também reordenado por pedido do Heber ("categorias mais buscadas na
+Shopee") -- pesquisa real via WebSearch (fontes de mercado/blog
+agregadas, não painel oficial da Shopee, sinalizado como tal):
+tecnologia/celular é historicamente a categoria mais buscada, e moda
+aparece antes de beleza numa das listagens -- trocada a ordem
+(Eletrônicos, Casa, Moda, Beleza, Esporte, Infantil).
+
+Testado ao vivo: 6 imagens carregando (JS `complete:true` em todas),
+fundo branco uniforme confirmado visualmente, zero erro de console.
+`tsc` e `next build` limpos.
+
 ## 2026-09-26 (continuação) — Correção real do bug de hover no toque (raiz, não sintoma)
 
 Heber confirmou com print em produção que o `padding-top` não resolveu o
