@@ -43,6 +43,7 @@ export default async function HomePage() {
           <ProductGrid
             products={offers}
             emptyMessage="Ainda não temos ofertas publicadas aqui — em breve. Enquanto isso, manda uma foto no WhatsApp que a gente procura na hora."
+            layout="scroll"
           />
         </section>
 

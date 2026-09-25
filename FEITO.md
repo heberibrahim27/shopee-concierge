@@ -4,6 +4,25 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (tarde, continuação 16) — Rolagem horizontal em "Ofertas de hoje"
+
+Heber notou que a home ficou muito grande e sugeriu rolagem horizontal.
+Investiguei o motivo real antes de mexer: `queryTodayPosts` não tem
+limite nenhum, pega TODO post do Instagram das últimas 24h -- hoje isso
+é **86 produtos únicos / 115 posts** (cresceu bastante com o conteúdo
+de crescimento além do cron de produto). Num grid vertical de 2-3
+colunas isso vira dezenas de linhas.
+
+Implementado: `ProductGrid` ganhou uma prop `layout="scroll"` (opcional,
+default continua `"grid"` -- categoria/busca/guia não mudam nada).
+`.dc-grid-scroll` no CSS: flexbox com `overflow-x: auto` +
+`scroll-snap-type` nativo (sem lib de carrossel), cards com largura fixa
+(148px mobile / 190px desktop+), sangrando até a borda da tela pra
+parecer nativo. Só a seção "Ofertas de hoje" da home usa isso.
+
+Testado ao vivo no preview: scroll com snap funcionando liso no mobile
+(375px) e desktop, zero erro de console, `tsc` e `next build` limpos.
+
 ## 2026-09-25 (tarde, continuação 15) — Descrição real do produto (Kabum) + resposta técnica sobre fotos múltiplas
 
 Heber comparou uma página real nossa (mouse) com a imagem de referência
