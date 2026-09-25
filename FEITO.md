@@ -4,6 +4,19 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (madrugada) — Plano de negócio estruturado publicado
+
+Heber pediu explicitamente "não genérico, não meia boca" antes de dormir.
+Publiquei um plano de receita em 4 fases (cada fase só avança por métrica
+real, nunca por prazo): Fase 0 comissão de afiliado (atual) → Fase 1
+fundação de audiência sem receita nova de propósito (SEO, Telegram,
+Pinterest) → Fase 2 primeira receita nova de baixo atrito (anúncio, lista
+própria) → Fase 3 patrocínio de marca tipo Promobit Ads (precisa do
+mídia kit já criado) → Fase 4 escala, cashback tipo Zoom.com.br + dado
+B2B (exige capital). Artefato: https://claude.ai/artifact/6xf5KFXbUYZCSbF7S77Dcg
+— mandei pro ChatGPT criticar antes de considerar fechado, resposta
+pendente. Detalhes em `project_business_plan_artifact` na memória.
+
 ## 2026-09-25 (madrugada, continuação) — Loop de melhoria contínua, widget de sugestão, mídia kit, auditoria de SEO, pesquisa de concorrente
 
 **`/loop` de 15 em 15 min criado** (cron `031794ab`, expira em 7 dias) —
