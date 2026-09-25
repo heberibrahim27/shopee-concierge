@@ -4,6 +4,48 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (tarde) — 6 guias de compra reais no ar (/guia), aprovado pelo Heber
+
+Heber topou direto ("Não precisa de exemplo pode fazer") depois de eu
+explicar o que seria a proposta de conteúdo editorial debatida com o
+ChatGPT mais cedo. Antes de escrever qualquer texto, conferi cada tópico
+contra o catálogo real no banco -- e isso mudou o plano:
+
+- Descartei "air fryer" (sugestão do ChatGPT) -- checamos o catálogo e
+  não vendemos fritadeira elétrica de verdade, só acessório de silicone
+  pra air fryer. Ia ser um guia promovendo produto que não temos.
+- "Notebooks até R$3.000" virou "até R$4.000" -- o notebook mais barato
+  real do catálogo custa R$3.199,99, não menos que isso.
+- Pra cada guia, busquei produto real por SQL antes de escrever: pares
+  reais Kabum×Shopee de SSD (um onde a Kabum ganha, outro onde a Shopee
+  ganha -- não escolhi a dedo pra sempre favorecer uma loja), a mesma TV
+  Philips 50PUG7300 real em duas lojas, 4 modelos reais de tênis
+  Olympikus que existem no catálogo hoje.
+
+**6 guias no ar**: Kabum ou Shopee (SSD), SSD NVMe ou SATA, TV 4K 50",
+Notebook até R$4.000, Tênis Olympikus, Como sabemos se um preço é bom
+(explica o selo de menor preço/histórico que já existe no site).
+
+**Implementação**: `src/lib/site/guides.ts` guarda o conteúdo como
+blocos (texto + slug de produto real) -- nunca preço fixo no texto.
+`src/app/guia/[slug]/page.tsx` resolve cada produto AO VIVO via
+`getCachedProduct` (mesmo cache da página de produto normal), reusando
+`ProductCard`/`ProductGrid` já existentes. Página índice em `/guia`.
+Sempre indexável (conteúdo original de verdade, sem precisar do
+SEQ_INDEX_GATE que protege produto fino da Kabum).
+
+**Testado antes E depois do deploy**: `npx tsc --noEmit` limpo; rodei
+localmente as 6 páginas + índice, conferi visual (desktop e mobile
+375px, sem estouro), console mostrou erro que investiguei e confirmei
+ser só ruído de startup do servidor de dev (todo conteúdo real
+renderizou certo em todas as páginas). Depois do deploy: sitemap.xml de
+produção buscado direto, 7 URLs novas confirmadas (índice + 6 guias);
+página de guia real verificada com `<meta name="robots" content="index,
+follow">`.
+
+**Não feito ainda**: nenhuma página existente (produto/categoria) linka
+pros guias novos ainda -- só alcançáveis por /guia e pelo sitemap.
+
 ## 2026-09-25 (manhã, continuação) — Respondi pergunta original do Heber: dá pra vender dado agregado de preço B2B?
 
 Essa pergunta ficou sem resposta real desde o início da sessão (o
