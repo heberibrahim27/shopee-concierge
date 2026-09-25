@@ -7,6 +7,7 @@ import { SortBar } from "../../components/site/SortBar";
 import { searchCatalog } from "../../lib/site/catalogSearch";
 import { searchShopeeLive } from "../../lib/site/liveSearch";
 import { searchLomadeeLive } from "../../lib/site/lomadeeSearch";
+import { getCachedPopularSearches } from "../../lib/site/popularSearches";
 import { parseSortOption } from "../../lib/site/sort";
 import { logSearchEvent } from "../../lib/site/searchLog";
 
@@ -33,6 +34,11 @@ export default async function SearchPage({
   const [results, liveResults, lomadeeResults] = hasTerm
     ? await Promise.all([searchCatalog(term, sort), searchShopeeLive(term, sort), searchLomadeeLive(term)])
     : [[], [], []];
+  // Chips de buscas populares só quando não há termo (ou nada foi achado):
+  // termos reais de outros visitantes, ver lib/site/popularSearches.ts.
+  const popular = !hasTerm || (results.length === 0 && liveResults.length === 0 && lomadeeResults.length === 0)
+    ? await getCachedPopularSearches()
+    : [];
 
   const nothingFound =
     hasTerm && results.length === 0 && liveResults.length === 0 && lomadeeResults.length === 0;
@@ -82,9 +88,24 @@ export default async function SearchPage({
         {nothingFound || !hasTerm ? (
           <section className="dc-section">
             <p className="dc-empty">
-              Não achamos nada com esse termo — manda uma foto no WhatsApp que a gente procura na
-              hora.
+              {hasTerm
+                ? "Não achamos nada com esse termo — manda uma foto no WhatsApp que a gente procura na hora."
+                : "Digite o que você procura, ou manda uma foto no WhatsApp que a gente procura na hora."}
             </p>
+            {popular.length > 0 ? (
+              <div style={{ marginTop: 14 }}>
+                <p style={{ fontSize: 12.5, fontWeight: 700, color: "var(--dc-text-muted)", margin: "0 0 8px" }}>
+                  O que outras pessoas buscaram
+                </p>
+                <div className="dc-price-filter-row">
+                  {popular.map((t) => (
+                    <a key={t} href={`/busca?q=${encodeURIComponent(t)}`} className="dc-price-filter-pill">
+                      {t}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </section>
         ) : null}
       </main>

@@ -4,6 +4,35 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-26 — "Veja também" na página de produto + guias por produto + buscas populares
+
+Conferido antes (pedido do Heber: "veja se não já foi construído por
+outra sessão"): nada disso existia na `main` -- só o link de guia por
+CATEGORIA. A `main` já tinha incorporado tudo deste branch até o alerta
+de preço (commits 2329a22…3a0773f confirmados como ancestrais).
+
+- **`/produto/[slug]` ganhou "Veja também"** (`src/lib/site/related.ts`):
+  até 6 produtos da mesma categoria com preço entre metade e o dobro,
+  ordenados pelo preço mais próximo, sem o próprio produto nem irmãos do
+  mesmo `group_id` (já estão em "Compare em outras lojas"). Pool de 120
+  por categoria cacheado com a mesma tag `category:<slug>`. A página
+  deixa de ser beco sem saída e ganha link interno de verdade (o que as
+  páginas finas da Kabum não tinham).
+- **Guias de compra na página de produto** (antes só na categoria; estava
+  registrado como "ainda falta" no dia 25).
+- **Buscas populares em `/busca`** (`src/lib/site/popularSearches.ts`):
+  chips com termos reais de `search_events` (30 dias, com resultado,
+  repetidos 2+ vezes) quando não há termo ou nada foi achado. Hoje só
+  "mouse gamer" e "controle" passam do corte -- cresce sozinho.
+- **Quedas de preço (home + página própria)**: AVALIADO E ADIADO. Dado
+  real: só 354 produtos têm mais de um snapshot; 31 com queda, 4 com 10%+
+  e 1 com 20%+ -- uma seção "maiores quedas" hoje seria uma bola de
+  brinquedo e um massageador. Volta a valer quando o histórico da Kabum
+  acumular (a rotação diária toca só parte dos 4.412).
+
+Testado: seleção de relacionados e agregação de buscas com tsx (pure
+functions), `tsc` limpo. Render com dado real não foi possível aqui.
+
 ## 2026-09-26 — "Cupom Shopee conseguimos postar como?" — promoções oficiais da Shopee entram em /cupons
 
 Heber mandou print da Cuponomia: "Super promo Shopee: itens até 85% OFF
