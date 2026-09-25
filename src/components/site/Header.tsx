@@ -1,5 +1,6 @@
 import { Logo } from "./Logo";
 import { PLATFORM_INFO } from "../../lib/site/platforms";
+import { BellIcon, SearchIcon } from "./icons";
 
 /**
  * Lojas que o comparador realmente já traz dado real. As outras aparecem
@@ -44,13 +45,12 @@ export function Header() {
         {/* Sem contador — não temos sistema de notificação de verdade ainda,
             então não inventamos um número. */}
         <span className="dc-header-bell" title="Notificações em breve">
-          <img src="/SINO-SEM-NOTIFICAÇÃO.png" alt="Notificações (em breve)" />
+          <BellIcon size={20} style={{ color: "#fff" }} />
         </span>
       </div>
       <div className="dc-shell">
         <form className="dc-header-search" action="/busca" method="GET">
-          <img className="dc-header-search-bg" src="/BUSCADOR.png" alt="" aria-hidden="true" />
-          <img className="dc-header-search-icon" src="/LUPA.png" alt="" aria-hidden="true" />
+          <SearchIcon size={18} style={{ flex: "none", color: "#fff", opacity: 0.85 }} />
           <input
             type="search"
             name="q"

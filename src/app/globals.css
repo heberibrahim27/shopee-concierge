@@ -134,20 +134,16 @@ img {
 }
 
 .dc-header-bell {
+  /* 2026-09-25: era um PNG verde (SINO-SEM-NOTIFICAÇÃO.png), extraído via
+     clip-path+mix-blend-mode -- outro asset verde fora do sistema de
+     tokens. Trocado por SVG real (BellIcon), sem dependência de imagem. */
   flex: none;
   display: flex;
-  opacity: 0.85;
-}
-
-.dc-header-bell img {
-  height: 34px;
+  align-items: center;
+  justify-content: center;
   width: 34px;
-  display: block;
-  /* O PNG veio com fundo preto sólido, sem canal alfa (RGB puro, sem
-     tRNS) — corta o quadrado fora com um recorte circular, em vez de
-     depender de um "screen" que só funciona se o preto for exato. */
-  clip-path: circle(33% at 50% 50%);
-  mix-blend-mode: screen;
+  height: 34px;
+  opacity: 0.85;
 }
 
 .dc-header-search {
@@ -155,43 +151,21 @@ img {
   display: flex;
   align-items: center;
   gap: 10px;
-  background-color: var(--dc-brand-deep);
+  /* 2026-09-25: era uma <img> real (BUSCADOR.png), um asset verde brilhante
+     tipo vidro neon -- outra fonte de verde que o find/replace de token de
+     CSS não pegava (não é var(--dc-green), é imagem). Trocado por
+     gradiente puro, mesma família terracota/navy do resto do redesign. */
+  background: linear-gradient(135deg, var(--dc-brand-deep), var(--dc-black-soft));
   border-radius: 999px;
   overflow: hidden;
   padding: 4px 4px 4px 18px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.12);
   transition: box-shadow 0.2s ease;
 }
 
 .dc-header-search:focus-within {
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3), 0 0 0 2px rgba(255, 255, 255, 0.55);
-}
-
-/* Fundo é uma <img> de verdade com object-fit:cover (não background-size)
-   — preserva a proporção da imagem sem esticar/distorcer, e o corte
-   central acaba caindo bem dentro da pílula de vidro, longe da margem
-   preta sólida que a imagem tem em volta. */
-.dc-header-search-bg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-  /* "cover" sozinho ainda deixa a borda antialiasada do preto sólido bem
-     na quina do recorte (medido pixel a pixel) — um zoom extra empurra
-     essa borda pra fora de vez. Calibrado testando o verde mínimo nas
-     bordas em várias proporções de tela até sumir o preto. */
-  transform: scale(1.35);
-  z-index: 0;
-}
-
-.dc-header-search-icon {
-  position: relative;
-  z-index: 1;
-  flex: none;
-  width: 20px;
-  height: 20px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 2px rgba(255, 255, 255, 0.55);
 }
 
 .dc-header-search input {
