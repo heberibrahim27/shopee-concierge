@@ -4,6 +4,33 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (tarde, continuação 7) — Cabeçalho claro + logo nova publicados (peça final do redesign de cor)
+
+Heber gerou a logo nova (navy+terracota, sem verde) no ChatGPT certo
+(a sessão que fez as 4 imagens originais, não a de debate) e mandou o
+arquivo direto no chat. Apliquei: `public/LOGO-LIGHT.png`, cabeçalho
+trocado pra fundo claro de verdade (#FDFBF7, literal da spec tirada
+pixel a pixel das 4 imagens), texto/ícones navy, terracota só como
+cor ativa. Busca virou pill branca com borda sutil. Testado local
+desktop+mobile em home/produto/lojas-parceiras antes de publicar --
+sem regressão. Confirmado ao vivo em produção via screenshot direto,
+bate com o mockup de verdade agora (não é mais a versão escura
+intermediária).
+
+Achado à parte durante o teste: apareceu um erro de console
+"BellIcon is not defined" mesmo com o código já limpo -- era cache
+antigo do servidor de dev (`.next`), não bug real. Limpei o cache e
+reiniciei, confirmado que sumiu.
+
+**Aviso real do Heber sobre custo da Vercel**: 66 commits só hoje,
+cada um builda de novo -- ele viu as notificações chegando toda hora
+e ficou preocupado com surpresa na fatura. Consultei o gasto real
+(Vercel MCP): ~US$0,83-1,50/dia, "Build CPU Minutes" é o maior item --
+valor baixo em dólar, mas a frequência de push é o problema de
+verdade. Juntei o que faltava (4 arquivos) num commit só antes de
+publicar, e vou manter essa disciplina daqui pra frente -- não
+publicar mais por partes.
+
 ## 2026-09-25 (tarde, continuação 6) — Publisher do Telegram construído (ainda inativo, esperando token)
 
 Enquanto o header claro fica travado esperando a logo nova, adiantei o
