@@ -4,6 +4,8 @@ import {
   ProductOfferV2Response,
   GenerateShortLinkResponse,
   ShopeeConversion,
+  ShopeeOffer,
+  ShopeeOfferV2Response,
   ShopeeProductOffer,
   ShopeeSortType,
 } from "./types";
@@ -102,6 +104,55 @@ export async function searchProductsByShop(params: {
   });
 
   return data.productOfferV2.nodes.map(normalizeShopeeProductOfferIds);
+}
+
+/**
+ * Promoções oficiais da Shopee (shopeeOfferV2): campanhas, coleções e
+ * categorias com comissão diferenciada, cada uma com `offerLink` já
+ * atribuído à nossa conta. É o que cuponeiros (Cuponomia) mostram como
+ * "Super promo Shopee -- Ver Desconto". A investigação de 2026-09-22
+ * procurou campo de voucher/cupom com código (não existe mesmo); esta
+ * query é outra coisa -- promoção sem código, com link rastreado.
+ *
+ * sortType: 1 = mais recentes, 2 = maior comissão. Não testado ao vivo
+ * nesta sessão (container sem SHOPEE_APP_ID/SECRET) -- o cron
+ * source-shopee-offers tem `?dry=1` pra inspecionar a resposta real
+ * antes de gravar qualquer coisa.
+ */
+export async function listShopeeOffers(params: {
+  page?: number;
+  limit?: number;
+  sortType?: 1 | 2;
+  keyword?: string;
+} = {}): Promise<{ nodes: ShopeeOffer[]; hasNextPage: boolean }> {
+  const { page = 1, limit = 50, sortType = 1, keyword } = params;
+
+  const query = `
+    query ShopeeOffers($page: Int, $limit: Int, $sortType: Int, $keyword: String) {
+      shopeeOfferV2(page: $page, limit: $limit, sortType: $sortType, keyword: $keyword) {
+        nodes {
+          offerName
+          offerType
+          commissionRate
+          imageUrl
+          offerLink
+          originalLink
+          categoryId
+          collectionId
+          periodStartTime
+          periodEndTime
+        }
+        pageInfo { page limit hasNextPage }
+      }
+    }
+  `;
+
+  const data = await shopeeGraphQL<ShopeeOfferV2Response>({
+    query,
+    variables: { page, limit, sortType, keyword },
+  });
+
+  return { nodes: data.shopeeOfferV2.nodes, hasNextPage: data.shopeeOfferV2.pageInfo.hasNextPage };
 }
 
 /**

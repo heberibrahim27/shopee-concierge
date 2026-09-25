@@ -4,6 +4,46 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-26 — "Cupom Shopee conseguimos postar como?" — promoções oficiais da Shopee entram em /cupons
+
+Heber mandou print da Cuponomia: "Super promo Shopee: itens até 85% OFF
++ cashback -- Ver Desconto". Lido com atenção: NÃO é cupom com código
+(o botão é "Ver Desconto", não "Ver Cupom") -- é um link de afiliado pra
+uma página promocional da própria Shopee, e o cashback é a Cuponomia
+devolvendo parte da comissão dela. Nada ali é código secreto.
+
+O que dá pra fazer igual, custo zero: a API de afiliados que já usamos
+tem a query `shopeeOfferV2` (campanhas/coleções/categorias com comissão,
+cada uma com `offerLink` já atribuído à nossa conta). A investigação de
+2026-09-22 procurou campo de voucher/cupom com código e concluiu certo
+que não existe -- mas essa query é outra coisa (promoção sem código) e
+nunca tinha sido usada aqui.
+
+**Construído**: `listShopeeOffers()` em `src/lib/shopee/queries.ts`,
+cron diário `/api/cron/source-shopee-offers` (11:26 UTC, entre Awin e
+Lomadee) gravando na mesma tabela `coupons` (platform "shopee", sem
+código, `shopee_offer_key` nova como identidade -- migration aplicada em
+produção), com expiração automática igual aos outros crons. Sem código
+nenhum de tela: o `CouponCard` já mostra "Aproveitar" quando não há
+código, e `/cupom/shopee` passa a existir sozinho pelo diretório de lojas.
+
+**Não testado com a chave real** (container sem SHOPEE_APP_ID/SECRET).
+Por isso o cron tem `?dry=1`: devolve a resposta crua da API sem gravar.
+Primeiro passo depois do deploy:
+`curl -H "Authorization: Bearer $CRON_SECRET" ".../api/cron/source-shopee-offers?dry=1"`
+-- se os campos vierem com outro nome (a doc pública lista offerName,
+offerType, commissionRate, imageUrl, offerLink, originalLink, categoryId,
+collectionId, periodStartTime, periodEndTime), é ajustar o SELECT da
+query, o resto já está pronto.
+
+**O que continua fora do alcance, e por quê**: cupom Shopee COM código
+pro comprador (frete grátis, moedas, "R$10 off") é distribuído pela
+Shopee dentro do app e por sellers (voucher de loja no Seller Centre) --
+não existe API de afiliado pra isso. Caminho real pra ter código: o
+próprio Heber como seller cria voucher de loja e a gente publica com
+link da loja; e sellers parceiros idem. Cashback tipo Cuponomia é Fase 4
+(conta de usuário + conciliação + Pix).
+
 ## 2026-09-26 — Merge com a main: causa real do print era o carrossel novo da home
 
 Ao juntar a `main` de novo, apareceu o commit 4032a4a da outra sessão

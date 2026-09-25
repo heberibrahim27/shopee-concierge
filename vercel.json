@@ -20,6 +20,7 @@
       "path": "/api/cron/source-lomadee",
       "schedule": "28 11 * * *"
     },
+    { "path": "/api/cron/source-shopee-offers", "schedule": "26 11 * * *" },
     { "path": "/api/cron/publish-product", "schedule": "30 11 * * *" },
     { "path": "/api/cron/publish-product", "schedule": "15 12 * * *" },
     { "path": "/api/cron/publish-product", "schedule": "0 13 * * *" },
