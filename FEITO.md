@@ -4,6 +4,22 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (madrugada, continuação) — ChatGPT fechou o assunto do /go, Facebook confirmado bloqueado
+
+ChatGPT concordou com a análise (não construir o gate de política por
+rede agora, `new URL().hostname` já resolve os bypasses comuns) e deu
+checklist real pro teste do Facebook: token válido → permissão de
+publicar na Página → post simples antes de vídeo/Reel → smoke test
+manual registrado antes de automatizar.
+
+**Confirmei que o teste do Facebook está genuinamente bloqueado, não só
+adiado**: `.env` não tem NENHUMA credencial de Facebook Page/Meta App.
+O único token relacionado (`INSTAGRAM_PAGE_ACCESS_TOKEN`) já está
+confirmado morto. Só dá pra avançar isso com o Heber logando no
+consentimento OAuth da Meta — não tem atalho técnico. Com isso,
+praticamente todo próximo passo real (Facebook, Pinterest, Telegram,
+Resend) depende dele acordar.
+
 ## 2026-09-25 (madrugada, continuação) — ChatGPT revisou o /go de verdade, testei os achados
 
 Mandei um resumo de tudo que fiz essa madrugada pro ChatGPT (Chrome
