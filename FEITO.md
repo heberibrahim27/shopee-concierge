@@ -4,6 +4,39 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (tarde, continuação 2) — Terceira peça do redesign: cor de marca (terracota) no lugar do verde
+
+Antes de mexer em código, contei todo uso real do token verde no CSS:
+47 ocorrências. Separei em dois grupos de verdade -- ~33 eram cor de
+marca/interação (botão CTA, botão comprar, pill ativo, hover, header,
+busca) e ~14 eram semântica de verdade (badge "economize"/"menor
+preço", confirmação de sucesso em formulário, painel admin interno
+"status ok"/"subiu") -- esse segundo grupo continua verde de propósito,
+não é a marca que muda, é o significado que fica.
+
+Debati com o ChatGPT do Heber antes de decidir a cor nova: reusar o
+laranja que já existe pra urgência/desconto (`--dc-urgency`) como cor
+de marca colidiria visualmente com o selo de desconto -- o usuário
+perderia a distinção entre "isso é a cor do site" e "isso é
+desconto/urgente". Criei um terceiro tom, `--dc-brand` (terracota
+#b9573f), deliberadamente mais escuro/dessaturado que o laranja de
+urgência, mesma família visual do mockup que o Heber aprovou.
+Convertidos os ~33 usos de marca, incluindo um verde que estava
+hardcoded fora do sistema de variáveis (fundo da pílula de busca,
+`#0a6b3c`) que um find/replace ingênuo teria deixado passar. `--dc-black`
+também perdeu o tom esverdeado.
+
+Testado local em home, página de produto, Lojas Parceiras e Cupons --
+sem regressão, contraste ok em todo botão/badge convertido. Confirmado
+ao vivo em produção via screenshot real do site (não é suposição).
+
+**Ainda falta, agora confirmado como a maior peça que resta**: a
+imagem de fundo do cabeçalho (`BACKGROUND-HERO.png`) é um PNG estático,
+não CSS -- continua totalmente verde e agora é a maior fonte visual de
+"parece verde" do site inteiro, maior que qualquer token de cor.
+Precisa de um asset novo (gerar um, ou pedir ao Heber o asset por trás
+do mockup dele) ou um redesenho só de CSS que tire a imagem de fundo.
+
 ## 2026-09-25 (tarde, continuação) — Home reordenada: produto real antes de banner/cupom
 
 Segunda peça do redesign publicada. Reusei a section "Ofertas de hoje"
