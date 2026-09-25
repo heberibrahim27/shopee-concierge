@@ -407,7 +407,7 @@ img {
   flex: none;
 }
 
-/* ---------- Grade de categorias (Home, carrossel de 2 linhas) ---------- */
+/* ---------- Grade de categorias (/categoria/[slug], rolagem horizontal) ---------- */
 
 .dc-cat-grid-scroll {
   overflow-x: auto;
@@ -422,20 +422,11 @@ img {
   display: none;
 }
 
-.dc-cat-grid {
-  display: grid;
-  grid-template-rows: repeat(2, auto);
-  grid-auto-flow: column;
-  grid-auto-columns: 86px;
-  gap: 18px 16px;
-  width: max-content;
-}
-
 /* "Explore por categoria" da home -- ladrilho com foto real (ver
-   FeaturedCategoryGrid.tsx), diferente do ícone+texto do dc-cat-grid
-   acima (que continua em /categoria/[slug]). Achado real 2026-09-26
-   (Heber, referência): linha única com rolagem horizontal, mesmo padrão
-   de .dc-grid-scroll -- não grade 3x2. */
+   FeaturedCategoryGrid.tsx), mesmo usado em /categorias e
+   /categoria/[slug] (CategoryGrid.tsx). Achado real 2026-09-26 (Heber,
+   referência): linha única com rolagem horizontal, mesmo padrão de
+   .dc-grid-scroll -- não grade 3x2. */
 .dc-featured-cat-grid {
   display: flex;
   align-items: flex-start;
@@ -477,6 +468,7 @@ img {
 }
 
 .dc-featured-cat-tile {
+  position: relative;
   flex: 0 0 clamp(68px, 19vw, 86px);
   width: clamp(68px, 19vw, 86px);
   scroll-snap-align: start;
@@ -488,6 +480,12 @@ img {
   border-radius: var(--dc-radius-sm);
   overflow: hidden;
   transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+/* Destaque de "categoria atual" em /categoria/[slug] (CategoryGrid.tsx) --
+   mesmo tratamento visual do :hover, só que fixo (não depende de mouse). */
+.dc-featured-cat-tile-active {
+  border-color: var(--dc-brand-deep);
 }
 
 /* @media (hover: hover) -- achado real 2026-09-26 (print do Heber, 2ª
@@ -543,66 +541,8 @@ img {
   overflow: hidden;
 }
 
-.dc-cat-tile-link {
-  position: relative;
-  display: block;
-  width: 86px;
-  text-decoration: none;
-  transition: transform 0.2s ease;
-}
-
-a.dc-cat-tile-link:hover,
-.dc-cat-tile-active {
-  transform: translateY(-3px);
-}
-
-a.dc-cat-tile-link:hover .dc-cat-tile-img,
-a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
-.dc-cat-tile-active .dc-cat-tile-img,
-.dc-cat-tile-active .dc-cat-tile-fallback {
-  box-shadow: 14px 14px 26px rgba(0, 0, 0, 0.16), -14px -14px 26px rgba(255, 255, 255, 1);
-}
-
-/* Neomorfismo em alto relevo: sombra dupla bem pronunciada (clara +
-   escura, neutra — sem tingir de verde) simulando luz vinda de
-   cima-esquerda — os cartões parecem flutuar/estufar sobre o fundo claro
-   do site, sem precisar de borda dura. Offsets e blur grandes de
-   propósito (pedido explícito do usuário: "alto relevo", não uma sombra
-   sutil). */
-.dc-cat-tile-img {
-  display: block;
-  width: 100%;
-  height: auto;
-  border-radius: 14px;
-  box-shadow: 10px 10px 20px rgba(0, 0, 0, 0.13), -10px -10px 20px rgba(255, 255, 255, 0.95);
-  transition: box-shadow 0.25s ease;
-}
-
 .dc-cat-tile-dim {
   filter: grayscale(1) opacity(0.5);
-}
-
-.dc-cat-tile-fallback {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  border-radius: 14px;
-  background: var(--dc-card-bg);
-  color: var(--dc-text);
-  font-size: 12px;
-  font-weight: 700;
-  text-align: center;
-  padding: 10px 6px;
-  box-shadow: 10px 10px 20px rgba(0, 0, 0, 0.13), -10px -10px 20px rgba(255, 255, 255, 0.95);
-  transition: box-shadow 0.25s ease;
-}
-
-.dc-cat-tile-fallback.dc-cat-tile-dim {
-  filter: grayscale(1) opacity(0.6);
 }
 
 .dc-cat-tile-soon-badge {

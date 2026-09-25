@@ -1,35 +1,40 @@
 import { CATEGORY_TILES } from "../../lib/site/categoryTiles";
-import { CATEGORY_ICONS } from "./icons";
 
 /**
- * Grade de categorias: 2 linhas fixas, rolagem horizontal (visual de
- * carrossel) — mesmo padrão de apps de marketplace grandes. Usa as artes
- * prontas (ícone + rótulo já desenhados) geradas pelo ChatGPT; quando
- * ainda não existe arte nova pra categoria (caso da Infantil por
- * enquanto), cai num ladrilho equivalente montado com o ícone antigo.
- * Reaproveitada tanto na Home quanto na página de categoria (com
- * `activeSlug` pra destacar em qual categoria o usuário está).
+ * Grade de categorias de /categoria/[slug] -- mesmo ladrilho com foto real
+ * (.dc-featured-cat-tile) da home/`/categorias`, numa linha única com
+ * rolagem horizontal (18 itens, não quebra linha). Antes usava um ladrilho
+ * de ícone+texto separado (dc-cat-tile-link) -- Heber apontou que ficava
+ * inconsistente entrar numa categoria e ver o modelo antigo (2026-09-25).
+ * Dados (foto recortada + subtítulo) vêm de CATEGORY_TILES, mesma fonte da
+ * home e de `/categorias`, pra nunca divergir. `activeSlug` destaca em qual
+ * categoria o usuário está.
  */
 export function CategoryGrid({ activeSlug }: { activeSlug?: string } = {}) {
   return (
     <div className="dc-cat-grid-scroll">
-      <div className="dc-cat-grid">
-        {CATEGORY_TILES.map((tile) => {
+      <div className="dc-featured-cat-grid">
+        {CATEGORY_TILES.filter((tile) => tile.slug !== "outros").map((tile) => {
           const href = tile.href ?? `/categoria/${tile.slug}`;
-          const FallbackIcon = tile.image ? null : CATEGORY_ICONS[tile.slug];
           const active = tile.slug === activeSlug;
 
-          const inner = tile.image ? (
-            <img
-              src={tile.image}
-              alt={tile.label}
-              className={`dc-cat-tile-img${tile.available ? "" : " dc-cat-tile-dim"}`}
-            />
-          ) : (
-            <span className={`dc-cat-tile-fallback${tile.available ? "" : " dc-cat-tile-dim"}`}>
-              {FallbackIcon ? <FallbackIcon size={26} /> : null}
-              <span>{tile.label}</span>
-            </span>
+          const inner = (
+            <>
+              <div className="dc-featured-cat-photo">
+                {tile.photoUrl ? (
+                  <img
+                    src={tile.photoUrl}
+                    alt={tile.label}
+                    loading="lazy"
+                    className={tile.available ? "" : "dc-cat-tile-dim"}
+                  />
+                ) : null}
+              </div>
+              <div className="dc-featured-cat-text">
+                <span className="dc-featured-cat-label">{tile.label}</span>
+                <span className="dc-featured-cat-subtitle">{tile.subtitle}</span>
+              </div>
+            </>
           );
 
           if (tile.available) {
@@ -37,7 +42,7 @@ export function CategoryGrid({ activeSlug }: { activeSlug?: string } = {}) {
               <a
                 key={tile.slug}
                 href={href}
-                className={`dc-cat-tile-link${active ? " dc-cat-tile-active" : ""}`}
+                className={`dc-featured-cat-tile${active ? " dc-featured-cat-tile-active" : ""}`}
               >
                 {inner}
               </a>
@@ -45,7 +50,7 @@ export function CategoryGrid({ activeSlug }: { activeSlug?: string } = {}) {
           }
 
           return (
-            <span key={tile.slug} className="dc-cat-tile-link" title={`${tile.label} — em breve`}>
+            <span key={tile.slug} className="dc-featured-cat-tile" title={`${tile.label} — em breve`}>
               {inner}
               <span className="dc-cat-tile-soon-badge">em breve</span>
             </span>

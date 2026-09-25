@@ -3,11 +3,10 @@ import { CATEGORY_TILES } from "../../lib/site/categoryTiles";
 /**
  * Seção "Explore por categoria" da home -- ladrilho com foto real de
  * produto + rótulo + subtítulo curto. Achado real 2026-09-26 (mockup do
- * Heber): substitui o antigo ladrilho ícone+texto só aqui na home; a
- * navegação por ícone continua igual em /categoria/[slug]
- * (CategoryGrid.tsx). Dados (foto recortada + subtítulo) vêm de
- * CATEGORY_TILES (lib/site/categoryTiles.ts) -- mesma fonte usada em
- * /categorias, pra nunca divergir.
+ * Heber): substitui o antigo ladrilho ícone+texto. Dados (foto recortada +
+ * subtítulo) vêm de CATEGORY_TILES (lib/site/categoryTiles.ts) -- mesma
+ * fonte usada em /categorias e em /categoria/[slug] (CategoryGrid.tsx),
+ * pra nunca divergir.
  *
  * Ordem: pedido do Heber pra seguir volume de busca real na Shopee --
  * pesquisa real (não painel oficial da Shopee, agregada de fontes de
