@@ -4,6 +4,36 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (manhã, continuação) — Achado técnico real: dá pra listar TODO o diretório de anunciantes da Awin não-aprovados via API
+
+Seguindo sugestão do ChatGPT (procurar mais anunciante Awin com
+identificador forte + sobreposição real de catálogo com a Kabum, foco em
+eletrônicos, não moda). Testei se o AWIN_API_TOKEN (já usado só pra
+`promotions` com `membership: joined`) também conseguia listar
+anunciante NÃO aprovado ainda -- testei direto: `GET
+api.awin.com/publishers/2596713/programmes?relationship=notjoined`
+funciona, devolve o diretório GLOBAL inteiro (21.314 programas). O
+parâmetro `region=BR` da API NÃO filtra de verdade (testei, veio tudo
+misturado) -- tive que filtrar por `primaryRegion.countryCode === "BR"`
+no lado do cliente pra chegar nos 233 reais do Brasil.
+
+**12 anunciantes de eletrônicos/tech do Brasil ainda não aprovados**,
+filtrados e revisados manualmente (removi falso positivo "Technos BR",
+que é joalheria, não eletrônico). Os 3 mais fortes: **Acer BR**
+(fabricante direto, provável sobreposição real com o que a Kabum já
+vende), **iPlace BR** (revenda oficial Apple confirmada, sobreposição
+forte com os MacBook/iPad que já vi no próprio sitemap da Kabum hoje),
+**Gigantec BR** (confirmei via busca: loja real de hardware desde 2012,
+selo RA1000, declarou ambição de entrar no top 4 de e-commerce de
+informática do Brasil -- concorrente real de escala parecida com a
+Kabum, o candidato mais forte pra comparação EAN/MPN de verdade).
+Achados menores descartados por categoria não bater (capinhas de
+celular, aluguel de gadget, plano de operadora).
+
+Ainda não propus isso pro Heber -- já mandei 2 mensagens de WhatsApp
+nesse ciclo (Renner + Riachuelo), vou esperar resposta antes de
+emendar mais pedido.
+
 ## 2026-09-25 (manhã, continuação) — Riachuelo também é Awin (ID 86587), aproveitei a mesma mensagem
 
 Achei que a Riachuelo (a outra loja de moda nos destaques da conta de
