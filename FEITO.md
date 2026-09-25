@@ -4,6 +4,16 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (madrugada, continuação) — llms.txt no ar
+
+Endereça a preocupação original do Heber ("não aparece como sugestão de
+IAs") com custo quase zero: `/llms.txt` seguindo a spec real de 2026
+(pesquisei antes de construir), reaproveitando a lista real de
+categoria do site. Testado local, renderiza certo. Honesto: eficácia
+real pra citação em IA ainda não é comprovada por ninguém, construí
+porque custo/risco é próximo de zero, não porque tenho certeza que
+funciona.
+
 ## 2026-09-25 (madrugada, continuação) — Captura de e-mail no ar (Fase 1)
 
 Construí e publiquei a captura de e-mail própria — tabela
