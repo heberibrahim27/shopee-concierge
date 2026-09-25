@@ -4,6 +4,47 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (tarde, continuação 3) — Quarta peça do redesign: removida a última fonte real de verde (fundo do cabeçalho)
+
+Heber mandou correção real: "Mantenha o verde onde tiver verde no
+mockup que enviei". Eu não tinha mais acesso visual às 4 imagens
+(eram anexo de chat). Heber postou as mesmas 4 imagens de novo direto
+na conversa de debate com o ChatGPT, que consegue ver imagem (eu não)
+-- pedi pra ele descrever exatamente onde ficava o verde. Resposta:
+verde só em "economia/sucesso", exatamente o que eu já tinha decidido
+e implementado (badge "Economize R$X" e "menor preço" continuam
+verdes, todo o resto virou terracota). Nada pra corrigir nessa parte,
+só confirmação externa.
+
+O ChatGPT também descreveu o resto da referência canônica que ainda
+não tínhamos por escrito: fundo branco/creme quente, tipografia quase
+navy, hierarquia da home (header → hero com busca → lojas parceiras →
+categorias → menores preços → confiança), ordem da página de produto
+(galeria → título → melhor preço → tabela de comparação → cupons →
+especificações → similares, com barra de compra fixa no mobile) --
+e uma regra importante: a tabela de comparação do mockup mostra 6
+lojas juntas só de exemplo, no site real só entram as lojas que a
+gente realmente tem pra aquele produto, sem inventar linha.
+
+Com a cor confirmada certa, ataquei a peça que faltava: o
+`BACKGROUND-HERO.png` do cabeçalho, uma imagem estática verde (não
+CSS) que era a maior massa visual verde do site inteiro -- maior que
+qualquer token já trocado. Cogitei gerar um asset novo, mas o saldo
+de crédito de geração de imagem estava em 26, compartilhado com o
+pipeline de vídeo que já gera receita de verdade (16 gerações de
+vídeo já rodadas nele) -- gastar nisso numa imagem decorativa de
+cabeçalho é decisão de dinheiro, não só técnica, então escolhi
+resolver 100% em CSS: gradiente navy + terracota, sem depender de
+nenhum asset gerado. Testado local desktop+mobile, sem erro de
+console, sem regressão.
+
+**Ainda não fiz**: virar o cabeçalho pro fundo branco/creme claro que
+o mockup mostra de verdade (hoje ainda é escuro com texto branco,
+decisão deliberada de risco menor pra não mexer em contraste de busca/
+nav/sino tudo de uma vez); tabela de comparação real na página de
+produto; barra de compra fixa no mobile; filtro secundário de loja
+(hoje ainda é chip grande); alerta de preço via PWA.
+
 ## 2026-09-25 (tarde, continuação 2) — Terceira peça do redesign: cor de marca (terracota) no lugar do verde
 
 Antes de mexer em código, contei todo uso real do token verde no CSS:
