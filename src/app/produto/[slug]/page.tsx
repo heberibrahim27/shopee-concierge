@@ -10,6 +10,11 @@ import { TrackedOfferLink } from "../../../components/site/TrackedOfferLink";
 import { ShareButton } from "../../../components/site/ShareButton";
 import { PriceSparkline } from "../../../components/site/PriceSparkline";
 import { PriceAlertForm } from "../../../components/site/PriceAlertForm";
+import { ProductGrid } from "../../../components/site/ProductGrid";
+import { getRelatedProducts } from "../../../lib/site/related";
+import { getGuidesForCategory } from "../../../lib/site/guides";
+import { ProductCoupons } from "../../../components/site/ProductCoupons";
+import { getCachedAllActiveCoupons } from "../../../lib/site/coupons";
 import { StickyBuyBar } from "../../../components/site/StickyBuyBar";
 
 export async function generateMetadata({ params }: { params: { slug: string } }) {
@@ -65,7 +70,12 @@ export default async function ProductPage({ params }: { params: { slug: string }
   // Selo de confiança com dado real -- ver nota em catalog.ts. Só mostra
   // "menor preço" quando o preço de hoje realmente bate ou fica abaixo do
   // menor já registrado (nunca um selo decorativo).
-  const priceHistory = await getCachedProductPriceHistory(bestOffer.id);
+  const [priceHistory, relatedProducts, activeCoupons] = await Promise.all([
+    getCachedProductPriceHistory(bestOffer.id),
+    getRelatedProducts(product),
+    getCachedAllActiveCoupons(),
+  ]);
+  const relatedGuides = product.categorySlug ? getGuidesForCategory(product.categorySlug) : [];
   const isLowestPrice =
     bestOffer.priceMin !== null &&
     priceHistory.lowestPrice !== null &&
@@ -197,6 +207,16 @@ export default async function ProductPage({ params }: { params: { slug: string }
               </p>
             )}
 
+            {/* Cupom da mesma loja que pode valer pra este produto, com preço
+                estimado (ver ProductCoupons.tsx / couponRules.ts). */}
+            <ProductCoupons
+              coupons={activeCoupons}
+              storeSlug={bestOffer.platform}
+              storeLabel={bestPlatform.label}
+              productName={product.productName}
+              price={bestOffer.priceMin}
+            />
+
             {/* Alerta de queda de preço por WhatsApp (ver lib/site/priceAlerts.ts):
                 retorno recorrente sem depender de rede social. */}
             <PriceAlertForm productSlug={product.slug} currentPrice={bestOffer.priceMin} />
@@ -246,6 +266,30 @@ export default async function ProductPage({ params }: { params: { slug: string }
                 decodeAwinDescription. Nunca dangerouslySetInnerHTML aqui. */}
             <p>{product.description}</p>
           </div>
+        ) : null}
+
+        {/* "Veja também" (lib/site/related.ts): produto parecido da mesma
+            categoria, preço próximo -- a página deixa de ser beco sem saída
+            e ganha link interno de verdade. */}
+        {relatedProducts.length > 0 ? (
+          <section className="dc-section">
+            <h2>Veja também</h2>
+            <ProductGrid products={relatedProducts} emptyMessage="" />
+          </section>
+        ) : null}
+
+        {relatedGuides.length > 0 ? (
+          <section className="dc-section">
+            <h2 className="dc-icon-inline">📖 Guias de compra</h2>
+            <div className="dc-guide-list">
+              {relatedGuides.map((guide) => (
+                <a key={guide.slug} className="dc-guide-list-item" href={`/guia/${guide.slug}`}>
+                  <h3>{guide.title}</h3>
+                  <p>{guide.description}</p>
+                </a>
+              ))}
+            </div>
+          </section>
         ) : null}
 
         <a className="dc-back-link" href="/">

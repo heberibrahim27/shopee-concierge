@@ -29,6 +29,32 @@ export interface ProductOfferV2Response {
   };
 }
 
+/**
+ * Promoção oficial da Shopee (campanha/coleção/categoria com comissão) —
+ * `shopeeOfferV2`. Não é cupom com código: é uma página promocional da
+ * própria Shopee, e `offerLink` já vem atribuído à nossa conta de
+ * afiliado (mesmo mecanismo do offerLink de produto).
+ */
+export interface ShopeeOffer {
+  offerName: string;
+  offerType: number;
+  commissionRate: string;
+  imageUrl: string;
+  offerLink: string;
+  originalLink: string;
+  categoryId?: number | string | null;
+  collectionId?: number | string | null;
+  periodStartTime?: number;
+  periodEndTime?: number;
+}
+
+export interface ShopeeOfferV2Response {
+  shopeeOfferV2: {
+    nodes: ShopeeOffer[];
+    pageInfo: { page: number; limit: number; hasNextPage: boolean };
+  };
+}
+
 export interface GenerateShortLinkResponse {
   generateShortLink: {
     shortLink: string;

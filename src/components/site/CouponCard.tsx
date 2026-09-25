@@ -4,11 +4,34 @@ import { useState } from "react";
 import { SiteCoupon } from "../../lib/site/coupons";
 import { getPlatformInfo } from "../../lib/site/platforms";
 import { AFFILIATE_LINK_REL } from "../../lib/site/affiliateLink";
+import { describeRule, parseCouponRule } from "../../lib/site/couponRules";
 
 function formatEndsAt(iso: string | null): string | null {
   if (!iso) return null;
   const date = new Date(iso);
+  // Awin manda "1 ano à frente" quando a campanha não tem fim de verdade --
+  // isso não é validade, é ausência dela (achado real: cupons Kabum com
+  // ends_at 2027 e "válido até 20/09" no texto). Não mostra nesse caso.
+  if (date.getTime() - Date.now() > 300 * 86400_000) return null;
   return `Válido até ${date.toLocaleDateString("pt-BR")}`;
+}
+
+function formatCheckedAt(iso: string | null): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  return `Conferido em ${date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`;
+}
+
+async function sendFeedback(couponId: string, worked: boolean): Promise<void> {
+  try {
+    await fetch("/api/coupon-feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ couponId, worked }),
+    });
+  } catch {
+    // silencioso
+  }
 }
 
 function trackCouponClick(coupon: SiteCoupon) {
@@ -36,6 +59,10 @@ function trackCouponClick(coupon: SiteCoupon) {
 export function CouponCard({ coupon }: { coupon: SiteCoupon }) {
   const [revealed, setRevealed] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [voted, setVoted] = useState<null | boolean>(null);
+  const rule = parseCouponRule({ title: coupon.title, description: coupon.description, code: coupon.code });
+  const ruleLine = describeRule(rule);
+  const checkedLabel = formatCheckedAt(coupon.fetchedAt);
   // "lomadee" é o valor genérico gravado quando a marca não foi resolvida
   // na ingestão — nesse caso o nome do anunciante é o rótulo certo, não
   // o nome da rede de afiliados.
@@ -63,8 +90,11 @@ export function CouponCard({ coupon }: { coupon: SiteCoupon }) {
         <span className="dc-coupon-badge">{coupon.advertiserName}</span>
       )}
       <p className="dc-coupon-title">{coupon.title}</p>
+      {ruleLine ? <p className="dc-coupon-rule">{ruleLine}</p> : null}
       {coupon.description ? <p className="dc-coupon-description">{coupon.description}</p> : null}
-      {endsLabel ? <p className="dc-coupon-ends">{endsLabel}</p> : null}
+      {endsLabel || checkedLabel ? (
+        <p className="dc-coupon-ends">{[endsLabel, checkedLabel].filter(Boolean).join(" · ")}</p>
+      ) : null}
 
       {coupon.code ? (
         <>
@@ -76,15 +106,32 @@ export function CouponCard({ coupon }: { coupon: SiteCoupon }) {
             {copied ? <span className="dc-coupon-copied">Copiado!</span> : null}
           </div>
           {revealed ? (
-            <a
-              className="dc-coupon-cta"
-              href={coupon.urlTracking}
-              target="_blank"
-              rel={AFFILIATE_LINK_REL}
-              onClick={() => trackCouponClick(coupon)}
-            >
-              Ir para a loja →
-            </a>
+            <>
+              <a
+                className="dc-coupon-cta"
+                href={coupon.urlTracking}
+                target="_blank"
+                rel={AFFILIATE_LINK_REL}
+                onClick={() => trackCouponClick(coupon)}
+              >
+                Ir para a loja →
+              </a>
+              <div className="dc-coupon-vote">
+                {voted === null ? (
+                  <>
+                    <span>O cupom funcionou?</span>
+                    <button type="button" onClick={() => { setVoted(true); void sendFeedback(coupon.id, true); }}>
+                      Sim
+                    </button>
+                    <button type="button" onClick={() => { setVoted(false); void sendFeedback(coupon.id, false); }}>
+                      Não
+                    </button>
+                  </>
+                ) : (
+                  <span>{voted ? "Valeu! Isso ajuda quem vem depois." : "Obrigado por avisar — vamos conferir."}</span>
+                )}
+              </div>
+            </>
           ) : (
             <button type="button" className="dc-coupon-cta" onClick={handleReveal}>
               Revelar cupom

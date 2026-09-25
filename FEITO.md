@@ -4,6 +4,131 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-26 — Documento do "GPT 6 Astra" sobre o modelo Cuponomia: o que já existia, o que entrou agora
+
+Heber trouxe uma pesquisa longa (40 oportunidades + plano em 7 etapas).
+Cruzado item a item com o repositório antes de agir:
+
+**Já existia (hoje ou antes)**: página por loja (`/cupom/[loja]`), central
+de cupons, ingestão Awin/Lomadee/Shopee (shopeeOfferV2, deste mesmo dia),
+revelar/copiar, clique rastreado + `rel="sponsored"`, alerta de preço,
+favoritos, relacionados, guias, seleções "até R$50/100", Telegram/
+WhatsApp/e-mail, relatórios de comissão Shopee e Awin no admin, mídia
+kit. Cerca de 25 das 40 "oportunidades" estavam cobertas ou adiadas por
+decisão registrada (cashback, clube, extensão, display).
+
+**O que o documento acerta e ainda não tínhamos**: o diferencial
+"encontre o cupom certo para o que você quer comprar e veja quanto vai
+pagar" -- cupom no contexto do produto, regras estruturadas (valor,
+mínimo, teto, escopo), tipo de objeto (código × oferta sem código),
+"conferido em", voto funcionou/não funcionou. É o que entrou agora.
+
+**Onde discordo ou o dado real corrige**: (1) "validar recursos da conta
+Shopee" já foi feito -- productOfferV2, generateShortLink e
+conversionReport confirmados ao vivo em sessões anteriores, e o que
+falta é só o dry-run do shopeeOfferV2; (2) "Central de cupons Shopee"
+como prioridade 1 não se sustenta: a Shopee não expõe cupom com código
+pra afiliado (confirmado 22/09), então a central Shopee é de promoções
+sem código (feito hoje) -- quem tem código de verdade é Kabum (8),
+Malwee, Balaroti; (3) Rakuten/Admitad são cadastros que dependem do
+Heber, não engenharia; anotado em CONTINUIDADE.md.
+
+**Construído (custo zero)**:
+- `src/lib/site/couponRules.ts`: parser puro de regra a partir do texto
+  (percentual, valor fixo, mínimo, teto, escopo de marca/linha, código
+  escrito no título). Padrões escritos lendo os 40 cupons reais do banco,
+  17 casos de teste passando (JBL, Apple, ASRock, PlayNinja, VGA,
+  "compras acima de R$ 499", "Use o cupom: EXTRA20").
+- Página de produto: bloco "Cupom que pode valer nessa compra" --
+  cupons ativos da MESMA loja da oferta em destaque; cupom com escopo de
+  marca só aparece se a marca está no nome do produto e aí mostra
+  "Preço estimado com cupom: R$ X (sem frete; confira as condições)";
+  cupom genérico ("produtos selecionados") aparece sem número e no
+  máximo 2. Cobertura real hoje no catálogo Kabum: Apple 211 produtos,
+  JBL 116, ASRock 36, VGA 17.
+- Card de cupom: linha de regra ("25% OFF · em JBL"), "Conferido em
+  dd/mm" (fetched_at), e depois de revelar: "O cupom funcionou? Sim/Não"
+  → `POST /api/coupon-feedback` → tabela `coupon_feedback` (migration
+  aplicada; só hash de IP, 30 votos/hora por IP). Ainda não exibe
+  contagem nem selo -- sem volume, seria número inventado.
+- Correções de dado achadas no caminho: cupons Lomadee com código no
+  título e coluna vazia agora revelam o código; Awin manda `ends_at` de
+  "1 ano à frente" quando a campanha não tem fim (Kabum: 2027 com
+  "válido até 20/09" no texto) -- card não mostra validade nesse caso;
+  descrição igual ao título não é mais repetida.
+
+Testado: parser com tsx; bloco renderizado no Chromium (revelar → copiado
+→ voto → beacon recebido); `tsc` limpo. Não renderizado com produto real.
+
+## 2026-09-26 — "Veja também" na página de produto + guias por produto + buscas populares
+
+Conferido antes (pedido do Heber: "veja se não já foi construído por
+outra sessão"): nada disso existia na `main` -- só o link de guia por
+CATEGORIA. A `main` já tinha incorporado tudo deste branch até o alerta
+de preço (commits 2329a22…3a0773f confirmados como ancestrais).
+
+- **`/produto/[slug]` ganhou "Veja também"** (`src/lib/site/related.ts`):
+  até 6 produtos da mesma categoria com preço entre metade e o dobro,
+  ordenados pelo preço mais próximo, sem o próprio produto nem irmãos do
+  mesmo `group_id` (já estão em "Compare em outras lojas"). Pool de 120
+  por categoria cacheado com a mesma tag `category:<slug>`. A página
+  deixa de ser beco sem saída e ganha link interno de verdade (o que as
+  páginas finas da Kabum não tinham).
+- **Guias de compra na página de produto** (antes só na categoria; estava
+  registrado como "ainda falta" no dia 25).
+- **Buscas populares em `/busca`** (`src/lib/site/popularSearches.ts`):
+  chips com termos reais de `search_events` (30 dias, com resultado,
+  repetidos 2+ vezes) quando não há termo ou nada foi achado. Hoje só
+  "mouse gamer" e "controle" passam do corte -- cresce sozinho.
+- **Quedas de preço (home + página própria)**: AVALIADO E ADIADO. Dado
+  real: só 354 produtos têm mais de um snapshot; 31 com queda, 4 com 10%+
+  e 1 com 20%+ -- uma seção "maiores quedas" hoje seria uma bola de
+  brinquedo e um massageador. Volta a valer quando o histórico da Kabum
+  acumular (a rotação diária toca só parte dos 4.412).
+
+Testado: seleção de relacionados e agregação de buscas com tsx (pure
+functions), `tsc` limpo. Render com dado real não foi possível aqui.
+
+## 2026-09-26 — "Cupom Shopee conseguimos postar como?" — promoções oficiais da Shopee entram em /cupons
+
+Heber mandou print da Cuponomia: "Super promo Shopee: itens até 85% OFF
++ cashback -- Ver Desconto". Lido com atenção: NÃO é cupom com código
+(o botão é "Ver Desconto", não "Ver Cupom") -- é um link de afiliado pra
+uma página promocional da própria Shopee, e o cashback é a Cuponomia
+devolvendo parte da comissão dela. Nada ali é código secreto.
+
+O que dá pra fazer igual, custo zero: a API de afiliados que já usamos
+tem a query `shopeeOfferV2` (campanhas/coleções/categorias com comissão,
+cada uma com `offerLink` já atribuído à nossa conta). A investigação de
+2026-09-22 procurou campo de voucher/cupom com código e concluiu certo
+que não existe -- mas essa query é outra coisa (promoção sem código) e
+nunca tinha sido usada aqui.
+
+**Construído**: `listShopeeOffers()` em `src/lib/shopee/queries.ts`,
+cron diário `/api/cron/source-shopee-offers` (11:26 UTC, entre Awin e
+Lomadee) gravando na mesma tabela `coupons` (platform "shopee", sem
+código, `shopee_offer_key` nova como identidade -- migration aplicada em
+produção), com expiração automática igual aos outros crons. Sem código
+nenhum de tela: o `CouponCard` já mostra "Aproveitar" quando não há
+código, e `/cupom/shopee` passa a existir sozinho pelo diretório de lojas.
+
+**Não testado com a chave real** (container sem SHOPEE_APP_ID/SECRET).
+Por isso o cron tem `?dry=1`: devolve a resposta crua da API sem gravar.
+Primeiro passo depois do deploy:
+`curl -H "Authorization: Bearer $CRON_SECRET" ".../api/cron/source-shopee-offers?dry=1"`
+-- se os campos vierem com outro nome (a doc pública lista offerName,
+offerType, commissionRate, imageUrl, offerLink, originalLink, categoryId,
+collectionId, periodStartTime, periodEndTime), é ajustar o SELECT da
+query, o resto já está pronto.
+
+**O que continua fora do alcance, e por quê**: cupom Shopee COM código
+pro comprador (frete grátis, moedas, "R$10 off") é distribuído pela
+Shopee dentro do app e por sellers (voucher de loja no Seller Centre) --
+não existe API de afiliado pra isso. Caminho real pra ter código: o
+próprio Heber como seller cria voucher de loja e a gente publica com
+link da loja; e sellers parceiros idem. Cashback tipo Cuponomia é Fase 4
+(conta de usuário + conciliação + Pix).
+
 ## 2026-09-26 — Merge com a main: causa real do print era o carrossel novo da home
 
 Ao juntar a `main` de novo, apareceu o commit 4032a4a da outra sessão
