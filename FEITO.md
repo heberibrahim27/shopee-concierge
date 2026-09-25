@@ -4,6 +4,22 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (tarde, continuação 8) — Rechecagem real da Awin: leads de sportswear novos, eletrônicos ainda parados
+
+Conferi de novo (via API real, não suposição) quantos programas da
+Awin a conta já tem de verdade: continua só 3 -- Nike BR, Olympikus
+BR, Kabum BR. Os leads de eletrônicos (Renner/Riachuelo/Acer/iPlace/
+Gigantec) surgidos antes continuam sem aprovação -- ainda depende do
+Heber agir no painel da Awin (não tem endpoint de API pra isso).
+
+Achado novo: vasculhei os 233 anunciantes brasileiros ainda não
+conectados atrás de mais alguém na categoria que JÁ funciona de
+verdade pra gente (esporte, via Nike/Olympikus) -- achei 5 reais:
+adidas BR, PUMA BR, Under Armour BR, Centauro BR e Decathlon BR.
+Diferente dos leads de eletrônicos, esses não pedem nenhuma engenharia
+nova -- é a mesma categoria que já roda (ingestão, site, Instagram),
+só falta o Heber aprovar no painel.
+
 ## 2026-09-25 (tarde, continuação 7) — Cabeçalho claro + logo nova publicados (peça final do redesign de cor)
 
 Heber gerou a logo nova (navy+terracota, sem verde) no ChatGPT certo
