@@ -4,6 +4,42 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (madrugada, continuação) — Loop de melhoria contínua, widget de sugestão, mídia kit, auditoria de SEO, pesquisa de concorrente
+
+**`/loop` de 15 em 15 min criado** (cron `031794ab`, expira em 7 dias) —
+Heber pediu foco total em deixar o Desconto Chegando lucrativo: cada ciclo
+debate com o ChatGPT, pesquisa concorrente, avalia receita nova e
+implementa decisão técnica sozinho.
+
+**Widget público "Sugerir melhoria"** — botão flutuante em toda página
+pública, grava em `site_suggestions` (tabela nova). Pedido do Heber: até a
+busca de melhoria precisa ter ideia vindo de gente de fora, não só da
+minha pesquisa. Testado ao vivo (envio real, apagado depois).
+
+**Auditoria real de SEO** — código já tem robots.txt/sitemap.xml/JSON-LD
+corretos (não "sem SEO" como parecia); o que falta de verdade é
+verificação no Google Search Console/Bing Webmaster (nunca configurada) —
+e o domínio real tem menos de 2 semanas de vida (até 14/09 apontava pra
+WordPress padrão da Hostinger), o que sozinho já explica a falta de
+visita. `site:descontochegando.com.br` no Google/Bing travou (bot-check),
+não deu pra confirmar indexação ao vivo.
+
+**Concorrente real analisado (Promobit)** — tem "Postar oferta" (usuário
+manda a promoção, escala sem a empresa produzir tudo), selo verificado por
+loja, lista de desejos, notificação, e confirmado via Econodata que
+**"Promobit Ads" é uma unidade formal de Retail Media** (banner
+patrocinado de marca) além da comissão de afiliado (3-20%) — prova real
+de que anúncio patrocinado é modelo comprovado nesse nicho exato.
+
+**Página `/media-kit` criada** (dados reais, `noindex`, sem link no menu
+ainda) — visitas (page_views), seguidores/posts do Instagram (corrigido
+bug real: filtro por `account_id` da Windsor não funciona, `username` sim),
+catálogo. Números ainda baixos (163 visitas/30d) — serve pra acompanhar
+crescimento, não pra já pitchar anunciante.
+
+**Pesquisa em paralelo com Gemini 3.1 Pro** (conta do Heber, com busca do
+Google) sobre outras fontes de receita — rodando, resposta ainda pendente.
+
 ## 2026-09-25 (madrugada) — Automação sem CNPJ debatida, carrossel novo formato, capas de destaque, limite diário de publicação descoberto
 
 **Debate "automatizar tudo sem pagar e sem CNPJ"** — Heber cobrou diretamente
