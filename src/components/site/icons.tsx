@@ -52,6 +52,24 @@ export function AwardIcon({ size = 16, style }: IconProps) {
   );
 }
 
+export function ClockIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...lineProps} aria-hidden="true" style={style}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 2" />
+    </svg>
+  );
+}
+
+export function TrendingDownIcon({ size = 14, style }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...lineProps} aria-hidden="true" style={style}>
+      <path d="M4 6l6 6 4-4 6 8" />
+      <path d="M20 12v4h-4" />
+    </svg>
+  );
+}
+
 export function StarIcon({ size = 14, style }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={style}>

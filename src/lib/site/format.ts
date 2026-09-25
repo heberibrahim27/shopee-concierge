@@ -34,3 +34,17 @@ export function formatSavingsBRL(priceMin: number | null, discountRate: number |
   const original = priceMin / (1 - discountRate / 100);
   return formatPriceBRL(original - priceMin);
 }
+
+/** "há 5 minutos" / "há 3 horas" / "há 2 dias" a partir de um timestamp ISO real. */
+export function formatRelativeTime(isoTimestamp: string): string | null {
+  const then = new Date(isoTimestamp).getTime();
+  if (Number.isNaN(then)) return null;
+  const diffMs = Date.now() - then;
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 1) return "agora mesmo";
+  if (minutes < 60) return `há ${minutes} minuto${minutes === 1 ? "" : "s"}`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `há ${hours} hora${hours === 1 ? "" : "s"}`;
+  const days = Math.floor(hours / 24);
+  return `há ${days} dia${days === 1 ? "" : "s"}`;
+}

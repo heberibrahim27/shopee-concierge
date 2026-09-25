@@ -1004,6 +1004,42 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   color: #fff;
 }
 
+/* Selos de confiança com dado real (preço mais baixo / atualização) --
+   inspirado num mockup de referência que o Heber trouxe, mas só entra
+   quando o dado é verificável (ver nota em catalog.ts / page.tsx). */
+.dc-price-trust-box {
+  margin-top: 4px;
+}
+
+.dc-price-trust-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.dc-trust-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.dc-trust-badge-lowest {
+  background: #fdecea;
+  color: var(--dc-urgency);
+}
+
+.dc-trust-badge-fresh {
+  background: var(--dc-bg);
+  color: var(--dc-text-muted);
+  border: 1px solid var(--dc-border);
+}
+
 .dc-choice-badge {
   display: inline-flex;
   align-items: center;

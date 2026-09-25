@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 import { Header } from "../../../components/site/Header";
 import { Footer } from "../../../components/site/Footer";
-import { getCachedProduct, getCachedGroupOffers } from "../../../lib/site/catalog";
-import { formatPriceBRL, formatRating, formatSales } from "../../../lib/site/format";
+import { getCachedProduct, getCachedGroupOffers, getCachedProductPriceHistory } from "../../../lib/site/catalog";
+import { formatPriceBRL, formatRating, formatSales, formatRelativeTime } from "../../../lib/site/format";
 import { getProductAffiliateHref, AFFILIATE_LINK_REL } from "../../../lib/site/affiliateLink";
-import { AwardIcon, StarIcon } from "../../../components/site/icons";
+import { AwardIcon, StarIcon, ClockIcon, TrendingDownIcon } from "../../../components/site/icons";
 import { getPlatformInfo } from "../../../lib/site/platforms";
 import { TrackedOfferLink } from "../../../components/site/TrackedOfferLink";
 import { ShareButton } from "../../../components/site/ShareButton";
@@ -47,6 +47,17 @@ export default async function ProductPage({ params }: { params: { slug: string }
   const bestPlatform = getPlatformInfo(bestOffer.platform);
   const affiliateHref = getProductAffiliateHref(bestOffer.offerLink);
   const remainingOffers = [product, ...otherOffers].filter((o) => o.id !== bestOffer.id);
+
+  // Selo de confiança com dado real -- ver nota em catalog.ts. Só mostra
+  // "menor preço" quando o preço de hoje realmente bate ou fica abaixo do
+  // menor já registrado (nunca um selo decorativo).
+  const priceHistory = await getCachedProductPriceHistory(bestOffer.id);
+  const isLowestPrice =
+    bestOffer.priceMin !== null &&
+    priceHistory.lowestPrice !== null &&
+    bestOffer.priceMin <= priceHistory.lowestPrice &&
+    priceHistory.daysTracked >= 2;
+  const freshness = formatRelativeTime(bestOffer.updatedAt);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -104,7 +115,27 @@ export default async function ProductPage({ params }: { params: { slug: string }
                 {sales ?? ""}
               </div>
             ) : null}
-            {price ? <div className="dc-card-price" style={{ fontSize: 24 }}>{price}</div> : null}
+            {price ? (
+              <div className="dc-price-trust-box">
+                <div className="dc-price-trust-badges">
+                  {isLowestPrice ? (
+                    <span className="dc-trust-badge dc-trust-badge-lowest">
+                      <TrendingDownIcon size={13} />
+                      Menor preço dos últimos {priceHistory.daysTracked} dias
+                    </span>
+                  ) : null}
+                  {freshness ? (
+                    <span className="dc-trust-badge dc-trust-badge-fresh">
+                      <ClockIcon size={13} />
+                      Preço atualizado {freshness}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="dc-card-price" style={{ fontSize: 26 }}>
+                  {price}
+                </div>
+              </div>
+            ) : null}
 
             {product.highlightReason ? (
               <p style={{ fontSize: 13.5, color: "var(--dc-text-muted)", marginTop: 10 }}>

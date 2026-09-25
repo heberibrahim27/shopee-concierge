@@ -291,6 +291,46 @@ export function getCachedViablePriceThresholds(categorySlug: string): Promise<nu
   )();
 }
 
+// Selo de "menor preço dos últimos N dias" -- pedido do Heber ao ver um
+// mockup de referência com esse selo. Só entra no ar porque `offer_snapshots`
+// já guarda captura real de preço por produto desde 13/09 (não é um
+// número inventado pra "parecer confiável"). N é o número real de dias
+// cobertos por esse produto especificamente (pode ser bem menor que 30
+// pra produto que entrou recente no catálogo), nunca um valor fixo.
+export interface ProductPriceHistory {
+  lowestPrice: number | null;
+  daysTracked: number;
+}
+
+async function queryProductPriceHistory(productId: string): Promise<ProductPriceHistory> {
+  if (!hasSupabaseEnv()) return { lowestPrice: null, daysTracked: 0 };
+
+  const db = getDb();
+  const { data, error } = await db
+    .from("offer_snapshots")
+    .select("price_min, captured_at")
+    .eq("product_id", productId)
+    .not("price_min", "is", null)
+    .order("captured_at", { ascending: true });
+
+  if (error || !data || data.length === 0) return { lowestPrice: null, daysTracked: 0 };
+
+  const prices = (data as { price_min: number; captured_at: string }[]).map((r) => Number(r.price_min));
+  const lowestPrice = Math.min(...prices);
+  const oldestCapturedAt = new Date(data[0].captured_at).getTime();
+  const daysTracked = Math.max(1, Math.round((Date.now() - oldestCapturedAt) / (24 * 60 * 60 * 1000)));
+
+  return { lowestPrice, daysTracked };
+}
+
+export function getCachedProductPriceHistory(productId: string): Promise<ProductPriceHistory> {
+  return unstable_cache(
+    () => queryProductPriceHistory(productId),
+    ["product-price-history", productId],
+    { tags: [`product-history:${productId}`], revalidate: FALLBACK_REVALIDATE_SECONDS }
+  )();
+}
+
 export function getCachedProduct(slug: string): Promise<SiteProduct | null> {
   return unstable_cache(() => queryProductBySlug(slug), ["product", slug], {
     tags: [`product:${slug}`],

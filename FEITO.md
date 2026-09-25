@@ -4,6 +4,40 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (manhã) — Selos de confiança reais na página de produto (preço + atualização)
+
+Heber acordou, mandou 2 mockups de referência de um site "premium" (tabela
+multi-loja, selo "menor preço dos últimos 30 dias", "atualizado há X
+minutos") e perguntou se o nosso site tá bom o bastante. Fiz auditoria
+visual real (desktop+mobile+páginas de produto) antes de responder — ver
+[[project_site_frontend_quality_review]] na memória: esqueleto do site já é
+limpo, não precisa de redesign completo agora.
+
+Da conversa, um pedido concreto ficou claro: adotar a linguagem visual de
+confiança do mockup, mas só com dado real — Heber confirmou "se não tiver
+comparativo fica apenas a loja que tem o preço" (sem inventar comparação
+com loja que a gente não tem preço de verdade).
+
+**Construído com dado 100% real, nada decorativo**:
+- **Selo "Menor preço dos últimos N dias"** — só aparece quando o preço de
+  hoje realmente bate ou fica abaixo do menor já registrado em
+  `offer_snapshots` (que já tinha captura real desde 13/09 — 2.414
+  capturas, 510 produtos com mudança de preço real). N é o número real de
+  dias cobertos por ESSE produto (nunca fixo em 30) — `queryProductPriceHistory`
+  em `src/lib/site/catalog.ts`. Testado com caso real que NÃO deveria
+  mostrar o selo (luminária R$24,99 com mínimo histórico R$17,35) — confirmado
+  que o selo fica escondido corretamente, não é decorativo.
+- **Selo "Preço atualizado há X"** — `formatRelativeTime` em
+  `src/lib/site/format.ts`, usa o `updated_at` real do produto.
+- A "Compare em outras lojas" que já existia (`getCachedGroupOffers`) segue
+  intacta — só aparece pra produto que TEM mesmo `group_id` com outra
+  oferta real (hoje 26 de 984 produtos, 2,6%), nunca fabrica comparação.
+
+Novos ícones `ClockIcon`/`TrendingDownIcon` em `icons.tsx`, classes
+`.dc-trust-badge*` em `globals.css`. `npx tsc --noEmit` limpo, testado local
+em desktop e mobile (375x812) antes de subir, screenshot real conferido
+mostrando os dois selos e o caso negativo corretamente escondido.
+
 ## 2026-09-25 (madrugada, continuação) — Auditoria final das páginas de preço + fim de ciclo, modo prontidão
 
 ChatGPT revisou o internal linking/breadcrumb e apontou dois pontos antes de
