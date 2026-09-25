@@ -4,6 +4,34 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (tarde, continuação 6) — Publisher do Telegram construído (ainda inativo, esperando token)
+
+Enquanto o header claro fica travado esperando a logo nova, adiantei o
+Telegram (achado do ciclo anterior -- canal real "Bench Promos" na
+mesma categoria da nossa Kabum). Construí de ponta a ponta:
+
+- Migration `telegram_posts` (dedupe por produto, mesmo padrão de
+  `social_posts` do Instagram) -- aplicada no banco real de produção.
+- `src/lib/telegram/client.ts` -- `sendPhoto` mínimo contra a Bot API,
+  erro claro se `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHANNEL_ID` não
+  existirem (não falha silencioso).
+- `src/app/api/cron/publish-telegram` -- pega produto real (Kabum
+  primeiro, Shopee como fallback), monta legenda só com dado real
+  (título, preço, % de desconto quando existe -- sem inventar specs ou
+  cupom que não temos por produto), publica, registra o dedupe.
+  `CRON_SECRET` fail-closed, mesmo padrão dos outros crons.
+- Testei a query direto contra o banco de produção antes de dar por
+  pronto: retornou produtos Kabum reais (ex: antivírus Kaspersky
+  R$62,99, estabilizador Coletek R$84,99).
+- Usa o link direto de afiliado, não o `/go` -- mesma cautela já
+  aplicada ao WhatsApp (risco real de preview de link não testado
+  nesse tipo de app).
+
+**Não adicionei ao `vercel.json` ainda** -- fica pronto mas inativo até
+o Heber criar o bot no @BotFather, adicionar como admin do canal e
+mandar o token. Só aí testo um post de verdade ponta a ponta antes de
+ligar o cron.
+
 ## 2026-09-25 (tarde, continuação 5) — Correção real do Heber: parei de inventar, spec literal do header + logo travada
 
 Heber corrigiu direto: "Não invente" / "Siga as imagens como exemplo
