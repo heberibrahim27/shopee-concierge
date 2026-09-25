@@ -1,11 +1,11 @@
 import { MetadataRoute } from "next";
 import { SITE_CATEGORIES } from "../lib/site/categories";
-import { getCachedHomeOffers, listViablePriceCategoryPages, isProductIndexable } from "../lib/site/catalog";
+import { getCachedIndexableProducts, listViablePriceCategoryPages } from "../lib/site/catalog";
 
 const SITE_URL = "https://descontochegando.com.br";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [products, pricePages] = await Promise.all([getCachedHomeOffers(), listViablePriceCategoryPages()]);
+  const [products, pricePages] = await Promise.all([getCachedIndexableProducts(), listViablePriceCategoryPages()]);
 
   return [
     { url: SITE_URL, changeFrequency: "daily", priority: 1 },
@@ -19,14 +19,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily" as const,
       priority: 0.6,
     })),
-    // SEO_INDEX_GATE v1 (ver isProductIndexable em lib/site/catalog.ts) --
-    // "estar no catálogo" != "valer a pena indexar". Sem isso, os
-    // produtos mais recentes do sitemap (hoje, 100% do backfill da
-    // Kabum) entrariam sem nenhum sinal próprio de valor (sem nota,
-    // venda, descrição ou comparação).
-    ...products.filter(isProductIndexable).map((product) => ({
+    // SEO_INDEX_GATE v1 (ver getCachedIndexableProducts em
+    // lib/site/catalog.ts) -- "estar no catálogo" != "valer a pena
+    // indexar". Bug real corrigido 2026-09-25 (achado pelo ChatGPT): a
+    // primeira versão filtrava os "24 produtos mais recentes" em vez de
+    // buscar o conjunto indexável de verdade, o que zerava o sitemap
+    // sempre que essa janela recente ficasse dominada por produto sem
+    // sinal (ex: backfill da Kabum). Agora busca os indexáveis direto.
+    // `lastModified` usa `priceCheckedAt` (captura real de preço), não
+    // `updatedAt` (também é tocado por processos que não mudam a página).
+    ...products.map((product) => ({
       url: `${SITE_URL}/produto/${product.slug}`,
-      lastModified: product.updatedAt,
+      lastModified: product.priceCheckedAt ?? product.updatedAt,
       changeFrequency: "daily" as const,
       priority: 0.6,
     })),

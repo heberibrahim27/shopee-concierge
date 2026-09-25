@@ -174,6 +174,45 @@ async function queryHomeOffers(): Promise<SiteProduct[]> {
   return dedupeByGroup((data ?? []).map(mapRow));
 }
 
+/**
+ * Bug real encontrado pelo ChatGPT (2026-09-25) logo depois do
+ * SEO_INDEX_GATE v1 ir pro ar: a primeira versão do sitemap pegava
+ * `getCachedHomeOffers()` (os 24 produtos mais recentes SITE-WIDE) e SÓ
+ * DEPOIS filtrava por `isProductIndexable` -- ou seja, filtrava uma
+ * janela pequena e arbitrária em vez do conjunto real de páginas que
+ * valem indexação. No dia do backfill isso zerou o sitemap (as 24 mais
+ * recentes eram 100% Kabum recém-chegado sem nenhum sinal de valor
+ * ainda), mesmo com 2.754 produtos indexáveis de verdade no banco. Como
+ * o refresh diário da Kabum sempre toca `updated_at`, essa janela podia
+ * continuar dominada por Kabum indefinidamente -- não era um problema
+ * que "se resolvia sozinho".
+ *
+ * Correção: busca os produtos indexáveis DIRETO (sem o limit(24) que só
+ * fazia sentido pro card "mais recentes" da home), aplica o mesmo
+ * `isProductIndexable` usado no gate, e usa `dedupeByGroup` pra nunca
+ * colocar duas URLs (Kabum + Shopee) do mesmo produto físico no sitemap
+ * -- só a oferta mais barata do grupo é a canônica.
+ */
+async function queryIndexableProductsForSitemap(): Promise<SiteProduct[]> {
+  if (!hasSupabaseEnv()) return [];
+
+  const db = getDb();
+  const { data, error } = await db
+    .from("site_catalog")
+    .select(SITE_CATALOG_COLUMNS)
+    .order("slug", { ascending: true });
+
+  if (error) throw new Error(`Falha ao buscar produtos pro sitemap: ${error.message}`);
+  return dedupeByGroup((data ?? []).map(mapRow)).filter(isProductIndexable);
+}
+
+export function getCachedIndexableProducts(): Promise<SiteProduct[]> {
+  return unstable_cache(queryIndexableProductsForSitemap, ["sitemap-indexable-products"], {
+    tags: ["sitemap:indexable-products"],
+    revalidate: FALLBACK_REVALIDATE_SECONDS,
+  })();
+}
+
 async function queryCategoryProducts(categorySlug: string): Promise<SiteProduct[]> {
   if (!hasSupabaseEnv()) return [];
 
