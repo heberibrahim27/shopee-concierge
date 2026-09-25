@@ -165,7 +165,14 @@ export async function GET(request: NextRequest) {
   // da plataforma real do produto.
   const platformHashtag = candidate.platform.toLowerCase().replace(/[^a-z0-9]+/g, "");
   const storeHashtags = candidate.platform === "shopee" ? "#shopee #achadosdashopee" : platformHashtag ? `#${platformHashtag}` : "";
-  const caption = `${candidate.productName}\n\n🔗 Link: ${candidate.offerLink}\n\n#promocao #achadinhos${storeHashtags ? " " + storeHashtags : ""}`;
+  // Passa pelo redirecionador /go (ver src/app/go/route.ts) em vez do
+  // link cru -- fecha o buraco real apontado na revisão do plano de
+  // receita (2026-09-25): sem isso, clique que sai direto de rede social
+  // nunca aparecia em click_events, só o que passava pela própria página
+  // de produto do site. Não muda nada visível (Instagram não deixa link
+  // de legenda clicável mesmo), só registra quem copiar/colar.
+  const trackedLink = `${SITE_URL}/go?u=${encodeURIComponent(candidate.offerLink)}&src=instagram&pl=${encodeURIComponent(candidate.platform)}`;
+  const caption = `${candidate.productName}\n\n🔗 Link: ${trackedLink}\n\n#promocao #achadinhos${storeHashtags ? " " + storeHashtags : ""}`;
 
   const results: Record<string, unknown> = { candidate: candidate.dealCandidateId };
 
