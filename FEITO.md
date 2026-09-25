@@ -4,6 +4,37 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (manhã, continuação) — Correção real: AdSense não trava em Search Console nem em "20-30 posts" (o ChatGPT pegou, verifiquei de novo)
+
+O ChatGPT corrigiu a pesquisa de AdSense de cedo: não existe exigência
+oficial de Search Console verificado pra aprovação, nem regra oficial de
+"20-30 posts de 600-800 palavras" -- isso é benchmark de comunidade SEO,
+não política publicada do Google. Verifiquei de novo com busca própria
+direto no `support.google.com`: bate com o que ele disse -- os requisitos
+reais são conteúdo original/de qualidade, páginas Sobre/Contato/
+Privacidade, HTTPS, conformidade com política de editor, sem número
+oficial de tráfego ou artigo (só orientação informal mais fraca: "menos
+de 15-20 artigos de qualidade raramente passa"). Lição: verificar
+alegação de política do Google direto na fonte antes de repetir como
+fato -- o resumo de busca anterior parecia plausível mas errava nos
+detalhes.
+
+**Plano refeito (do ChatGPT, verificado, adotado)**: (1) Search Console
+AGORA, mas por razão de negócio -- ver dado real de indexação/impressão
+das 1.801 páginas de produto + 53 de intenção de preço que construí hoje,
+não porque bloqueia AdSense. Ainda precisa da conta Google do Heber, vou
+pedir a ele. (2) Camada editorial pequena (6-10 páginas reais ligadas ao
+catálogo -- ex: "Kabum ou Shopee: onde SSD é mais barato?", usando
+offer_snapshots de verdade -- não "10 dicas" de enchimento) serve SEO +
+confiança + conversão de afiliado ao mesmo tempo, AdSense é consequência,
+não objetivo. Decisão de conteúdo/prioridade, vou propor pro Heber, não
+construir sozinho. (3) Argumento econômico real que não tinha
+considerado: anúncio display na página de produto compete direto com o
+clique de afiliado ("Ver oferta") -- poucos centavos de RPM podem
+destruir muito mais RPV de afiliado por sessão. Não ativaria AdSense nem
+se aprovado sem medir isso primeiro, e só testaria em conteúdo
+editorial/topo de funil, nunca nas páginas de comparação.
+
 ## 2026-09-25 (manhã, continuação) — Pesquisa real: Zoom/Buscapé é uma empresa só, Ezoic fora de cogitação, AdSense travado em conteúdo
 
 Voltando pra pesquisa/monetização depois de fechar o comparador Kabum.
