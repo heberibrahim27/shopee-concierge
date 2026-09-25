@@ -29,6 +29,8 @@ export interface AwinCatalogItem {
   mpn: string | null;
   /** Marca (coluna `brand_name`) — segundo sinal pro match com a Shopee, MPN sozinho colide demais com SKU de produto não relacionado (testado ao vivo, 2026-09-21). */
   brand: string | null;
+  /** Ficha técnica real do vendedor (coluna `description` do feed, decodificada) — ver decodeAwinDescription. Achado real 2026-09-25: rica pra produto de valor, fraca só em item muito barato (exceção). */
+  description: string | null;
 }
 
 function toNumber(v: string | undefined): number | null {
@@ -37,7 +39,7 @@ function toNumber(v: string | undefined): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-function variantKeyFor(row: Record<string, string>): string {
+export function variantKeyFor(row: Record<string, string>): string {
   // Nike tem parent_product_id de verdade agrupando tamanho/cor (testado
   // ao vivo, 2026-09-21). Olympikus NÃO tem essa coluna e o
   // merchant_product_id de lá é um número solto sem prefixo em comum
@@ -70,6 +72,34 @@ const FOOTWEAR_CATEGORY_KEYWORDS = ["calcado", "calcados"];
 
 function stripAccents(s: string): string {
   return s.normalize("NFD").replace(/\p{Diacritic}/gu, "");
+}
+
+// O feed da Awin/Kabum vem com entidades HTML nomeadas (ex: "prote&ccedil;&atilde;o")
+// e às vezes tags soltas — não é HTML completo, então um parser de verdade
+// seria overkill. Cobre as entidades reais vistas em amostra ao vivo
+// (2026-09-25) + as básicas; residual desconhecido fica como está (raro).
+const HTML_NAMED_ENTITIES: Record<string, string> = {
+  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
+  aacute: "á", Aacute: "Á", agrave: "à", Agrave: "À", acirc: "â", Acirc: "Â", atilde: "ã", Atilde: "Ã",
+  eacute: "é", Eacute: "É", egrave: "è", ecirc: "ê", Ecirc: "Ê",
+  iacute: "í", Iacute: "Í", icirc: "î",
+  oacute: "ó", Oacute: "Ó", ocirc: "ô", Ocirc: "Ô", otilde: "õ", Otilde: "Õ",
+  uacute: "ú", Uacute: "Ú", ucirc: "û",
+  ccedil: "ç", Ccedil: "Ç",
+  ntilde: "ñ", Ntilde: "Ñ",
+};
+
+/** Decodifica entidades HTML e remove tags soltas do campo `description` do feed — nunca renderizar o resultado como HTML, só texto puro. */
+export function decodeAwinDescription(input: string | undefined | null): string | null {
+  if (!input || !input.trim()) return null;
+  const decoded = input
+    .replace(/&#x([0-9a-fA-F]+);/g, (_m, hex: string) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_m, dec: string) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&([a-zA-Z]+);/g, (m, name: string) => HTML_NAMED_ENTITIES[name] ?? m)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return decoded.length > 0 ? decoded : null;
 }
 
 /** Produto é tênis de verdade (categoria de calçado E nome/tipo menciona tênis) — filtra o feed de moda pra só o que o Heber pediu. */
@@ -124,6 +154,7 @@ export function dedupeCheapestVariants(
       variantKey: key,
       mpn: row["mpn"]?.trim() || null,
       brand: row["brand_name"]?.trim() || null,
+      description: decodeAwinDescription(row["description"]),
     });
   }
   return [...groups.values()].sort((a, b) => a.price - b.price);
@@ -216,6 +247,7 @@ export async function persistAwinProduct(params: {
         category_slug: params.categorySlug,
         slug,
         site_published: true,
+        description: params.item.description,
         last_seen_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -241,6 +273,7 @@ export async function persistAwinProduct(params: {
           category_slug: params.categorySlug,
           slug,
           site_published: true,
+          description: params.item.description,
           last_seen_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },

@@ -995,6 +995,20 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   margin: 0 0 10px;
 }
 
+.dc-product-description {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--dc-border);
+  max-width: 720px;
+}
+
+.dc-product-description p:not(.dc-compare-title) {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--dc-text);
+  white-space: pre-line;
+}
+
 .dc-compare-list {
   list-style: none;
   margin: 0;
@@ -1223,7 +1237,9 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   letter-spacing: 0.02em;
   text-decoration: none;
   margin-top: 18px;
-  box-shadow: 0 6px 18px rgba(22, 163, 74, 0.4);
+  /* Sombra era rgba(22, 163, 74, ...) -- literal do verde antigo (#16a34a),
+     não pego pelo find/replace de var() porque não é token. */
+  box-shadow: 0 6px 18px rgba(185, 87, 63, 0.35);
   transition: background 0.25s ease, color 0.25s ease, transform 0.25s ease;
 }
 
@@ -1987,6 +2003,62 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   }
 }
 
+/* ---------- Barra de compra fixa (produto, mobile) ---------- */
+
+.dc-sticky-buy-bar {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .dc-sticky-buy-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    /* Fica acima da barra de navegação inferior (position:fixed própria,
+       ~12px de offset + ~50px de altura) -- as duas ficam visíveis juntas,
+       sem sobrepor. */
+    bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+    z-index: 19;
+    background: var(--dc-card-bg);
+    border-top: 1px solid var(--dc-border);
+    box-shadow: 0 -6px 18px rgba(17, 26, 44, 0.08);
+    padding: 10px 14px;
+  }
+
+  .dc-sticky-buy-bar-price {
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 17px;
+    color: var(--dc-brand-deep);
+    white-space: nowrap;
+  }
+
+  .dc-sticky-buy-bar-cta {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 11px 14px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--dc-brand-bright), var(--dc-brand));
+    color: #fff;
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 13.5px;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  /* Espaço extra no fim da página pra barra fixa (+ nav inferior) não
+     tapar o último conteúdo real (link "voltar pra home", rodapé). */
+  body:has(.dc-sticky-buy-bar) {
+    padding-bottom: 150px;
+  }
+}
+
 /* ---------- Suggestion widget (botão flutuante "sugerir melhoria") ---------- */
 
 .dc-suggestion-fab {
@@ -2003,7 +2075,7 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 10px 24px rgba(22, 163, 74, 0.4);
+  box-shadow: 0 10px 24px rgba(185, 87, 63, 0.35);
   cursor: pointer;
 }
 
@@ -2012,6 +2084,12 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
 }
 
 @media (max-width: 640px) {
+  /* Empurra o botão de sugestão mais pra cima na página de produto, senão
+     colide com a barra de compra fixa (achado real testando ao vivo). */
+  body:has(.dc-sticky-buy-bar) .dc-suggestion-fab {
+    bottom: calc(150px + env(safe-area-inset-bottom, 0px));
+  }
+
   .dc-suggestion-fab {
     bottom: calc(96px + env(safe-area-inset-bottom, 0px));
     right: 14px;

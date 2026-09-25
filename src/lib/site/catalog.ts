@@ -25,6 +25,10 @@ export interface SiteProduct {
    * (comportamento padrão hoje: cada produto aparece sozinho). */
   groupId: string | null;
   highlightReason: string | null;
+  /** Ficha técnica real do vendedor (só Awin/Kabum tem essa coluna — Shopee
+   * affiliate API não expõe descrição, fica null pra esses produtos, nunca
+   * inventado). Texto puro, já sem HTML — ver decodeAwinDescription. */
+  description: string | null;
   imageUrl: string | null;
   priceMin: number | null;
   priceMax: number | null;
@@ -116,15 +120,28 @@ export function dedupeByGroup(rows: SiteProduct[]): SiteProduct[] {
  * sinais (ex: um segundo merchant sobrepor via matcher).
  */
 export function isProductIndexable(
-  p: Pick<SiteProduct, "priceMin" | "imageUrl" | "productName" | "groupId" | "highlightReason" | "ratingStar" | "sales">
+  p: Pick<
+    SiteProduct,
+    "priceMin" | "imageUrl" | "productName" | "groupId" | "highlightReason" | "description" | "ratingStar" | "sales"
+  >
 ): boolean {
   const hasValidPrice = p.priceMin !== null && p.priceMin > 0;
   const hasImage = Boolean(p.imageUrl);
   const hasDecentTitle = p.productName.trim().length >= 15;
   const hasComparison = p.groupId !== null;
   const hasCuratedDescription = Boolean(p.highlightReason);
+  // Achado real 2026-09-25: descrição real do vendedor (Kabum/Awin) é sinal
+  // de valor tão bom quanto highlightReason -- exige um tamanho mínimo pra
+  // não deixar passar os poucos casos fracos vistos na amostra (ex: item
+  // muito barato com descrição igual ao título).
+  const hasSellerDescription = Boolean(p.description && p.description.trim().length >= 60);
   const hasSocialProof = p.ratingStar !== null && p.sales !== null && p.sales >= 10;
-  return hasValidPrice && hasImage && hasDecentTitle && (hasComparison || hasCuratedDescription || hasSocialProof);
+  return (
+    hasValidPrice &&
+    hasImage &&
+    hasDecentTitle &&
+    (hasComparison || hasCuratedDescription || hasSellerDescription || hasSocialProof)
+  );
 }
 
 const FALLBACK_REVALIDATE_SECONDS = 3600;
@@ -134,7 +151,7 @@ function hasSupabaseEnv(): boolean {
 }
 
 export const SITE_CATALOG_COLUMNS =
-  "id, slug, product_name, category_slug, platform, group_id, highlight_reason, image_url, price_min, price_max, price_discount_rate, rating_star, sales, offer_link, updated_at, snapshot_captured_at";
+  "id, slug, product_name, category_slug, platform, group_id, highlight_reason, description, image_url, price_min, price_max, price_discount_rate, rating_star, sales, offer_link, updated_at, snapshot_captured_at";
 
 export function mapRow(row: Record<string, unknown>): SiteProduct {
   return {
@@ -145,6 +162,7 @@ export function mapRow(row: Record<string, unknown>): SiteProduct {
     platform: String(row.platform ?? "shopee"),
     groupId: (row.group_id as string | null) ?? null,
     highlightReason: (row.highlight_reason as string | null) ?? null,
+    description: (row.description as string | null) ?? null,
     imageUrl: (row.image_url as string | null) ?? null,
     priceMin: row.price_min === null || row.price_min === undefined ? null : Number(row.price_min),
     priceMax: row.price_max === null || row.price_max === undefined ? null : Number(row.price_max),

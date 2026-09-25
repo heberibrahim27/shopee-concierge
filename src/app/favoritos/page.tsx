@@ -16,6 +16,7 @@ function toSiteProduct(favorite: FavoriteProduct): SiteProduct {
     platform: "shopee",
     groupId: null,
     highlightReason: null,
+    description: null,
     imageUrl: favorite.imageUrl,
     priceMin: favorite.priceMin,
     priceMax: null,
