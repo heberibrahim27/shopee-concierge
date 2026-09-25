@@ -102,6 +102,24 @@ img {
   display: block;
 }
 
+.dc-header-nav {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dc-header-nav a {
+  text-decoration: none;
+  opacity: 0.88;
+  white-space: nowrap;
+}
+
+.dc-header-nav a:hover {
+  opacity: 1;
+}
+
 .dc-header-bell {
   flex: none;
   display: flex;
@@ -505,6 +523,10 @@ a.dc-cat-tile-link:hover .dc-cat-tile-fallback,
 @media (max-width: 640px) {
   body {
     padding-bottom: 84px;
+  }
+
+  .dc-header-nav {
+    display: none;
   }
 
   .dc-bottom-nav {

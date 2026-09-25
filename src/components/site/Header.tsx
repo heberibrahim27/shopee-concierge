@@ -9,6 +9,21 @@ import { PLATFORM_INFO } from "../../lib/site/platforms";
 const AVAILABLE_PLATFORMS = ["shopee", "nike", "olympikus"];
 
 /**
+ * Menu de navegação real no desktop (achado real 2026-09-25: não
+ * existia NENHUM link de navegação além do logo -- Lojas Parceiras,
+ * Blog (guias) e Cupons só eram alcançáveis via rodapé/URL direta,
+ * pedido do Heber pra ficar mais parecido com um comparador "padrão").
+ * Some no mobile (BottomNav já cobre isso).
+ */
+const NAV_ITEMS = [
+  { href: "/", label: "Início" },
+  { href: "/categorias", label: "Categorias" },
+  { href: "/lojas-parceiras", label: "Lojas Parceiras" },
+  { href: "/cupons", label: "Cupons" },
+  { href: "/guia", label: "Blog" },
+];
+
+/**
  * Cabeçalho fixo em três fileiras (logo, busca, lojas) — a busca fica
  * sempre visível em qualquer página, sem depender do Hero da Home. O
  * WhatsApp já tem lugar de sobra no site (rodapé, barra fixa do mobile,
@@ -19,6 +34,13 @@ export function Header() {
     <header className="dc-header">
       <div className="dc-shell dc-header-row">
         <Logo />
+        <nav className="dc-header-nav" aria-label="Navegação principal">
+          {NAV_ITEMS.map((item) => (
+            <a key={item.href} href={item.href}>
+              {item.label}
+            </a>
+          ))}
+        </nav>
         {/* Sem contador — não temos sistema de notificação de verdade ainda,
             então não inventamos um número. */}
         <span className="dc-header-bell" title="Notificações em breve">
