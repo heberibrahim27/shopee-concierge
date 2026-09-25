@@ -4,6 +4,36 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 (tarde) — Promotech: comparador de hardware real, monetiza só com afiliado (não patrocínio direto)
+
+Pesquisando modelo de patrocínio/CPA direto em comparador (sugestão do
+ChatGPT), achei a Promotech (promotech.app.br) -- comparador de hardware
+gamer real, bem feito, o análogo mais próximo do que o Heber quer pro
+nosso comparador: 45 lojas monitoradas, 10 mil+ produtos, anúncio
+revisado por humano, alerta de queda de preço sem precisar de conta,
+comparação lado a lado de até 4 produtos, até 1 ano de histórico,
+próprio "PromoScore", canais de Telegram e Discord (terceira confirmação
+real de que Telegram funciona nesse nicho, junto com Zoom/Buscapé e
+Promobit).
+
+**Resposta real e negativa pra pergunta original**: fui direto na página
+"Lojas Parceiras" deles esperando achar modelo de patrocínio direto --
+achei o contrário. A monetização deles é link de afiliado comum, igual
+a nossa: "Quando você compra por um link nosso, podemos receber uma
+pequena comissão... Afiliados sustentam o projeto." Nenhuma camada de
+patrocínio, nenhum acordo direto de marca achado. Mesmo um comparador
+mais maduro e polido que o nosso não foi além de comissão de afiliado
+padrão -- evidência real contra perseguir modelo de patrocínio exótico
+agora.
+
+**Ideia real pra depois (não construída ainda)**: página de transparência
+tipo "lojas parceiras" listando toda loja que monitoramos (Shopee/Kabum/
+Nike/Olympikus/Mercado Livre) com texto explícito de que dinheiro nunca
+muda o ranking -- feature de confiança genuína e barata de construir,
+parecida em espírito com os guias editoriais. Não proposta ainda,
+seguindo o acordo com o ChatGPT de pausar conteúdo/engenharia nessa
+camada até ter dado real do Search Console.
+
 ## 2026-09-25 (tarde) — Promobit tem blog editorial de verdade (valida nossa estratégia) + é a mesma empresa do Méliuz
 
 Depois de linkar os guias, fui checar se um concorrente real já faz algo
