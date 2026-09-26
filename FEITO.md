@@ -4,6 +4,19 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-26 — "Finca pino" (18 produtos) preso em "Casa" em vez de "Ferramentas"
+
+**"Pesquisei finca pinos e depois olhei em ferramentas e não achei
+ele"** (Heber): o produto FOI persistido certo pela busca ao vivo
+(`persistNewLiveOffers`, com sinal real -- passou no gate criado mais
+cedo hoje), só que `categorize.ts` não tinha nenhuma keyword pra
+"pistola finca pino"/"fixadora" -- caiu no catch-all "casa". 18
+produtos reais afetados (todos variações de pistola de fixação já no
+catálogo). Ampliado `ferramentas` em `categorize.ts` (finca pino,
+fixadora, serra, esmerilhadeira, lixadeira, solda, multímetro, nível a
+laser, trena) e rodado `backfill-recategorize-casa.ts` de novo --
+confirmado os 18 movidos pra "ferramentas".
+
 ## 2026-09-26 — "Mais Vendidos" e "Achados até R$49,90" viram categoria de verdade
 
 **"'Mais vendidos' não é uma categoria ainda e achados até 40,90 tbm

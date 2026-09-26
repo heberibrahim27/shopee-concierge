@@ -72,7 +72,17 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     "capsula", "comprimido", "melatonina", "magnésio", "magnesio", "inositol", "whey protein",
     "colágeno", "colageno", "seringa de insulina", "creatina", "oxímetro", "oximetro",
   ],
-  ferramentas: ["furadeira", "parafusadeira", "ferramenta", "chave de fenda"],
+  // Achado real (2026-09-26, Heber: "pesquisei finca pinos... não achei
+  // ele em ferramentas"): produto persistido certo pela busca ao vivo,
+  // mas "pistola finca pino"/"fixadora" não batiam em nenhuma keyword
+  // de ferramentas -- caía no catch-all "casa" mesmo sendo ferramenta
+  // de construção de verdade.
+  ferramentas: [
+    "furadeira", "parafusadeira", "ferramenta", "chave de fenda", "finca pino", "finca-pino",
+    "pistola de fixação", "pistola de fixacao", "fixadora", "serra tico-tico", "serra circular",
+    "esmerilhadeira", "lixadeira", "solda", "soldador", "multímetro", "multimetro", "nível a laser",
+    "nivel a laser", "trena",
+  ],
   // "mesa" sozinho é ambíguo demais — acha "fogão de mesa" (é
   // eletrodoméstico, não móvel). Achado real testando (2026-09-23,
   // debate sobre keyword de eletrodoméstico nova). Usa termos
