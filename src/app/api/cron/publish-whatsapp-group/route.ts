@@ -398,17 +398,31 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>, excludeProdu
   // principal antes de reranquear; só usa o pool sem filtro se a
   // restrição deixar zero linhas (rede de segurança final, pra nunca
   // ficar sem postar nada).
+  // Achado real no MESMO teste (dry-run confirmou "sem candidato" mesmo
+  // com 391 Shopee elegíveis disponíveis): rerankWithDemand chama
+  // isDuplicateOfPosted com o HISTÓRICO INTEIRO (todas as redes), não
+  // escopado por bucket como o loop principal já faz (bucketHistory) --
+  // mesma classe de bug documentada em 2026-09-24 ("nunca deveria
+  // comparar Nike com Shopee"), só que no caminho do fallback. Com a
+  // sequência real de hoje sendo 10+ produtos Kabum de eletrônicos
+  // seguidos, os 20 melhores candidatos Shopee avaliados (CANDIDATE_EVAL_LIMIT)
+  // colidiam por nome genérico de categoria contra esse histórico Kabum
+  // e todos ficavam bloqueados. Escopa o histórico passado pro fallback
+  // pelo mesmo bucket forçado, mesma lição do loop principal.
   const bucketOf = (row: any) => platformBucket(row.products?.platform ?? "shopee");
   let fallbackRows = rows;
+  let fallbackHistory = postedHistory;
   if (forceShopee) {
     const filtered = rows.filter((r) => bucketOf(r) === "shopee");
     if (filtered.length > 0) fallbackRows = filtered;
+    fallbackHistory = postedHistory.filter((r) => platformBucket(r.platform) === "shopee");
   } else if (forceNonBucket) {
     const filtered = rows.filter((r) => bucketOf(r) !== forceNonBucket);
     if (filtered.length > 0) fallbackRows = filtered;
+    fallbackHistory = postedHistory.filter((r) => platformBucket(r.platform) !== forceNonBucket);
   }
 
-  const ranked = await rerankWithDemand(db, fallbackRows, postedHistory);
+  const ranked = await rerankWithDemand(db, fallbackRows, fallbackHistory);
   if (ranked.length > 0) return { candidate: ranked[0].candidate, demand: ranked[0].demand };
   return null;
 }
