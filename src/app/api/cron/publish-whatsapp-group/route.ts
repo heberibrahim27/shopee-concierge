@@ -110,6 +110,39 @@ function withinPriceCeiling(row: any): boolean {
   return price != null && Number(price) <= GROUP_PRICE_CEILING;
 }
 
+// Pedido explícito do Heber (2026-09-26): "quero tudo do mais barato
+// pra atrair clique e curiosidade, se tiver algo muito bom tipo uma
+// geladeira ou tv com descontão aí sim é bom enviar, melhor enviar um
+// produto mais alto de vez em quando" -- o teto de R$150 acima resolveu
+// "grupo virou vitrine de eletrônico caro todo dia", mas bloqueava
+// TOTALMENTE até a exceção genuína que ele quer manter. Válvula
+// controlada: item acima do teto só entra se o desconto declarado for
+// realmente grande (50%+, o "descontão" que ele descreveu) E só uma vez
+// a cada N horas -- "de vez em quando" é sobre RARIDADE, não sobre
+// nunca acontecer.
+const HIGH_VALUE_MIN_DISCOUNT_RATE = 50;
+const HIGH_VALUE_EXCEPTION_COOLDOWN_HOURS = 24;
+
+function isHighValueException(row: any): boolean {
+  const price = row.offer_snapshots?.price_min;
+  const discount = row.offer_snapshots?.price_discount_rate;
+  return price != null && Number(price) > GROUP_PRICE_CEILING && Number(discount ?? 0) >= HIGH_VALUE_MIN_DISCOUNT_RATE;
+}
+
+async function hasRecentHighValueException(db: ReturnType<typeof getDbFresh>): Promise<boolean> {
+  const since = new Date(Date.now() - HIGH_VALUE_EXCEPTION_COOLDOWN_HOURS * 3600 * 1000).toISOString();
+  const { data } = await db
+    .from("social_posts")
+    .select("deal_candidates(offer_snapshots(price_min))")
+    .eq("post_type", "whatsapp")
+    .eq("status", "posted")
+    .gte("posted_at", since);
+  return (data ?? []).some((r: any) => {
+    const price = r.deal_candidates?.offer_snapshots?.price_min;
+    return price != null && Number(price) > GROUP_PRICE_CEILING;
+  });
+}
+
 // Heber (2026-09-25, mesmo dia do teto de preço acima): "só tem produtos
 // da Awin no grupo, cadê a Shopee?" -- o teto resolveu "caro", não
 // resolveu "só uma origem". Causa: o backfill do catálogo Kabum criou
@@ -374,7 +407,24 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>, excludeProdu
   const nonShopeeInLast5 = last5Buckets.filter((b) => b !== "shopee").length;
   const forceShopee = last5Buckets.length === SHOPEE_WINDOW && nonShopeeInLast5 >= SHOPEE_WINDOW - MIN_SHOPEE_IN_LAST_5;
 
-  const rows = (await fetchAvailableCandidateRows(db, postedProductIds)).filter(withinPriceCeiling);
+  const allRows = await fetchAvailableCandidateRows(db, postedProductIds);
+
+  // Válvula de exceção (ver isHighValueException acima) -- checa ANTES
+  // do teto de preço de propósito: se existe um descontão real e a
+  // exceção não foi usada nas últimas HIGH_VALUE_EXCEPTION_COOLDOWN_HOURS,
+  // esse item específico vence a seleção normal por completo (é
+  // justamente o "aí sim é bom enviar" que o Heber descreveu -- não
+  // compete por score/rotação, é prioridade quando existe de verdade).
+  const highValueCandidates = allRows.filter(isHighValueException);
+  if (highValueCandidates.length > 0 && !(await hasRecentHighValueException(db))) {
+    const best = [...highValueCandidates].sort(
+      (a, b) => Number(b.offer_snapshots?.price_discount_rate ?? 0) - Number(a.offer_snapshots?.price_discount_rate ?? 0)
+    )[0];
+    const candidate = candidateFromRow(best);
+    if (candidate) return { candidate, demand: await computeDemandSignal(db, candidate.productId) };
+  }
+
+  const rows = allRows.filter(withinPriceCeiling);
   const groups = groupByCategoryAndBucket(rows);
   const lastPosted = lastPostedAtByCategoryBucket(postedHistory);
 

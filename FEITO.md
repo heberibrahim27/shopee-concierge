@@ -36,6 +36,22 @@ fixadora, serra, esmerilhadeira, lixadeira, solda, multímetro, nível a
 laser, trena) e rodado `backfill-recategorize-casa.ts` de novo --
 confirmado os 18 movidos pra "ferramentas".
 
+## 2026-09-26 — Grupo: exceção controlada pra item caro com descontão de verdade
+
+**"Grupo de achadinho quero tudo do mais barato para atrair clique e
+curiosidade, se tiver algo muito bom tipo uma geladeira ou tv com
+descontão aí sim é bom enviar, melhor enviar um produto mais alto de
+vez em quando"** (Heber): o teto de R$150 (2026-09-25) resolveu "grupo
+virou vitrine de eletrônico caro todo dia", mas bloqueava TOTALMENTE
+até a exceção genuína que ele queria manter. Adicionada válvula
+controlada: item acima do teto só entra se o desconto declarado for
+real e grande (≥50%) E só uma vez a cada 24h (`HIGH_VALUE_EXCEPTION_COOLDOWN_HOURS`)
+-- "de vez em quando" é sobre raridade, não sobre nunca acontecer.
+Testado contra o catálogo real: 5 candidatos genuínos qualificam hoje
+(tablet R$599 -60%, air fryer R$189 -50%, bike R$437 -73%, projetor
+R$167 -79%) -- exatamente o tipo de achado que ele descreveu, não
+luxo (iPhone/Apple Watch, que motivaram o teto original).
+
 ## 2026-09-26 — Causa mais funda do "só Awin": a busca de candidatos já vinha estruturalmente sem Shopee
 
 Continuação do fix acima -- testei o dry-run depois de corrigir a trava
