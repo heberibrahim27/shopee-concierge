@@ -6,12 +6,31 @@ import { getCachedStoreDirectory } from "../../lib/site/stores";
 import { getPlatformInfo, getAdvertiserLogo } from "../../lib/site/platforms";
 
 export function generateMetadata() {
+  const title = "Cupons de desconto verificados";
+  const description =
+    "Cupons e promoções ativas de Kabum, Olympikus, Nike e lojas parceiras, verificados todo dia pelo Desconto Chegando.";
   return {
-    title: "Cupons de desconto verificados",
-    description:
-      "Cupons e promoções ativas de Kabum, Olympikus, Nike e lojas parceiras, verificados todo dia pelo Desconto Chegando.",
+    title,
+    description,
     alternates: { canonical: "/cupons" },
     robots: { index: true, follow: true },
+    // Mesmo achado do /cupom/[loja] (Heber, 2026-09-26): sem `openGraph`
+    // próprio o Next herda o objeto inteiro da home no card compartilhado.
+    openGraph: {
+      title,
+      description,
+      url: "https://descontochegando.com.br/cupons",
+      siteName: "Desconto Chegando",
+      images: [{ url: "/BANNER-FINAL.png", width: 1983, height: 793 }],
+      locale: "pt_BR",
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: ["/BANNER-FINAL.png"],
+    },
   };
 }
 

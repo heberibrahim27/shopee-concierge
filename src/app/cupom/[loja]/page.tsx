@@ -30,11 +30,34 @@ export async function generateMetadata({ params }: { params: { loja: string } })
   const store = await getStore(params.loja);
   if (!store || store.couponCount === 0) return {};
   const month = currentMonthLabel();
+  const title = `Cupom ${store.label} ${month}`;
+  const description = `${store.couponCount} ${store.couponCount === 1 ? "cupom ativo" : "cupons ativos"} da ${store.label} em ${month}, verificados todo dia pelo Desconto Chegando. Sem cupom vencido, sem código inventado.`;
   return {
-    title: `Cupom ${store.label} ${month}`,
-    description: `${store.couponCount} ${store.couponCount === 1 ? "cupom ativo" : "cupons ativos"} da ${store.label} em ${month}, verificados todo dia pelo Desconto Chegando. Sem cupom vencido, sem código inventado.`,
+    title,
+    description,
     alternates: { canonical: `/cupom/${store.slug}` },
     robots: isCouponPageIndexable(store) ? { index: true, follow: true } : { index: false, follow: true },
+    // Achado real (Heber, 2026-09-26, print do card feio no WhatsApp): sem
+    // um `openGraph`/`twitter` próprio aqui, o Next herda o objeto INTEIRO
+    // da home (título/descrição genéricos do site) em vez de mesclar só o
+    // `title`/`description` desta página -- o link de cupom compartilhado
+    // aparecia como se fosse a home. Repete o mesmo banner (já é uma boa
+    // imagem), só troca texto pro específico da loja.
+    openGraph: {
+      title,
+      description,
+      url: `https://descontochegando.com.br/cupom/${store.slug}`,
+      siteName: "Desconto Chegando",
+      images: [{ url: "/BANNER-FINAL.png", width: 1983, height: 793 }],
+      locale: "pt_BR",
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: ["/BANNER-FINAL.png"],
+    },
   };
 }
 
