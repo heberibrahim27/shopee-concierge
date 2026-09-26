@@ -5,6 +5,7 @@ import { SiteCoupon } from "../../lib/site/coupons";
 import { getPlatformInfo, getAdvertiserLogo } from "../../lib/site/platforms";
 import { AFFILIATE_LINK_REL } from "../../lib/site/affiliateLink";
 import { describeRule, isAwinOpenEnded, parseCouponRule } from "../../lib/site/couponRules";
+import { ShareButton } from "./ShareButton";
 
 function formatEndsAt(iso: string | null, fetchedAt: string | null): string | null {
   if (!iso) return null;
@@ -110,6 +111,7 @@ export function CouponCard({ coupon }: { coupon: SiteCoupon }) {
         ) : (
           <span className={logo ? "dc-coupon-store-name" : "dc-coupon-badge"}>{coupon.advertiserName}</span>
         )}
+        <ShareButton productName={`Cupom ${coupon.advertiserName}: ${coupon.title}`} compact />
       </div>
       <p className="dc-coupon-title">{coupon.title}</p>
       {ruleLine ? <p className="dc-coupon-rule">{ruleLine}</p> : null}
@@ -161,15 +163,25 @@ export function CouponCard({ coupon }: { coupon: SiteCoupon }) {
           )}
         </>
       ) : (
-        <a
-          className="dc-coupon-cta"
-          href={coupon.urlTracking}
-          target="_blank"
-          rel={AFFILIATE_LINK_REL}
-          onClick={() => trackCouponClick(coupon)}
-        >
-          Aproveitar
-        </a>
+        <>
+          {/* Achado real (Heber, 2026-09-25: "cliquei e abriu vários
+              produtos, onde aparece o cupom? o cliente precisa saber
+              quando for usar"): promoção sem código (Shopee
+              shopeeOfferV2) não é cupom de checkout -- é link pra uma
+              vitrine de categoria já em promoção, desconto já aplicado
+              no preço. Sem esse aviso, "Aproveitar" sozinho sugeria um
+              código que não existe. */}
+          <p className="dc-coupon-no-code-note">Sem código — o desconto já vem aplicado no preço dos produtos dessa promoção.</p>
+          <a
+            className="dc-coupon-cta"
+            href={coupon.urlTracking}
+            target="_blank"
+            rel={AFFILIATE_LINK_REL}
+            onClick={() => trackCouponClick(coupon)}
+          >
+            Aproveitar
+          </a>
+        </>
       )}
     </div>
   );

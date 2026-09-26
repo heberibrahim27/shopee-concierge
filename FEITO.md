@@ -4,6 +4,26 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 — Cupom: botão de compartilhar + aviso "sem código" nas promoções Shopee
+
+**"Seria bom um botão de compartilhar o cupom?"** (Heber): sim -- já
+existia `ShareButton` (Web Share API nativa, cai pra copiar link sem
+suporte) usado na página de produto. Ganhou variante `compact` (só
+ícone) e entrou no cabeçalho do `CouponCard`, ao lado do nome da loja
+-- funciona em `/cupons`, `/cupom/[loja]` e no bloco de cupom da página
+de produto sem mudar layout.
+
+**"Como funciona o cupom? Cliquei e abriu vários produtos, onde aparece
+o cupom? O cliente precisa saber quando for usar"** (Heber): confirmado
+no código -- promoção Shopee sem código (`shopeeOfferV2`) não é cupom
+de checkout, é link pra uma vitrine de categoria já em promoção
+(desconto já aplicado no preço dos produtos que aparecem lá). O card só
+dizia "Aproveitar", sem avisar que não tem código -- podia confundir
+quem espera digitar algo. Adicionado aviso "Sem código — o desconto já
+vem aplicado no preço dos produtos dessa promoção" nesses casos
+especificamente (cupom com código de verdade, tipo Kabum, continua sem
+esse aviso).
+
 ## 2026-09-25 — Busca ao vivo vira produto do catálogo + cupom Shopee com "validade 2999" corrigido
 
 **"O ideal é salvar no nosso catálogo sempre que alguém pesquisa e tem
