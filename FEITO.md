@@ -4,6 +4,33 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-26 — Card de cupom no WhatsApp mostrava texto genérico da home + escovas a vapor recategorizadas
+
+**"Compartilhamento de cupons da nessa versão feia demais no whats"**
+(Heber, print do card do WhatsApp mostrando o banner e o texto
+genérico do site): `/cupom/[loja]` e `/cupons` definiam `title`/
+`description` próprios no `generateMetadata` mas não `openGraph`/
+`twitter` -- o Next herda o objeto `openGraph` inteiro da home quando a
+página não sobrescreve, então o link de cupom compartilhado aparecia
+com o mesmo card da home em vez de "Cupom KaBuM! setembro de 2026" e a
+descrição da loja. Adicionado `openGraph`/`twitter` próprios nas duas
+páginas (mesmo banner, texto correto). Confirmado ao vivo via
+`curl .../cupom/kabum` mostrando `og:title` certo.
+
+**"Olha a quantidade de escova elétrica que tem na categoria casa"**
+(Heber, print de vários "Escova a Vapor Elétrica" na categoria Casa):
+os termos "escova alisadora a vapor" etc. foram adicionados em
+`categorize.ts` num fix anterior (2026-09-25), mas isso só afeta
+produto novo entrando pelo `persistOfferSnapshot` (só categoriza se
+`category_slug` for null) -- os ~400 produtos que já estavam presos em
+"casa" desde antes nunca foram reprocessados com a lista nova. Rodado
+de novo `scripts/backfill-recategorize-casa.ts` (script genérico já
+existente, não precisou de código novo): 16 escovas a vapor movidas
+"casa" → "beleza", 381 produtos restantes confirmados como "casa" de
+verdade. Revalidação de cache via API falhou (secret local
+desatualizado, mesmo caso já conhecido) -- cache expira sozinho em até
+1h.
+
 ## 2026-09-25 — Cupom: botão de compartilhar + aviso "sem código" nas promoções Shopee
 
 **"Seria bom um botão de compartilhar o cupom?"** (Heber): sim -- já
