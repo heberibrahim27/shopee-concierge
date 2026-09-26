@@ -7,6 +7,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
+import { submitToIndexNow } from "../../../../lib/site/indexnow";
 
 interface RevalidateCatalogEvent {
   event: "product_updated";
@@ -56,6 +57,15 @@ export async function POST(request: NextRequest) {
     revalidated.push("home:offers");
     revalidateTag("home:offers");
   }
+
+  // IndexNow (achado real 2026-09-26, pesquisa com o ChatGPT sobre
+  // aquisição): avisa Bing só quando conteúdo de verdade mudou -- esse
+  // endpoint já só é chamado nesses casos (nunca em bulk), então é o
+  // ponto certo pra plugar sem virar spam de URL.
+  const indexNowPaths = [`/produto/${body.productSlug}`];
+  if (body.categorySlug) indexNowPaths.push(`/categoria/${body.categorySlug}`);
+  if (body.affectsHome) indexNowPaths.push("/");
+  void submitToIndexNow(indexNowPaths);
 
   return NextResponse.json({ revalidated });
 }

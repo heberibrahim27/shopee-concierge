@@ -36,6 +36,28 @@ fixadora, serra, esmerilhadeira, lixadeira, solda, multímetro, nível a
 laser, trena) e rodado `backfill-recategorize-casa.ts` de novo --
 confirmado os 18 movidos pra "ferramentas".
 
+## 2026-09-26 — IndexNow implementado (achado de pesquisa com o ChatGPT sobre aquisição)
+
+**"Sobre melhorias no site na parte de receita, que tal procurar mais
+opções com o chatGPT?"** (Heber): consultei o ChatGPT dele (aba real,
+thread já com contexto do projeto) -- conclusão firme: parar de
+procurar monetização nova, focar 100% em aquisição (tráfego é o
+gargalo real, não falta de camada de receita). Plano técnico que eu
+consigo executar sozinho, em ordem: checar Search Console → IndexNow →
+auditar dado estruturado → páginas long-tail por demanda real.
+
+**Search Console**: confirmado no código que não está verificado (sem
+meta tag, sem arquivo) -- só o Heber consegue fazer isso (precisa da
+conta Google dele), registrado em CONTINUIDADE.md.
+
+**IndexNow**: implementado (`src/lib/site/indexnow.ts`) -- protocolo
+aberto, grátis, sem aprovação de conta, avisa Bing quando uma URL muda.
+Chave publicada em `public/<chave>.txt` (exigência do próprio
+protocolo, não é segredo). Pluga no `revalidate-catalog` (o único
+ponto do sistema que já dispara exatamente quando produto/categoria/
+home muda de verdade -- nunca em bulk), então não teve que criar
+nenhum gatilho novo nem risco de virar spam de URL.
+
 ## 2026-09-26 — "Mais Vendidos" e "Achados até R$49,90" viram categoria de verdade
 
 **"'Mais vendidos' não é uma categoria ainda e achados até 40,90 tbm

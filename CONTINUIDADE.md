@@ -4,7 +4,12 @@
 > o que ainda está pendente. Atualize sempre que resolver ou descobrir algo novo.
 > Complementa o [FEITO.md](FEITO.md), que registra o que já está pronto.
 
-**Última atualização:** 2026-09-26 (busca full text + Lomadee ao vivo em /busca; ver FEITO.md)
+**Última atualização:** 2026-09-26 (IndexNow + auditoria de aquisição/SEO com ChatGPT; ver FEITO.md)
+
+### 🔲 Pendências de aquisição/SEO (2026-09-26, sessão de pesquisa com ChatGPT)
+- **Search Console não verificado** -- confirmado no código (sem meta tag, sem arquivo). Só o Heber consegue fazer (precisa da conta Google dele: Search Console → Adicionar propriedade → verificar por meta tag/DNS/arquivo HTML). Sem isso o site continua sendo indexado normalmente (sitemap + links internos já funcionam), só fica sem visibilidade de quais buscas trazem gente.
+- **Auditoria de dado estruturado (schema.org Product)** ainda não feita -- próximo item técnico depois do IndexNow. Atenção: não usar nota/rating da Shopee como `AggregateRating` nosso (Google proíbe agregar avaliação de outro site).
+- **Páginas long-tail comerciais** (ex: "SSD 1TB até R$500", "Notebook até R$4.000") -- só criar onde o catálogo já sustenta de verdade, não por "achar que ajuda no SEO". Esperar Search Console verificado pra escolher por demanda real em vez de chute.
 
 ### 🔲 Pendências abertas de 2026-09-26 (busca e monetização, sessão paralela ao gráfico de preço)
 - **Conferir Lomadee ao vivo em produção** depois do deploy: `/busca?q=fone+bluetooth` deve mostrar a seção "Em outras lojas parceiras agora". Não foi testado com a chave real (container sem `.env`). Se a API ignorar o parâmetro `search`, o filtro de título vai deixar a seção vazia — aí é trocar por filtro no nosso lado sobre um lote maior.
