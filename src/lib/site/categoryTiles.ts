@@ -52,4 +52,34 @@ export const CATEGORY_TILES: CategoryTile[] = [
   { slug: "livros", label: "Livros", photoUrl: "/categorias-produtos/livros.png", subtitle: "Leitura e planners", available: true },
 
   { slug: "outros", label: "Outros", photoUrl: null, subtitle: "", available: true, href: "/categorias" },
+
+  // Achado real (2026-09-26, Heber: "'Mais vendidos' não é uma categoria
+  // ainda e achados até 40,90 tbm não, vamos transformar em
+  // categoria???"): até aqui só existiam como seção da home. Não entram
+  // em `SITE_CATEGORIES` (categories.ts) -- aquela lista é a taxonomia
+  // real usada pra classificar produto (`categorize.ts`, validação em
+  // `snapshots.ts`); "mais vendidos"/"achados baratos" são recortes
+  // que cruzam TODAS as categorias (ordenados por venda/preço, não por
+  // `category_slug`), então viram página própria fora da taxonomia
+  // (`/mais-vendidos`, `/achados-ate-49-90`) com `href` customizado,
+  // igual o padrão já usado em "outros". `photoUrl` aponta pro produto
+  // #1 de cada recorte (foto hospedada da própria loja, não recortada
+  // como as demais -- muda com o catálogo, então não faria sentido virar
+  // um PNG fixo).
+  {
+    slug: "mais-vendidos",
+    label: "Mais Vendidos",
+    photoUrl: "https://cf.shopee.com.br/file/br-11134207-820lm-mqdb9tob0xdu3d",
+    subtitle: "O que mais vende de verdade",
+    available: true,
+    href: "/mais-vendidos",
+  },
+  {
+    slug: "achados-ate-49-90",
+    label: "Achados até R$49,90",
+    photoUrl: "https://cf.shopee.com.br/file/br-11134207-81ztc-mj5c8bpplwcm5e",
+    subtitle: "Preço baixo de verdade",
+    available: true,
+    href: "/achados-ate-49-90",
+  },
 ];

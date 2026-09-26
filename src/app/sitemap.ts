@@ -15,6 +15,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [
     { url: SITE_URL, changeFrequency: "daily", priority: 1 },
+    // "Mais Vendidos"/"Achados até R$49,90" (2026-09-26): recorte cross-
+    // categoria, fora de SITE_CATEGORIES de propósito (ver categoryTiles.ts).
+    { url: `${SITE_URL}/mais-vendidos`, changeFrequency: "daily" as const, priority: 0.7 },
+    { url: `${SITE_URL}/achados-ate-49-90`, changeFrequency: "daily" as const, priority: 0.7 },
     ...SITE_CATEGORIES.map((category) => ({
       url: `${SITE_URL}/categoria/${category.slug}`,
       changeFrequency: "daily" as const,

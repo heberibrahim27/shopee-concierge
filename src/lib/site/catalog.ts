@@ -354,7 +354,7 @@ export function getCachedHomeOffers(): Promise<SiteProduct[]> {
 // guias. "Mais vendidos" cobre o catálogo inteiro (sales real da Shopee/
 // Awin), então sempre tem conteúdo, independente do volume de posts do
 // dia.
-async function queryBestSellers(): Promise<SiteProduct[]> {
+async function queryBestSellers(limit: number): Promise<SiteProduct[]> {
   if (!hasSupabaseEnv()) return [];
 
   const db = getDb();
@@ -363,14 +363,21 @@ async function queryBestSellers(): Promise<SiteProduct[]> {
     .select(SITE_CATALOG_COLUMNS)
     .not("sales", "is", null)
     .order("sales", { ascending: false })
-    .limit(24);
+    .limit(limit);
 
   if (error) throw new Error(`Falha ao buscar mais vendidos: ${error.message}`);
   return dedupeByGroup((data ?? []).map(mapRow));
 }
 
-export function getCachedBestSellers(): Promise<SiteProduct[]> {
-  return unstable_cache(queryBestSellers, ["best-sellers"], {
+// `limit` (2026-09-26, Heber: "'Mais vendidos' não é uma categoria
+// ainda... vamos transformar em categoria?"): a prévia da home
+// continua em 24 (`getCachedBestSellers()`, sem argumento); a página
+// dedicada /mais-vendidos pede 48 (`getCachedBestSellers(48)`), mesmo
+// tamanho de página que uma categoria normal (`queryCategoryProducts`).
+// Mesma tag de cache pras duas chamadas -- é a mesma pergunta ao banco,
+// só corta o resultado em tamanho diferente.
+export function getCachedBestSellers(limit = 24): Promise<SiteProduct[]> {
+  return unstable_cache(() => queryBestSellers(limit), ["best-sellers", String(limit)], {
     tags: ["home:bestsellers"],
     revalidate: FALLBACK_REVALIDATE_SECONDS,
   })();
@@ -380,9 +387,9 @@ export function getCachedBestSellers(): Promise<SiteProduct[]> {
 // achados abaixo de 49,90". Preço baixo de verdade (não só desconto
 // percentual alto em cima de preço inflado) -- ordena por maior desconto
 // real dentro do teto, pra mostrar achadinho de verdade primeiro.
-const CHEAP_FINDS_MAX_PRICE = 49.9;
+export const CHEAP_FINDS_MAX_PRICE = 49.9;
 
-async function queryCheapFinds(): Promise<SiteProduct[]> {
+async function queryCheapFinds(limit: number): Promise<SiteProduct[]> {
   if (!hasSupabaseEnv()) return [];
 
   const db = getDb();
@@ -391,14 +398,16 @@ async function queryCheapFinds(): Promise<SiteProduct[]> {
     .select(SITE_CATALOG_COLUMNS)
     .lte("price_min", CHEAP_FINDS_MAX_PRICE)
     .order("price_discount_rate", { ascending: false, nullsFirst: false })
-    .limit(24);
+    .limit(limit);
 
   if (error) throw new Error(`Falha ao buscar achados baratos: ${error.message}`);
   return dedupeByGroup((data ?? []).map(mapRow));
 }
 
-export function getCachedCheapFinds(): Promise<SiteProduct[]> {
-  return unstable_cache(queryCheapFinds, ["cheap-finds"], {
+// `limit` -- mesmo motivo do `getCachedBestSellers`: prévia da home em
+// 24, página dedicada /achados-ate-49-90 em 48.
+export function getCachedCheapFinds(limit = 24): Promise<SiteProduct[]> {
+  return unstable_cache(() => queryCheapFinds(limit), ["cheap-finds", String(limit)], {
     tags: ["home:cheapfinds"],
     revalidate: FALLBACK_REVALIDATE_SECONDS,
   })();

@@ -4,6 +4,22 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-26 — "Mais Vendidos" e "Achados até R$49,90" viram categoria de verdade
+
+**"'Mais vendidos' não é uma categoria ainda e achados até 40,90 tbm
+não, vamos transformar em categoria???"** (Heber): até aqui as duas só
+existiam como seção da home (24 itens, sem página própria, sem link em
+lugar nenhum além da home). Como cruzam TODAS as categorias (ordenado
+por venda real / preço real, não por `category_slug`), não entram na
+taxonomia fixa `SITE_CATEGORIES` (usada pra classificar produto) --
+viram rota própria (`/mais-vendidos`, `/achados-ate-49-90`), com página
+igual a uma categoria normal (grade de categorias pra navegar, grid de
+48 produtos), e dois ladrilhos novos em `CATEGORY_TILES` com `href`
+customizado (mesmo padrão já usado pelo ladrilho "Outros") -- aparecem
+em `/categorias`, no grid de toda página de categoria e agora tem link
+"Ver todos" nas seções da home. Testado ao vivo no navegador antes de
+subir (ladrilho, destaque ativo, grid de produto, link da home).
+
 ## 2026-09-26 — Feed de "Mais Vendidos" da Shopee inteira integrado ao catálogo
 
 **"Não consegue puxar o catálogo por essa aba?"** (Heber, print das abas

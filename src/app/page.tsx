@@ -75,6 +75,9 @@ export default async function HomePage() {
               emptyMessage="Ainda não temos dado de vendas suficiente aqui — em breve."
               layout="scroll"
             />
+            <a className="dc-coupon-see-all" href="/mais-vendidos">
+              Ver todos os mais vendidos →
+            </a>
           </section>
         ) : null}
 
@@ -86,6 +89,9 @@ export default async function HomePage() {
               emptyMessage="Ainda não temos achados nessa faixa de preço — em breve."
               layout="scroll"
             />
+            <a className="dc-coupon-see-all" href="/achados-ate-49-90">
+              Ver todos os achados →
+            </a>
           </section>
         ) : null}
 
