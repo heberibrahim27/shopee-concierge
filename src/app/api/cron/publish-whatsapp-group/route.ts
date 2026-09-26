@@ -91,7 +91,6 @@ function platformBucket(platform: string): string {
 // reproduz a sequência que ele descreveu organicamente, sem hardcode de
 // ordem fixa de categoria.
 const MARKETPLACE_ROTATION_ORDER = ["shopee", "mercadolivre", "awin"];
-const CANDIDATE_POOL_LIMIT = 400;
 
 // Heber (2026-09-25, urgente -- irmão reclamou no grupo real): "grupo de
 // achadinhos é de produtos baratos". A atualização do catálogo Kabum criou
@@ -190,25 +189,55 @@ function candidateFromRow(row: any): Candidate | null {
   };
 }
 
+// Achado real (2026-09-26, mesmo dia do bug de fallback): mesmo depois
+// de corrigir a rotação, o dry-run continuava sem achar candidato --
+// causa mais funda ainda. Essa query buscava um ÚNICO top-400 por score
+// GLOBAL, sem separar por plataforma -- e Awin/Kabum pontua
+// sistematicamente mais alto nesse catálogo (score_breakdown de origem
+// diferente, catálogo maior). Resultado real medido: dos 400 primeiros
+// por score, só 6 eram Shopee elegível (preço + nunca postado) contra
+// 50+ Awin. Ou seja, o Shopee ficava estruturalmente fora do pool ANTES
+// de qualquer lógica de rotação entrar em ação -- nenhuma trava
+// consegue escolher um candidato que nunca chegou a existir no array.
+// Corrigido: busca o top-N Shopee e o top-N "resto" SEPARADAMENTE e
+// junta os dois, garantindo que Shopee sempre tenha candidato real
+// disponível pro resto da seleção trabalhar em cima, independente de
+// como o score global se compara entre plataformas.
+const CANDIDATE_POOL_LIMIT_PER_BUCKET = 200;
+
 async function fetchAvailableCandidateRows(db: ReturnType<typeof getDbFresh>, postedProductIds: string[]): Promise<any[]> {
   // `!inner` garante que products vem sempre presente (nunca null) —
   // necessário pro agrupamento por categoria/plataforma abaixo.
-  let query = db
-    .from("deal_candidates")
-    .select(
-      "id, score, score_breakdown, product_id, products!inner(product_name, platform, category_slug), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
-    )
-    // Nunca reconsidera um candidato marcado "unavailable" (re-checagem
-    // de disponibilidade real, ver GET abaixo) — sem isso o candidato
-    // indisponível voltaria a competir de novo a cada execução do cron.
-    .neq("status", "unavailable");
-  if (postedProductIds.length > 0) {
-    query = query.not("product_id", "in", `(${postedProductIds.join(",")})`);
+  function baseQuery() {
+    let query = db
+      .from("deal_candidates")
+      .select(
+        "id, score, score_breakdown, product_id, products!inner(product_name, platform, category_slug), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
+      )
+      // Nunca reconsidera um candidato marcado "unavailable" (re-checagem
+      // de disponibilidade real, ver GET abaixo) — sem isso o candidato
+      // indisponível voltaria a competir de novo a cada execução do cron.
+      .neq("status", "unavailable");
+    if (postedProductIds.length > 0) {
+      query = query.not("product_id", "in", `(${postedProductIds.join(",")})`);
+    }
+    return query;
   }
-  const { data, error } = await query
-    .order("score", { ascending: false, nullsFirst: false })
-    .limit(CANDIDATE_POOL_LIMIT);
-  return error || !data ? [] : (data as any[]);
+
+  const [shopeeResult, otherResult] = await Promise.all([
+    baseQuery()
+      .eq("products.platform", "shopee")
+      .order("score", { ascending: false, nullsFirst: false })
+      .limit(CANDIDATE_POOL_LIMIT_PER_BUCKET),
+    baseQuery()
+      .neq("products.platform", "shopee")
+      .order("score", { ascending: false, nullsFirst: false })
+      .limit(CANDIDATE_POOL_LIMIT_PER_BUCKET),
+  ]);
+
+  const shopeeRows = shopeeResult.error || !shopeeResult.data ? [] : (shopeeResult.data as any[]);
+  const otherRows = otherResult.error || !otherResult.data ? [] : (otherResult.data as any[]);
+  return [...shopeeRows, ...otherRows];
 }
 
 /**

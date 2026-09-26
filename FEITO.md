@@ -36,6 +36,27 @@ fixadora, serra, esmerilhadeira, lixadeira, solda, multímetro, nível a
 laser, trena) e rodado `backfill-recategorize-casa.ts` de novo --
 confirmado os 18 movidos pra "ferramentas".
 
+## 2026-09-26 — Causa mais funda do "só Awin": a busca de candidatos já vinha estruturalmente sem Shopee
+
+Continuação do fix acima -- testei o dry-run depois de corrigir a trava
+e o fallback, e AINDA voltava "sem candidato", mesmo Shopee tendo
+achado real disponível. Investigado a fundo: `fetchAvailableCandidateRows`
+buscava um único top-400 por SCORE GLOBAL -- e Awin/Kabum pontua
+sistematicamente mais alto nesse catálogo. Medido com dado real: dos
+400 primeiros por score, só **6 eram Shopee elegível** (preço + nunca
+postado) contra 50+ Awin. Ou seja, o Shopee ficava fora do pool de
+trabalho ANTES de qualquer rotação entrar em ação -- nenhuma trava
+consegue escolher um candidato que nunca chegou a existir no array.
+Segunda camada do mesmo bug, achada no mesmo teste: o fallback
+comparava nome do candidato contra o histórico de TODAS as redes (não
+só a mesma), mesma classe de falso-positivo já documentada em
+24/09 -- corrigido escopando o histórico do fallback pelo mesmo bucket
+forçado.
+
+Corrigido na raiz: `fetchAvailableCandidateRows` agora busca Shopee e
+"resto" em duas queries SEPARADAS (200 cada) e junta os dois, ao invés
+de um único ranking global que deixava Shopee de fora estruturalmente.
+
 ## 2026-09-26 — Grupo do WhatsApp: 20 posts seguidos da KaBuM (fallback anulava a trava de rede)
 
 **"Vc ajustou o cupom e só tá mandando coisas da Awin no grupo! Tá
