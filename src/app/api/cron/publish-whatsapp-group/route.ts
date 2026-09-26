@@ -123,6 +123,25 @@ function withinPriceCeiling(row: any): boolean {
 // do mesmo bucket de marketplace, força o próximo a vir de outro.
 const BUCKET_ROTATION_STREAK = 3;
 
+// Achado real (2026-09-26, Heber: "só tá mandando coisas da Awin no
+// grupo... tá foda" / "quero Shopee maioria, as outras ocasionalmente"
+// -- debatido com o ChatGPT antes de implementar). Duas causas juntas:
+// (1) bug real -- o FALLBACK (rerankWithDemand sobre o pool inteiro,
+// linha ~380 abaixo) ignorava forceNonBucket completamente, então
+// mesmo com a trava de streak ligada, toda vez que o loop principal
+// não achava par elegível fora do bucket forçado, o fallback
+// reranqueava TUDO por score e devolvia Kabum de novo -- uma porta dos
+// fundos que anulava a trava. Corrigido: o fallback agora filtra o
+// bucket forçado também, só volta pra ele se o pool filtrado ficar
+// vazio de verdade. (2) streak sozinho não GARANTE maioria (só evita
+// sequência longa) -- adicionada regra de proporção real: numa janela
+// dos últimos 5 posts, pelo menos 3 precisam ser Shopee; se cair
+// abaixo disso, força a escolha pra dentro do bucket Shopee
+// especificamente (prioridade mais alta que o streak-guard, que continua
+// como refinamento secundário).
+const MIN_SHOPEE_IN_LAST_5 = 3;
+const SHOPEE_WINDOW = 5;
+
 type PostedRecord = {
   productId: string;
   productName: string;
@@ -319,6 +338,13 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>, excludeProdu
       ? recentBuckets[0]
       : null;
 
+  // Regra principal de proporção (ver nota em MIN_SHOPEE_IN_LAST_5) --
+  // maior prioridade que forceNonBucket: se a janela não bate o mínimo
+  // de Shopee, força Shopee especificamente, não só "outro bucket".
+  const last5Buckets = postedHistory.slice(0, SHOPEE_WINDOW).map((r) => platformBucket(r.platform));
+  const nonShopeeInLast5 = last5Buckets.filter((b) => b !== "shopee").length;
+  const forceShopee = last5Buckets.length === SHOPEE_WINDOW && nonShopeeInLast5 >= SHOPEE_WINDOW - MIN_SHOPEE_IN_LAST_5;
+
   const rows = (await fetchAvailableCandidateRows(db, postedProductIds)).filter(withinPriceCeiling);
   const groups = groupByCategoryAndBucket(rows);
   const lastPosted = lastPostedAtByCategoryBucket(postedHistory);
@@ -348,7 +374,8 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>, excludeProdu
 
   for (const key of pairs) {
     const bucket = key.split("::")[1];
-    if (forceNonBucket && bucket === forceNonBucket) continue;
+    if (forceShopee && bucket !== "shopee") continue;
+    if (!forceShopee && forceNonBucket && bucket === forceNonBucket) continue;
     const bucketHistory = postedHistory.filter((r) => platformBucket(r.platform) === bucket);
     for (const row of groups.get(key)!) {
       if (forceNonFarmacia && isFarmaciaRow(row)) continue;
@@ -363,7 +390,25 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>, excludeProdu
   // momentaneamente esgotado em todas as combinações) -- último recurso,
   // ranking por score/demanda sobre o pool inteiro, só pra garantir que a
   // execução não fica sem postar nada.
-  const ranked = await rerankWithDemand(db, rows, postedHistory);
+  //
+  // Achado real (2026-09-26, ver nota em MIN_SHOPEE_IN_LAST_5): esse
+  // fallback ERA a porta dos fundos que anulava forceNonBucket -- ele
+  // reranqueava o pool INTEIRO por score, sem filtro nenhum, e Kabum
+  // vencia de novo. Agora filtra pelo mesmo bucket exigido pelo loop
+  // principal antes de reranquear; só usa o pool sem filtro se a
+  // restrição deixar zero linhas (rede de segurança final, pra nunca
+  // ficar sem postar nada).
+  const bucketOf = (row: any) => platformBucket(row.products?.platform ?? "shopee");
+  let fallbackRows = rows;
+  if (forceShopee) {
+    const filtered = rows.filter((r) => bucketOf(r) === "shopee");
+    if (filtered.length > 0) fallbackRows = filtered;
+  } else if (forceNonBucket) {
+    const filtered = rows.filter((r) => bucketOf(r) !== forceNonBucket);
+    if (filtered.length > 0) fallbackRows = filtered;
+  }
+
+  const ranked = await rerankWithDemand(db, fallbackRows, postedHistory);
   if (ranked.length > 0) return { candidate: ranked[0].candidate, demand: ranked[0].demand };
   return null;
 }

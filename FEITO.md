@@ -36,6 +36,31 @@ fixadora, serra, esmerilhadeira, lixadeira, solda, multímetro, nível a
 laser, trena) e rodado `backfill-recategorize-casa.ts` de novo --
 confirmado os 18 movidos pra "ferramentas".
 
+## 2026-09-26 — Grupo do WhatsApp: 20 posts seguidos da KaBuM (fallback anulava a trava de rede)
+
+**"Vc ajustou o cupom e só tá mandando coisas da Awin no grupo! Tá
+foda" / "não tem produtos da shopee tem tempo"** (Heber): debatido com
+o ChatGPT antes de mexer (pedido explícito dele). Confirmado com dado
+real: 20 posts seguidos da KaBuM! entre 14h e 18h50, só 2 de Shopee
+intercalados no início. Achado o bug de verdade em
+`publish-whatsapp-group/route.ts`: a trava `BUCKET_ROTATION_STREAK=3`
+(que já resolveu esse MESMO problema em 2026-09-25) força o próximo
+post pra fora do bucket repetido no loop principal -- mas se o loop não
+achava nenhum par (categoria,bucket) elegível fora desse bucket, o
+código caía num FALLBACK (reranqueia o pool inteiro por score) que
+**ignorava completamente a trava** -- uma porta dos fundos que
+devolvia Kabum de novo, indefinidamente.
+
+ChatGPT confirmou a correção mínima (fallback também filtrar o bucket
+forçado, só usar o pool sem filtro se ficar vazio) e sugeriu ir além:
+streak sozinho não GARANTE maioria, só evita sequência longa. Adicionada
+regra de proporção real -- `MIN_SHOPEE_IN_LAST_5 = 3`: numa janela dos
+últimos 5 posts, pelo menos 3 precisam ser Shopee; se cair abaixo
+disso, força a escolha pra dentro do bucket Shopee especificamente
+(prioridade mais alta que o streak-guard, que virou refinamento
+secundário). Aplicado nos DOIS caminhos (loop principal + fallback) --
+a mesma lição do bug original, não deixar nenhuma porta dos fundos.
+
 ## 2026-09-26 — Cupom só mandava coisa da Awin (KaBuM!): rotação sem trava de rede
 
 **"Vc ajustou o cupom e só tá mandando coisas da Awin no grupo! Tá
