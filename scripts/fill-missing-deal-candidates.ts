@@ -29,8 +29,20 @@ function sleep(ms: number) {
 async function main() {
   const db = getDb();
 
-  const { data: candidateProductIds } = await db.from("deal_candidates").select("product_id");
-  const hasCandidate = new Set((candidateProductIds ?? []).map((r) => r.product_id));
+  // Achado real (2026-09-26, rodando pela 2a vez): sem paginação, esse
+  // select devolve só as primeiras 1000 linhas por padrão do Supabase --
+  // com 6732 deal_candidates já existentes, a maioria ficava invisível
+  // pro `hasCandidate`, e a 2a rodada recriou candidato duplicado pra
+  // ~400 produtos que já tinham (inofensivo pra postagem, que dedupe por
+  // product_id via social_posts, mas gastou call de link à toa e voltou
+  // a bater no rate-limit). Pagina de verdade agora.
+  const hasCandidate = new Set<string>();
+  for (let offset = 0; ; offset += 1000) {
+    const { data } = await db.from("deal_candidates").select("product_id").range(offset, offset + 999);
+    if (!data || data.length === 0) break;
+    for (const r of data) hasCandidate.add(r.product_id);
+    if (data.length < 1000) break;
+  }
 
   const { data: products } = await db
     .from("products")
