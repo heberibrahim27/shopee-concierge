@@ -4,6 +4,24 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 — /cupons: filtro de loja reorganizado; /lojas-parceiras: texto neutro + logo real
+
+**`/cupons` "tá mal organizado"**: o filtro de 24 lojas reaproveitava
+`.dc-price-filter-row` (pensada pra 2-3 pills de preço, `flex-wrap:
+wrap`) -- virava uma parede de pills quebrando várias linhas, empurrando
+os cupons de verdade pra bem abaixo na tela. Nova classe
+`.dc-store-filter-scroll`: linha única com scroll horizontal (mesmo
+padrão do resto do site) + logo real da loja quando existe (Kabum,
+Shopee, Nike, Olympikus, Malwee).
+
+**`/lojas-parceiras` "remova nossas lojas pra evitar processo"**: o
+subtítulo "Nossas lojas" soava como posse/parceria oficial da marca --
+único lugar do site com essa fraseologia (grep confirmou, resto da
+página já era neutro: "Lojas que comparamos", "lojas monitoradas" no
+stat). Trocado pro mesmo tom neutro. Cards ganharam logo real (mesmo
+padrão de `.dc-partner-logo`) no lugar do badge colorido só-texto —
+Mercado Livre continua no badge (sem logo baixada ainda).
+
 ## 2026-09-25 — Guias de compra: foto específica por guia (não mais a mesma da categoria)
 
 Heber viu os cards de guia lado a lado no scroll da home: "Mesma foto?" — os 4 guias de "eletrônicos" (SSD Kabum×Shopee, SSD NVMe×SATA, TV 4K, Notebook) todos usavam a mesma foto genérica da categoria (carregador USB-C, `CATEGORY_TILES`). Corrigido com `thumbnailUrl` por guia em `guides.ts`, apontando pra foto real de um dos produtos que o próprio guia já cita nos blocos (SSD Kingston NV3, SSD Kingston A400, Smart TV Philips 50PUG7300, Notebook Lenovo IdeaPad, tênis Olympikus, fogão Suggar) — nenhuma arte nova, só reaproveitar imagem que já existe no catálogo. As 6 fotos agora são todas diferentes entre si.

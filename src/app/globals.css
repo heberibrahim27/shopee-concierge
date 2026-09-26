@@ -455,7 +455,8 @@ img {
 .dc-promo-scroll,
 .dc-grid-scroll,
 .dc-coupon-scroll,
-.dc-guide-scroll {
+.dc-guide-scroll,
+.dc-store-filter-scroll {
   scrollbar-width: none;
 }
 
@@ -465,7 +466,8 @@ img {
 .dc-promo-scroll::-webkit-scrollbar,
 .dc-grid-scroll::-webkit-scrollbar,
 .dc-coupon-scroll::-webkit-scrollbar,
-.dc-guide-scroll::-webkit-scrollbar {
+.dc-guide-scroll::-webkit-scrollbar,
+.dc-store-filter-scroll::-webkit-scrollbar {
   display: none;
 }
 
@@ -1377,6 +1379,61 @@ img {
   font-weight: 700;
   color: var(--dc-brand-deep);
   text-decoration: none;
+}
+
+/* Filtro de loja em /cupons -- Heber: "tá mal organizado esse layout"
+   (2026-09-25). Reaproveitava .dc-price-filter-row (flex-wrap: wrap),
+   pensada pra 2-3 pills de preço; com 24 lojas virava uma parede de
+   pills quebrando linha, empurrando os cupons de verdade pra muito
+   baixo. Linha única com scroll horizontal, mesmo padrão do resto do
+   site, com a logo real da loja quando existe (ver platforms.ts). */
+.dc-store-filter-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin: 0 -18px;
+  padding-inline: 18px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dc-store-filter-pill {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px 7px 7px;
+  border-radius: 999px;
+  border: 1.5px solid var(--dc-border);
+  background: var(--dc-card-bg);
+  color: var(--dc-text);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.dc-store-filter-pill:hover {
+  border-color: var(--dc-brand);
+  color: var(--dc-brand-deep);
+}
+
+.dc-store-filter-logo {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ffffff;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dc-store-filter-logo img {
+  width: 82%;
+  height: 82%;
+  object-fit: contain;
 }
 
 .dc-coupon-grid {
@@ -2579,11 +2636,39 @@ img {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: var(--dc-card-bg);
   border: 1.5px solid var(--dc-border);
   border-radius: var(--dc-radius-sm);
-  padding: 16px 10px;
+  padding: 18px 10px 14px;
+}
+
+/* Logo real (Heber, 2026-09-25: "coloque as logos reais") -- mesmo
+   padrão de .dc-coupon-store-logo/.dc-store-filter-logo, só maior aqui
+   (card individual, não pill de filtro). */
+.dc-partner-logo {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid var(--dc-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.dc-partner-logo img {
+  width: 76%;
+  height: 76%;
+  object-fit: contain;
+}
+
+.dc-partner-label {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--dc-text);
 }
 
 .dc-partner-badge {

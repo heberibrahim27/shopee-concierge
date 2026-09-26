@@ -3,6 +3,7 @@ import { Footer } from "../../components/site/Footer";
 import { CouponCard } from "../../components/site/CouponCard";
 import { getCachedCoupons } from "../../lib/site/coupons";
 import { getCachedStoreDirectory } from "../../lib/site/stores";
+import { getPlatformInfo, getAdvertiserLogo } from "../../lib/site/platforms";
 
 export function generateMetadata() {
   return {
@@ -28,12 +29,26 @@ export default async function CuponsPage() {
 
         {storesWithCoupons.length > 0 ? (
           <section className="dc-section" style={{ paddingBlock: "0 4px" }}>
-            <div className="dc-price-filter-row">
-              {storesWithCoupons.map((store) => (
-                <a key={store.slug} href={`/cupom/${store.slug}`} className="dc-price-filter-pill">
-                  {store.label} ({store.couponCount})
-                </a>
-              ))}
+            <div className="dc-store-filter-scroll">
+              {storesWithCoupons.map((store) => {
+                const info = getPlatformInfo(store.slug);
+                const logo = info.logoUrl
+                  ? { logoUrl: info.logoUrl, logoBg: info.logoBg }
+                  : getAdvertiserLogo(store.label);
+                return (
+                  <a key={store.slug} href={`/cupom/${store.slug}`} className="dc-store-filter-pill">
+                    {logo ? (
+                      <span
+                        className="dc-store-filter-logo"
+                        style={logo.logoBg ? { background: logo.logoBg } : undefined}
+                      >
+                        <img src={logo.logoUrl} alt="" loading="lazy" />
+                      </span>
+                    ) : null}
+                    {store.label} ({store.couponCount})
+                  </a>
+                );
+              })}
             </div>
           </section>
         ) : null}

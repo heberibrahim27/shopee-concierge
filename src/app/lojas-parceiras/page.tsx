@@ -52,18 +52,32 @@ export default async function PartnerStoresPage() {
           não custa nada a mais pra você e não muda qual oferta aparece primeiro.
         </p>
 
-        <h2>Nossas lojas</h2>
+        {/* "Nossas lojas" (2026-09-25, Heber: "remova... pra evitar
+            processo") soava como posse/parceria oficial da marca --
+            corrigido pro mesmo tom neutro do resto da página ("lojas
+            monitoradas" no stat acima). */}
+        <h2>Lojas monitoradas</h2>
         <div className="dc-partner-grid">
           {stats.map(({ platform, count }) => {
             const info = getPlatformInfo(platform);
             return (
               <a key={platform} className="dc-partner-card" href={`/loja/${platform}`}>
-                <span
-                  className="dc-partner-badge"
-                  style={{ background: info.color, color: info.textColor }}
-                >
-                  {info.label}
-                </span>
+                {info.logoUrl ? (
+                  <span
+                    className="dc-partner-logo"
+                    style={info.logoBg ? { background: info.logoBg } : undefined}
+                  >
+                    <img src={info.logoUrl} alt="" loading="lazy" />
+                  </span>
+                ) : (
+                  <span
+                    className="dc-partner-badge"
+                    style={{ background: info.color, color: info.textColor }}
+                  >
+                    {info.label}
+                  </span>
+                )}
+                {info.logoUrl ? <span className="dc-partner-label">{info.label}</span> : null}
                 <span className="dc-partner-count">{count.toLocaleString("pt-BR")} produtos</span>
               </a>
             );
