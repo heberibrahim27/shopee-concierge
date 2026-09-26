@@ -36,6 +36,26 @@ fixadora, serra, esmerilhadeira, lixadeira, solda, multímetro, nível a
 laser, trena) e rodado `backfill-recategorize-casa.ts` de novo --
 confirmado os 18 movidos pra "ferramentas".
 
+## 2026-09-26 — Cupom do grupo travado sempre no mesmo (DeÔnibus): constraint do banco desatualizada
+
+**"Depois olhe o cupom que está mandando no grupo só tem esse de
+ônibus"** (Heber): causa raiz real, confirmada passo a passo --
+`social_posts.post_type` tem uma constraint no banco que nunca foi
+atualizada quando `publish-whatsapp-coupon` passou a gravar
+`'whatsapp-coupon'` (só aceitava feed/reel/story/whatsapp). Toda
+inserção de dedupe falhava (`23514 check constraint violation`), mas o
+código não checava o erro do insert -- a mensagem saía certa no grupo
+TODA execução (confirmei rodando o cron de verdade, mandou de novo),
+só o histórico nunca era salvo. Sem histórico, "cupom menos recente"
+sempre empatava e o primeiro da lista (DeÔnibus) ganhava pra sempre.
+
+Corrigido: migration `20260926171500` adiciona `'whatsapp-coupon'` à
+constraint; código agora loga (não engole) se um insert de dedupe
+falhar. Mesmo padrão de insert-sem-checar-erro existe em mais 2 crons
+irmãos (`publish-whatsapp-group`, `publish-product`) mas com
+`post_type` que já está na lista permitida -- não quebrado hoje, fica
+registrado como risco latente pra auditoria futura, não mexido agora.
+
 ## 2026-09-26 — IndexNow implementado (achado de pesquisa com o ChatGPT sobre aquisição)
 
 **"Sobre melhorias no site na parte de receita, que tal procurar mais

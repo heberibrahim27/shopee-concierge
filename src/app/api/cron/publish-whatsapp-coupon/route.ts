@@ -213,7 +213,16 @@ export async function GET(request: NextRequest) {
       linkDescription,
       linkSize: "large",
     });
-    await db.from("social_posts").insert({
+    // Achado real (2026-09-26, Heber: "o cupom que está mandando no
+    // grupo só tem esse de ônibus"): esse insert falhava em silêncio há
+    // dias (constraint do banco desatualizada, ver migration
+    // 20260926171500) porque o resultado nunca era checado -- a
+    // mensagem saía certa no grupo, mas o dedupe nunca era gravado, e o
+    // mesmo cupom (primeiro elegível da lista) ganhava a rotação pra
+    // sempre. Loga o erro agora em vez de engolir silenciosamente --
+    // nunca deve travar a resposta (a mensagem já foi enviada de
+    // verdade nesse ponto).
+    const { error: insertError } = await db.from("social_posts").insert({
       coupon_id: coupon.id,
       post_type: "whatsapp-coupon",
       image_url: imageUrl,
@@ -221,9 +230,10 @@ export async function GET(request: NextRequest) {
       status: "posted",
       posted_at: new Date().toISOString(),
     });
+    if (insertError) console.error("[publish-whatsapp-coupon] falha ao gravar dedupe (mensagem já foi enviada):", insertError.message);
     return NextResponse.json({ ok: true, couponId: coupon.id, advertiserName: coupon.advertiserName });
   } catch (err) {
-    await db.from("social_posts").insert({
+    const { error: insertError } = await db.from("social_posts").insert({
       coupon_id: coupon.id,
       post_type: "whatsapp-coupon",
       image_url: imageUrl,
@@ -231,6 +241,7 @@ export async function GET(request: NextRequest) {
       status: "failed",
       error: String(err instanceof Error ? err.message : err),
     });
+    if (insertError) console.error("[publish-whatsapp-coupon] falha ao gravar status de erro:", insertError.message);
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : String(err) },
       { status: 500 }
