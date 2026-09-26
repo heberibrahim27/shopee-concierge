@@ -52,6 +52,26 @@ em `/categorias`, no grid de toda página de categoria e agora tem link
 "Ver todos" nas seções da home. Testado ao vivo no navegador antes de
 subir (ladrilho, destaque ativo, grid de produto, link da home).
 
+## 2026-09-26 — Banner do site (OG do WhatsApp + banner da home) atualizado pra marca nova
+
+**"Mude isso, a imagem que carrega com o link tá desatualizada"**
+(Heber, print do card do WhatsApp): `public/BANNER-FINAL.png` (usado
+como `og:image` de todo o site em `layout.tsx` E como o banner
+visível da home em `banners.ts`) ainda usava a marca verde de antes
+do redesign -- o site inteiro já migrou pra navy+laranja-coral
+(`LOGO-LIGHT.png`) faz tempo, só esse arquivo ficou pra trás.
+
+Gerado um banner novo via `@vercel/og` (mesma stack já comprovada do
+`story-template`, fontes Poppins existentes) -- não renderiza local no
+Windows (limitação conhecida, caminho de fonte incompatível), então
+criei uma rota temporária, gerei em produção, baixei o PNG resultante e
+apaguei a rota depois. 3 iterações visuais reais (não só teoria):
+primeira versão estourou a borda direita com o texto; segunda corrigiu
+o texto mas ficou com a metade direita vazia; terceira adicionou um
+ícone de etiqueta bem sutil de fundo pra equilibrar. Mesmas dimensões
+(1983×793) e mesmo texto/estrutura do banner antigo, só a marca
+atualizada.
+
 ## 2026-09-26 — Feed de "Mais Vendidos" da Shopee inteira integrado ao catálogo
 
 **"Não consegue puxar o catálogo por essa aba?"** (Heber, print das abas
