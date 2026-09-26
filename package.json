@@ -14,7 +14,8 @@
     "remotion:studio": "remotion studio remotion/index.ts",
     "remotion:render": "remotion render remotion/index.ts",
     "test:coupon-rules": "tsx scripts/test-coupon-rules.ts",
-    "test:coupon-intent": "tsx scripts/test-coupon-intent.ts"
+    "test:coupon-intent": "tsx scripts/test-coupon-intent.ts",
+    "test:related-products": "tsx scripts/test-related-products.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.116.0",

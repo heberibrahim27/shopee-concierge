@@ -4,6 +4,35 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 — "Veja também" mostrava produto de R$10 mil pra item de R$90 ("Bug dos brabos")
+
+Heber, com print real: página de um repetidor Wi-Fi de R$89,90 mostrando
+monitor de R$10.099, HD de R$10.199, iPad de R$10.199 e monitor ASUS de
+R$10.399 como "Veja também" -- confirmou ao vivo que os preços em si
+estavam certos (clicou, é real), o problema era só o algoritmo de
+recomendação. Causa raiz em duas camadas (`src/lib/site/related.ts`):
+
+1. O pool usado pra achar "produto parecido" são os 120 produtos mais
+   RECENTES da categoria (recência, não preço) -- confirmado ao vivo que
+   nesse momento os 120 mais recentes de "eletronicos" não tinham NADA
+   abaixo de R$5.859, mesmo a categoria inteira tendo item a partir de
+   R$4,24.
+2. O fallback antigo, sem achar nada na faixa de preço (metade a dobro),
+   usava QUALQUER candidato do mesmo pool caro mesmo assim, ordenado só
+   pelo "mais próximo" -- por isso os 4 itens mostrados eram todos
+   parecidos entre si (~R$10 mil), só não com o produto real da página.
+
+Corrigido: faixa de preço progressiva (2x → 3x → 6x) primeiro; se nem
+assim achar o suficiente, busca um SEGUNDO pool direto do banco
+ordenado por preço ascendente (não recência) -- garante achado barato
+de verdade. Heber, na sequência: "quero produto bom e barato" / "achadinhos
+não tem produto de 10 mil" -- o fallback final nunca mais volta pro
+"mais próximo que sobrou" (era o bug), sempre cai pro mais barato da
+categoria com avaliação decente. Testado com `scripts/test-related-products.ts`
+(`npm run test:related-products`, 5 casos, ALL OK) e confirmado ao vivo
+no produto real: "Veja também" agora mostra achados de R$4,24 a R$9,99,
+bem avaliados, em vez de eletrônico de R$10 mil.
+
 ## 2026-09-25 — /cupons: filtro de loja reorganizado; /lojas-parceiras: texto neutro + logo real
 
 **`/cupons` "tá mal organizado"**: o filtro de 24 lojas reaproveitava
