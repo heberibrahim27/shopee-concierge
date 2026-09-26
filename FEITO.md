@@ -36,6 +36,23 @@ fixadora, serra, esmerilhadeira, lixadeira, solda, multímetro, nível a
 laser, trena) e rodado `backfill-recategorize-casa.ts` de novo --
 confirmado os 18 movidos pra "ferramentas".
 
+## 2026-09-26 — Cupom só mandava coisa da Awin (KaBuM!): rotação sem trava de rede
+
+**"Vc ajustou o cupom e só tá mandando coisas da Awin no grupo! Tá
+foda"** (Heber, logo depois do fix do DeÔnibus): investigado com dado
+real, não suposição -- a piscina de cupom elegível hoje tem só 12
+ativos, e **5 são da KaBuM! sozinha** (quase metade: BALAROTI 2, ECO
+FLAME GARDEN 2, DeÔnibus 1, Brinox 1, Malwee 1). Rotação girava certo
+por CUPOM individual e por ANUNCIANTE, mas sem noção de REDE -- Kabum/
+Nike/Olympikus são todos Awin, então mesmo girando "certo" entre
+cupons, a mesma rede dominava visualmente.
+
+Corrigido com a mesma lição já provada em `publish-whatsapp-group`:
+`couponBucket()` agrupa Kabum/Nike/Olympikus como "awin"; a escolha
+agora nunca repete a rede do post anterior se existir opção real de
+outra rede disponível. Testado (dry-run): depois de um post real da
+KaBuM!, a próxima escolha foi pra outra rede.
+
 ## 2026-09-26 — Cupom do grupo travado sempre no mesmo (DeÔnibus): constraint do banco desatualizada
 
 **"Depois olhe o cupom que está mandando no grupo só tem esse de

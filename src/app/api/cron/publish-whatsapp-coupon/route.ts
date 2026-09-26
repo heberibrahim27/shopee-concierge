@@ -77,10 +77,10 @@ async function fetchEligibleCoupons(db: ReturnType<typeof getDbFresh>): Promise<
 
 async function fetchPostedCouponHistory(
   db: ReturnType<typeof getDbFresh>
-): Promise<{ couponId: string; advertiserName: string; postedAt: string }[]> {
+): Promise<{ couponId: string; advertiserName: string; platform: string | null; postedAt: string }[]> {
   const { data, error } = await db
     .from("social_posts")
-    .select("posted_at, coupons(id, advertiser_name)")
+    .select("posted_at, coupons(id, advertiser_name, platform)")
     .eq("post_type", "whatsapp-coupon")
     .eq("status", "posted")
     .order("posted_at", { ascending: false });
@@ -89,15 +89,34 @@ async function fetchPostedCouponHistory(
     .map((row: any) => {
       const coupon = row.coupons;
       if (!coupon?.id) return null;
-      return { couponId: String(coupon.id), advertiserName: String(coupon.advertiser_name), postedAt: row.posted_at };
+      return {
+        couponId: String(coupon.id),
+        advertiserName: String(coupon.advertiser_name),
+        platform: (coupon.platform as string | null) ?? null,
+        postedAt: row.posted_at,
+      };
     })
-    .filter((r): r is { couponId: string; advertiserName: string; postedAt: string } => r !== null);
+    .filter((r): r is { couponId: string; advertiserName: string; platform: string | null; postedAt: string } => r !== null);
 }
 
-/** Par (loja, cupom nunca postado) primeiro; entre lojas, a que ficou mais tempo sem aparecer vence — mesma ideia de "par mais desatualizado" do cron de produto, sem competir com ele (universo de dedupe separado). */
+// Achado real (2026-09-26, Heber: "só tá mandando coisas da Awin no
+// grupo"): a piscina de cupom elegível hoje tem só 12 ativos, e 5 são
+// da KaBuM! sozinha (quase metade) -- rotação só "por anunciante"
+// deixa a Awin (Kabum/Nike/Olympikus, mesmo feed) dominar visualmente
+// mesmo girando certo entre cupons individuais. Mesma lição do
+// `platformBucket`/streak já usado em publish-whatsapp-group/route.ts,
+// aplicada aqui: nunca repete a MESMA rede duas vezes seguidas, se
+// existir opção real de outra rede.
+const AWIN_COUPON_PLATFORMS = new Set(["kabum", "nike", "olympikus"]);
+function couponBucket(platform: string | null): string {
+  if (!platform) return "outras";
+  return AWIN_COUPON_PLATFORMS.has(platform) ? "awin" : platform;
+}
+
+/** Par (loja, cupom nunca postado) primeiro; entre lojas, a que ficou mais tempo sem aparecer vence — mesma ideia de "par mais desatualizado" do cron de produto, sem competir com ele (universo de dedupe separado). Depois, se o topo da fila repetir a rede do post anterior e existir opção de outra rede, troca. */
 function pickNextCoupon(
   eligible: EligibleCoupon[],
-  history: { couponId: string; advertiserName: string; postedAt: string }[]
+  history: { couponId: string; advertiserName: string; platform: string | null; postedAt: string }[]
 ): EligibleCoupon | null {
   const postedCouponIds = new Set(history.map((h) => h.couponId));
   const lastPostedByAdvertiser = new Map<string, number>();
@@ -111,11 +130,18 @@ function pickNextCoupon(
   const pool = candidates.length > 0 ? candidates : eligible; // catálogo esgotado -- último recurso, repete o mais antigo
   if (pool.length === 0) return null;
 
-  return [...pool].sort((a, b) => {
+  const sorted = [...pool].sort((a, b) => {
     const lastA = lastPostedByAdvertiser.get(a.advertiserName) ?? -Infinity;
     const lastB = lastPostedByAdvertiser.get(b.advertiserName) ?? -Infinity;
     return lastA - lastB;
-  })[0];
+  });
+
+  const lastBucket = history.length > 0 ? couponBucket(history[0].platform) : null;
+  if (lastBucket) {
+    const differentBucket = sorted.find((c) => couponBucket(c.platform) !== lastBucket);
+    if (differentBucket) return differentBucket;
+  }
+  return sorted[0];
 }
 
 function buildImageUrl(coupon: EligibleCoupon): string {
