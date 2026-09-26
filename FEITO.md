@@ -4,6 +4,27 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-26 — Catálogo: busca ao vivo parava de exigir sinal real de mercado antes de virar produto permanente
+
+**"Como vamos sortir esse catálogo da shopee?"** (Heber, depois do print
+com dezenas de "Escova a Vapor Elétrica" quase idênticas): causa raiz
+achada em `liveSearch.ts` -- a função que persiste resultado de busca ao
+vivo como produto permanente (`persistNewLiveOffers`, criada
+2026-09-25) só filtrava nota claramente ruim (1-3.9), deixando passar
+nota=0 "de propósito" pra não penalizar produto novo. Sem nenhum piso
+de vendas/avaliação, toda pesquisa por um termo genérico (ex. "escova a
+vapor") persistia até 20 anúncios quase-idênticos de lojistas
+diferentes -- confirmado: as 16 escovas que entupiram "Beleza" tinham
+nota=0 E vendas=0 em TODAS, sem exceção (dropship sem histórico
+nenhum). Corrigido com `hasRealSignal()`: só vira produto PERMANENTE do
+catálogo quem tem pelo menos nota OU venda real (a busca ao vivo em si,
+o resultado mostrado na hora pro usuário, continua sem esse filtro --
+intenção de compra ainda vale, só não vira catálogo permanente sem
+nenhum sinal). Limpeza retroativa (`scripts/unpublish-zero-signal-
+cluster.ts`): as 16 escovas despublicadas (site_published=false,
+produto continua no banco, reversível) -- os outros 60 produtos de
+"Beleza" com sinal real ficaram intactos.
+
 ## 2026-09-26 — Card de cupom no WhatsApp mostrava texto genérico da home + escovas a vapor recategorizadas
 
 **"Compartilhamento de cupons da nessa versão feia demais no whats"**

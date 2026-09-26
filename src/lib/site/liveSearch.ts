@@ -95,17 +95,37 @@ function toShopeeSortType(sort: SortOption): ShopeeSortType {
 // também. Idempotente: primeiro filtra quem já existe (por
 // shopee_item_id) pra nunca reprocessar/duplicar buscas repetidas do
 // mesmo termo -- na maioria das buscas isso já é zero trabalho.
+//
+// Achado real (Heber, 2026-09-26: "olha a quantidade de escova elétrica
+// que tem na categoria casa/beleza"): `isDecentOffer` só barra nota
+// ruim (1-3.9) e deixa passar nota=0 de propósito ("produto novo não é
+// a mesma coisa que produto ruim") -- mas isso vale pro que aparece NA
+// HORA da busca, não pro que vira produto PERMANENTE do catálogo. Sem
+// nenhum piso de vendas/avaliação aqui, toda pesquisa por um termo tipo
+// "escova a vapor" persistia até 20 anúncios quase-idênticos (dropship,
+// lojas diferentes, mesma foto/descrição) com nota E vendas zeradas --
+// achado real: as 16 escovas que entupiram "Beleza" tinham 0 vendas e 0
+// nota, sem exceção. Pra virar catálogo permanente (não só resultado
+// efêmero de busca) exige pelo menos um sinal real de mercado.
+function hasRealSignal(offer: ShopeeProductOffer): boolean {
+  const rating = Number(offer.ratingStar);
+  const sales = Number(offer.sales);
+  return (Number.isFinite(rating) && rating > 0) || (Number.isFinite(sales) && sales > 0);
+}
+
 async function persistNewLiveOffers(offers: ShopeeProductOffer[]): Promise<void> {
   if (offers.length === 0) return;
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return;
 
   try {
     const db = getDb();
-    const itemIds = offers.map((o) => o.itemId);
+    const withSignal = offers.filter(hasRealSignal);
+    if (withSignal.length === 0) return;
+    const itemIds = withSignal.map((o) => o.itemId);
     const { data: existing, error } = await db.from("products").select("shopee_item_id").in("shopee_item_id", itemIds);
     if (error) throw new Error(error.message);
     const known = new Set((existing ?? []).map((r) => String(r.shopee_item_id)));
-    const toPublish = offers.filter((o) => !known.has(o.itemId));
+    const toPublish = withSignal.filter((o) => !known.has(o.itemId));
     if (toPublish.length === 0) return;
 
     // Em paralelo (não sequencial) -- cada item é independente, e a
