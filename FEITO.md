@@ -4,6 +4,10 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 — Guias de compra: foto específica por guia (não mais a mesma da categoria)
+
+Heber viu os cards de guia lado a lado no scroll da home: "Mesma foto?" — os 4 guias de "eletrônicos" (SSD Kabum×Shopee, SSD NVMe×SATA, TV 4K, Notebook) todos usavam a mesma foto genérica da categoria (carregador USB-C, `CATEGORY_TILES`). Corrigido com `thumbnailUrl` por guia em `guides.ts`, apontando pra foto real de um dos produtos que o próprio guia já cita nos blocos (SSD Kingston NV3, SSD Kingston A400, Smart TV Philips 50PUG7300, Notebook Lenovo IdeaPad, tênis Olympikus, fogão Suggar) — nenhuma arte nova, só reaproveitar imagem que já existe no catálogo. As 6 fotos agora são todas diferentes entre si.
+
 ## 2026-09-25 — Cupom real no grupo do WhatsApp
 
 Heber: "envio de cupons no grupo, podemos??". Novo cron

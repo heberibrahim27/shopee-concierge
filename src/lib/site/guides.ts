@@ -26,6 +26,12 @@ export interface GuideDefinition {
   intro: string;
   blocks: GuideBlock[];
   categorySlug?: string;
+  /** Foto real de um dos produtos que o guia cita (não a foto genérica da
+   * categoria) -- achado real 2026-09-25, Heber: "mesma foto?" nos 4
+   * guias de eletrônicos, todos usando o mesmo carregador USB-C da
+   * categoria. Cada guia agora mostra o produto de que ele fala de
+   * verdade. */
+  thumbnailUrl?: string;
 }
 
 export const GUIDES: GuideDefinition[] = [
@@ -33,6 +39,8 @@ export const GUIDES: GuideDefinition[] = [
     slug: "kabum-ou-shopee-onde-ssd-e-mais-barato",
     title: "Kabum ou Shopee: onde o SSD sai mais barato?",
     categorySlug: "eletronicos",
+    thumbnailUrl:
+      "https://images2.productserve.com/?w=200&h=200&bg=white&trim=5&t=letterbox&url=images2.kabum.com.br%2Fprodutos%2Ffotos%2F621162%2Fssd-pcie-kingston-nv3-1-tb-m-2-2280-nvme-leitura-6000-mb-s-e-gravacao-4000-mb-s-snv3s-1000g_1726082185_g.jpg&feedId=46967&k=70e0a85a12d1aa2816441087b5c990998e6fb54c",
     description:
       "Comparamos o mesmo SSD, exatamente o mesmo modelo, em Kabum e Shopee — o preço muda mais do que parece.",
     intro:
@@ -60,6 +68,8 @@ export const GUIDES: GuideDefinition[] = [
     slug: "ssd-nvme-ou-sata-qual-comprar",
     title: "SSD NVMe ou SATA: qual a diferença na prática?",
     categorySlug: "eletronicos",
+    thumbnailUrl:
+      "https://images2.productserve.com/?w=200&h=200&bg=white&trim=5&t=letterbox&url=images7.kabum.com.br%2Fprodutos%2Ffotos%2F85197%2F85197_1484306076_g.jpg&feedId=46967&k=ef516ac34476899a15aaf1b8ff08dee58a4dd89b",
     description:
       "NVMe e SATA são dois tipos de SSD bem diferentes na velocidade e no preço — veja qual faz sentido pro seu uso.",
     intro:
@@ -99,6 +109,7 @@ export const GUIDES: GuideDefinition[] = [
     slug: "tv-4k-50-polegadas-o-que-olhar-antes-de-comprar",
     title: "TV 4K de 50\": o que olhar antes de comprar",
     categorySlug: "eletronicos",
+    thumbnailUrl: "https://http2.mlstatic.com/D_Q_NP_2X_603690-MLA93305557455_092025-E.webp",
     description:
       "Resolução, taxa de atualização e HDMI são os pontos que realmente importam — e o mesmo modelo pode custar diferente em cada loja.",
     intro:
@@ -120,6 +131,8 @@ export const GUIDES: GuideDefinition[] = [
     slug: "notebook-ate-4000-reais-os-mais-em-conta",
     title: "Notebook até R$4.000: os modelos mais em conta hoje",
     categorySlug: "eletronicos",
+    thumbnailUrl:
+      "https://images2.productserve.com/?w=200&h=200&bg=white&trim=5&t=letterbox&url=images8.kabum.com.br%2Fprodutos%2Ffotos%2F1037468%2Fnotebook-lenovo-ideapad-slim-3-amd-ryzen-5-7535hs-8gb-amd-radeon-graphics-ssd-512gb-15-3-wuxga-1920x1200-linux-83mms00300_1780426518_g.jpg&feedId=46967&k=b80bf43f0f83044c5328d49a93fa14c2f55c876a",
     description:
       "Levantamento real do catálogo: hoje o notebook mais barato que vendemos custa a partir de R$3.199 — veja as opções.",
     intro:
@@ -143,6 +156,8 @@ export const GUIDES: GuideDefinition[] = [
     slug: "tenis-olympikus-guia-dos-modelos",
     title: "Tênis Olympikus: guia rápido dos modelos",
     categorySlug: "esporte",
+    thumbnailUrl:
+      "https://images2.productserve.com/?w=200&h=200&bg=white&trim=5&t=letterbox&url=ssl%3Avulcabras.vteximg.com.br%2Farquivos%2Fids%2F185341_2&feedId=51837&k=74add11e0631797e165d222231a3eecfa0ebe2ec",
     description: "Conferimos no catálogo os modelos reais disponíveis hoje e o que diferencia cada linha.",
     intro:
       "A Olympikus tem várias linhas de tênis, e o nome do modelo já indica bastante sobre a proposta de cada um. Reunimos aqui os que estão disponíveis agora, do mais simples ao mais em conta.",
@@ -166,6 +181,7 @@ export const GUIDES: GuideDefinition[] = [
   {
     slug: "como-sabemos-se-o-preco-e-bom",
     title: "Como sabemos se um preço é realmente bom",
+    thumbnailUrl: "https://cf.shopee.com.br/file/sg-11134201-7rdxi-m1606d8sgssu19",
     description:
       "Explicamos o selo de \"menor preço\" e \"atualizado há X\" que aparece nas páginas de produto — e como funciona de verdade por trás.",
     intro:
