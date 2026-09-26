@@ -4,6 +4,23 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 — Cupom real no grupo do WhatsApp
+
+Heber: "envio de cupons no grupo, podemos??". Novo cron
+`/api/cron/publish-whatsapp-coupon`, mesmo grupo/conector Z-API do cron
+de produto (`publish-whatsapp-group`), fila e dedupe SEPARADOS
+(`social_posts.post_type='whatsapp-coupon'`, nunca se cruza com o
+dedupe de produto). Só cupom com código real (coluna ou extraído do
+texto) e sem restrição de elegibilidade ("selecionados" etc não entra —
+promessa que a mensagem direta do grupo não sustenta sem a nuance do
+card do site). Rotaciona por loja (par "loja nunca postada" vence,
+como o cron irmão). Migration aditiva em `social_posts`
+(`deal_candidate_id` virou opcional, `coupon_id` novo) já aplicada,
+retrocompatível com o fluxo de produto. Testado de ponta a ponta com
+`?dryRun=1` real antes de subir (candidato real, link de convite real,
+mensagem completa). Heber escolheu: a cada 2h (`0 */2 * * *`, dentro da
+janela 8h-21h Brasília já existente), ativado direto no `vercel.json`.
+
 ## 2026-09-25 — Guias de compra na home viram cards de scroll horizontal
 
 Heber, depois de ver a lista vertical nova com foto: "não tá legal, poderia ser cards tbm com scroll horizontal? Quero opinião" -- concordei (lista empilhada de 6 itens grandes destoava do resto da home, que é tudo scroll horizontal: Ofertas de hoje, Mais vendidos, Achados). `GuideListItem` ganhou `variant="card"` (foto em cima, título/descrição truncados por line-clamp), usado só na home dentro de `.dc-guide-scroll`. `/guia` (listagem completa) e os guias relacionados de categoria/produto (1-3 itens) continuam na lista vertical original (`variant="row"`, padrão), onde faz mais sentido.

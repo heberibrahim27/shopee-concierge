@@ -42,6 +42,7 @@
     { "path": "/api/cron/publish-product", "schedule": "0 1 * * *" },
     { "path": "/api/cron/publish-product", "schedule": "45 1 * * *" },
     { "path": "/api/cron/publish-whatsapp-group", "schedule": "*/10 * * * *" },
+    { "path": "/api/cron/publish-whatsapp-coupon", "schedule": "0 */2 * * *" },
     { "path": "/api/cron/price-alerts", "schedule": "50 11 * * *" },
     { "path": "/api/cron/mercadolivre-discovery", "schedule": "0 12 * * 1" }
   ]
