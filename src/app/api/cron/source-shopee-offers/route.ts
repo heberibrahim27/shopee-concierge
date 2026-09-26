@@ -27,8 +27,18 @@ function offerKey(o: ShopeeOffer): string {
   return `shopee:${o.offerType}:${id}`;
 }
 
+// Achado real (Heber, 2026-09-25, print do cupom Shopee: "Válido até
+// 31/12/2999"): a API devolve periodEndTime=32503651199 pra promoção
+// sem data de fim de verdade -- sentinela "sem fim", igual em espírito
+// ao marcador de +366 dias da Awin (ver isAwinOpenEnded em
+// couponRules.ts), só que aqui é uma data literalmente absurda em vez
+// de "hoje + 1 ano". Qualquer epoch que caia depois do ano 2900 é
+// tratado como "sem data real" -- vira null, não aparece pro usuário.
+const NO_REAL_DATE_THRESHOLD_SEC = Date.UTC(2900, 0, 1) / 1000;
+
 function epochToIso(v: number | undefined): string | null {
   if (!v || v <= 0) return null;
+  if (v >= NO_REAL_DATE_THRESHOLD_SEC) return null;
   return new Date(v * 1000).toISOString();
 }
 

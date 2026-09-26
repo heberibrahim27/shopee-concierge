@@ -23,7 +23,13 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     "switch", "controladora para dj", "controladora de dj",
   ],
   esporte: ["tênis", "tenis", "bicicleta", "bike", "academia", "musculação", "esteira", "halter"],
-  beleza: ["maquiagem", "batom", "perfume", "shampoo", "creme", "skincare", "secador"],
+  // "escova alisadora"/"escova a vapor" ampliado 2026-09-25 (achado ao
+  // vivo: busca por "escova alisadora a vapor" persistindo direto da
+  // Shopee caía em "casa", faltava termo de cuidado capilar/beleza).
+  beleza: [
+    "maquiagem", "batom", "perfume", "shampoo", "creme", "skincare", "secador", "escova alisadora",
+    "escova a vapor", "chapinha", "prancha de cabelo", "modelador de cabelo", "babyliss",
+  ],
   moda: ["camiseta", "calça", "vestido", "jaqueta", "blusa", "jeans", "bermuda"],
   // Achado real (2026-09-22, debate com o Heber sobre variedade no
   // grupo WhatsApp): papelaria, alimentos, viagem e livros tinham 0

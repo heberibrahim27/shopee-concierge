@@ -4,6 +4,38 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 — Busca ao vivo vira produto do catálogo + cupom Shopee com "validade 2999" corrigido
+
+**"O ideal é salvar no nosso catálogo sempre que alguém pesquisa e tem
+apenas na shopee direto"** (Heber): resultado de busca ao vivo na
+Shopee (`searchShopeeLive`, `/busca`) era 100% efêmero até aqui --
+aparecia na hora, nunca virava produto de verdade (sem categoria, sem
+página própria, fora de "Veja também"/"Mais vendidos"/sitemap). Quem
+pesquisa já demonstrou intenção de compra real -- sinal de demanda
+melhor que qualquer critério dos crons de sourcing. Agora
+`liveSearch.ts` publica os resultados relevantes mostrados ao usuário
+como produto normal (reaproveita `persistOfferSnapshot`, que já
+categoriza via `guessCategorySlug`, + `slug`/`site_published` como os
+outros pipelines fazem). Idempotente (checa `shopee_item_id` já
+conhecido antes de publicar, buscas repetidas do mesmo termo não
+duplicam) e em paralelo (não serializa upserts em cima da já real
+latência da API da Shopee). Testado ao vivo: buscar "escova alisadora a
+vapor" (0 produto no catálogo antes) publicou 17 produtos novos, reais,
+com slug e categoria.
+
+No caminho, achado: os novos produtos caíam em categoria "casa" (não
+"beleza") -- `guessCategorySlug` não tinha termo de cuidado capilar.
+Ampliado com escova alisadora/a vapor, chapinha, prancha, babyliss.
+
+**"A data da validade do cupom, vc observou? 31/12/2999"** (Heber, print
+do cupom Shopee): a API oficial (`shopeeOfferV2`) devolve
+`periodEndTime=32503651199` pra promoção sem fim de verdade -- sentinela
+"sem fim" (mesmo espírito do marcador +366 dias da Awin, só que aqui é
+uma data literalmente absurda em vez de "hoje + 1 ano"). Corrigido em
+`source-shopee-offers/route.ts`: qualquer epoch depois do ano 2900 vira
+`null` na ingestão, não aparece mais pro usuário. Os 30 cupons Shopee já
+gravados com a data sentinela foram corrigidos direto no banco.
+
 ## 2026-09-25 — "Veja também" mostrava produto de R$10 mil pra item de R$90 ("Bug dos brabos")
 
 Heber, com print real: página de um repetidor Wi-Fi de R$89,90 mostrando

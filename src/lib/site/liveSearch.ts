@@ -9,6 +9,9 @@
 import { searchProductsByKeyword } from "../shopee/queries";
 import { ShopeeProductOffer, ShopeeSortType } from "../shopee/types";
 import { SortOption } from "./sort";
+import { getDb } from "../db/client";
+import { persistOfferSnapshot } from "../db/snapshots";
+import { buildProductSlug } from "./slug";
 
 export interface LiveProduct {
   itemId: string;
@@ -77,6 +80,55 @@ function toShopeeSortType(sort: SortOption): ShopeeSortType {
   }
 }
 
+// Achado real (Heber, 2026-09-25): "o ideal é salvar no nosso catálogo
+// sempre que alguém pesquisa e tem apenas na shopee direto". Até aqui,
+// resultado de busca ao vivo era 100% efêmero -- aparecia na hora,
+// nunca virava produto de verdade (sem categoria, sem página própria,
+// sem entrar em "Veja também"/"Mais vendidos"/sitemap). Quem pesquisa
+// já demonstrou intenção de compra real; isso é sinal de demanda melhor
+// que qualquer critério algorítmico dos crons de sourcing. Publica os
+// resultados relevantes (mesmo filtro que já era mostrado ao usuário)
+// como produto normal -- reaproveita persistOfferSnapshot (upsert por
+// shopee_item_id, já cuida de categoria via guessCategorySlug) e só
+// falta slug + site_published, que os outros pipelines (ex.
+// matchAndLinkShopee em source-awin) fazem separado, então faz aqui
+// também. Idempotente: primeiro filtra quem já existe (por
+// shopee_item_id) pra nunca reprocessar/duplicar buscas repetidas do
+// mesmo termo -- na maioria das buscas isso já é zero trabalho.
+async function persistNewLiveOffers(offers: ShopeeProductOffer[]): Promise<void> {
+  if (offers.length === 0) return;
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+
+  try {
+    const db = getDb();
+    const itemIds = offers.map((o) => o.itemId);
+    const { data: existing, error } = await db.from("products").select("shopee_item_id").in("shopee_item_id", itemIds);
+    if (error) throw new Error(error.message);
+    const known = new Set((existing ?? []).map((r) => String(r.shopee_item_id)));
+    const toPublish = offers.filter((o) => !known.has(o.itemId));
+    if (toPublish.length === 0) return;
+
+    // Em paralelo (não sequencial) -- cada item é independente, e a
+    // busca já tá esperando a Shopee responder; serializar N upserts só
+    // pra empilhar latência em cima da latência não ajuda ninguém.
+    await Promise.all(
+      toPublish.map(async (offer) => {
+        try {
+          const { productId } = await persistOfferSnapshot(offer);
+          const slug = buildProductSlug(offer.productName, offer.itemId);
+          await db.from("products").update({ slug, site_published: true, updated_at: new Date().toISOString() }).eq("id", productId);
+        } catch (err) {
+          // Um item ruim (ex. slug colidindo) não pode derrubar a busca
+          // nem os outros itens da mesma leva -- só fica de fora dessa vez.
+          console.error(`[busca] falha ao publicar resultado ao vivo ${offer.itemId}:`, err);
+        }
+      })
+    );
+  } catch (err) {
+    console.error("[busca] falha ao persistir resultados ao vivo:", err);
+  }
+}
+
 export async function searchShopeeLive(term: string, sort: SortOption = "relevancia"): Promise<LiveProduct[]> {
   if (term.trim().length < 2) return [];
   if (!process.env.SHOPEE_APP_ID || !process.env.SHOPEE_SECRET) return [];
@@ -87,10 +139,9 @@ export async function searchShopeeLive(term: string, sort: SortOption = "relevan
       limit: 20,
       sortType: toShopeeSortType(sort),
     });
-    let products = offers
-      .filter(isDecentOffer)
-      .filter((offer) => isRelevantTitle(term, offer.productName))
-      .map(mapOffer);
+    const relevant = offers.filter(isDecentOffer).filter((offer) => isRelevantTitle(term, offer.productName));
+    await persistNewLiveOffers(relevant);
+    let products = relevant.map(mapOffer);
     if (sort === "avaliacao") {
       products = products.sort((a, b) => (b.ratingStar ?? 0) - (a.ratingStar ?? 0));
     }
