@@ -4,6 +4,25 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-26 — Categorização: roupas em "Casa" + falso-positivo estrutural corrigido
+
+**"Categoria casa tá estranha, roupas lá não seria moda?" /
+"Precisamos melhorar a categorização"** (Heber): auditoria da "casa"
+(616 produtos) achou roupas de verdade sem keyword (chinelo, sandália,
+top feminino, regata, moletom, saia) -- 9 recategorizados pra "moda"
+depois de ampliar `categorize.ts` e rodar o backfill de novo.
+
+Achado estrutural no mesmo processo: o próprio ato de auditar via
+grep expôs que `name.includes(keyword)` casa qualquer keyword de UMA
+palavra só dentro de OUTRA palavra ("top" bateria dentro de "Desktop"/
+"Cooktop"/"Kitop" se "top" virasse keyword algum dia) -- risco
+crescente à medida que a lista de keywords só aumenta (11 rodadas de
+expansão nesta sessão). Corrigido com `matchesKeyword()`: keyword de
+uma palavra só agora exige fronteira real (sem letra colada antes/
+depois); frase composta ("mesa de jantar") continua checando substring
+puro, já é específica o suficiente por natureza. Testado com 7 casos
+reais/edge-case antes de subir.
+
 ## 2026-09-26 — "Finca pino" (18 produtos) preso em "Casa" em vez de "Ferramentas"
 
 **"Pesquisei finca pinos e depois olhei em ferramentas e não achei

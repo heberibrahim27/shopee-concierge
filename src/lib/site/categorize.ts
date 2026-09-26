@@ -38,11 +38,19 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     "escova a vapor", "chapinha", "prancha de cabelo", "modelador de cabelo", "babyliss",
     "protetor solar", "clareador facial", "sabonete líquido", "sabonete liquido",
   ],
+  // Achado real (2026-09-26, Heber: "categoria casa tá estranha, roupas
+  // lá não seria moda?"): chinelo/sandália/top de roupa nunca tinham
+  // keyword -- caíam no catch-all. "top" sozinho é perigoso (bateria
+  // dentro de "Desktop"/"Cooktop"/"Kitop"), por isso só entra como
+  // termo composto ("top feminino" etc.), nunca a palavra solta -- ver
+  // `matchesKeyword` abaixo, que agora exige fronteira de palavra pra
+  // keyword de uma palavra só, mas continua checando substring pra frase.
   moda: [
     "camiseta", "calça", "vestido", "jaqueta", "blusa", "jeans", "bermuda", "calcinha", "sutiã",
     "sutia", "legging", "camisola", "pijama", "lingerie", "cinta modeladora", "bolsa feminina",
     "bolsa de ombro", "bolsa tote", "bolsa feminina de ombro", "bolsa estilosa", "meia", "cueca",
-    "bota", "coturno",
+    "bota", "coturno", "chinelo", "sandália", "sandalia", "top feminino", "top cropped", "cropped",
+    "regata", "camisa térmica", "camisa termica", "moletom", "saia",
   ],
   // Achado real (2026-09-22, debate com o Heber sobre variedade no
   // grupo WhatsApp): papelaria, alimentos, viagem e livros tinham 0
@@ -90,10 +98,28 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   moveis: ["sofá", "sofa", "mesa de jantar", "mesa de centro", "mesa de escritorio", "mesa lateral", "cadeira", "estante", "cama box", "rack tv", "guarda roupa"],
 };
 
+// Achado real (2026-09-26, revisão pedida pelo Heber: "precisamos
+// melhorar a categorização"): até aqui era `name.includes(keyword)`
+// puro -- funciona bem pra frase composta ("mesa de jantar"), mas uma
+// keyword de UMA palavra só (ex. "top", "mesa") vira risco real de
+// falso positivo escondido dentro de outra palavra ("Desktop",
+// "Cooktop"). Pra keyword de uma palavra só, exige fronteira real
+// (não pode ter letra colada antes/depois); frase composta continua
+// checando substring puro, já é específica o suficiente por natureza.
+function matchesKeyword(name: string, keyword: string): boolean {
+  if (keyword.includes(" ")) return name.includes(keyword);
+  const idx = name.indexOf(keyword);
+  if (idx === -1) return false;
+  const isLetter = (ch: string | undefined) => !!ch && /\p{L}/u.test(ch);
+  const before = name[idx - 1];
+  const after = name[idx + keyword.length];
+  return !isLetter(before) && !isLetter(after);
+}
+
 export function guessCategorySlug(text: string): string {
   const name = text.toLowerCase();
   for (const [slug, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
-    if (keywords.some((k) => name.includes(k))) return slug;
+    if (keywords.some((k) => matchesKeyword(name, k.toLowerCase()))) return slug;
   }
   return "casa";
 }
