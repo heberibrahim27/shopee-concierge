@@ -4,6 +4,42 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-26 — Feed de "Mais Vendidos" da Shopee inteira integrado ao catálogo
+
+**"Não consegue puxar o catálogo por essa aba?"** (Heber, print das abas
+"Tendência"/"Mais Vendidos" do app Shopee Affiliate): investigado por
+introspecção ao vivo do schema GraphQL da Shopee -- `productOfferV2`
+aceita um argumento `listType` não documentado publicamente.
+`listType: 2` devolve exatamente esse feed (produtos com milhares de
+vendas reais, nota 4.7-4.9, sem precisar de keyword), com paginação real
+confirmada até ~489 itens únicos. `listType: 1` ("Tendência", variação
+semanal) testado com todos os `sortType` -- sempre vazio, não
+disponível pela nossa conta/API. Criada `getBestSellerOffers()` e
+integrada ao `source-deals` (roda todo dia, 3 páginas, compete no mesmo
+funil de score/corte/diversidade que a busca por palavra-chave).
+
+**"Da pra subir tudo pro site? Os mais vendidos de cada categoria...
+Sobe tudo, atualiza a home e as categorias!"**: além da integração
+diária, rodado um backfill único (`scripts/backfill-bestseller-feed.ts`)
+publicando o feed inteiro de uma vez -- corte de qualidade diferente do
+padrão (nota>=4.5 E vendas>=50, SEM exigir desconto mínimo, já que
+produto comprovado não precisa de desconto artificial pra provar valor,
+ao contrário do sourcing por palavra-chave). Achado no meio do caminho:
+mais da metade caía no catch-all "casa" por falta de keyword pra
+relógio/smartwatch, suplemento (whey/creatina/melatonina/magnésio) e
+lingerie/moda íntima -- ampliado `categorize.ts` antes de publicar (a
+mesma lição do "escova a vapor" de mais cedo, aplicada preventivamente
+dessa vez). Resultado: 413 produtos novos processados, todos com
+`site_published=true`. A geração de link de afiliado (`generateShortLink`)
+tomou rate-limit da Shopee depois de ~150 chamadas seguidas -- os
+produtos já ficaram publicados no site mesmo assim (o link já vem
+pronto do próprio feed), só faltou o `deal_candidate` (que é o que torna
+o produto elegível pro grupo de WhatsApp/Instagram, não pro site).
+Rodado `scripts/fill-missing-deal-candidates.ts` depois, bem mais devagar,
+pra completar isso sem repetir o rate-limit. Cache da home/categorias:
+Heber optou por deixar expirar sozinho (até 1h) em vez de me passar o
+`REVALIDATION_SECRET` atualizado da Vercel.
+
 ## 2026-09-26 — Catálogo: busca ao vivo parava de exigir sinal real de mercado antes de virar produto permanente
 
 **"Como vamos sortir esse catálogo da shopee?"** (Heber, depois do print

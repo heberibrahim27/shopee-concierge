@@ -20,17 +20,30 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     "monitor", "webcam", "roteador", "nobreak", "storage", "drone", "impressora", "fonte atx",
     "fonte de alimentação", "gabinete", "headset", "microfone", "water cooler", "air cooler", "ventoinha",
     "pasta térmica", "pasta termica", "pendrive", "cartão de memória", "cartao de memoria", "hub usb",
-    "switch", "controladora para dj", "controladora de dj",
+    "switch", "controladora para dj", "controladora de dj", "relógio", "relogio", "smartwatch",
+    "smart watch", "filtro de linha", "régua de tomadas", "regua de tomadas",
   ],
   esporte: ["tênis", "tenis", "bicicleta", "bike", "academia", "musculação", "esteira", "halter"],
+  // Achado real (2026-09-26, feed de "Mais Vendidos" da Shopee inteira --
+  // ver getBestSellerOffers): mais da metade caía em "casa" (catch-all)
+  // porque best-seller nacional é dominado por relógio/smartwatch,
+  // suplemento e lingerie/moda íntima -- categorias que as keywords de
+  // BUSCA (KEYWORD_POOL) nunca precisaram cobrir, já que ninguém aqui
+  // buscava isso de propósito antes.
   // "escova alisadora"/"escova a vapor" ampliado 2026-09-25 (achado ao
   // vivo: busca por "escova alisadora a vapor" persistindo direto da
   // Shopee caía em "casa", faltava termo de cuidado capilar/beleza).
   beleza: [
     "maquiagem", "batom", "perfume", "shampoo", "creme", "skincare", "secador", "escova alisadora",
     "escova a vapor", "chapinha", "prancha de cabelo", "modelador de cabelo", "babyliss",
+    "protetor solar", "clareador facial", "sabonete líquido", "sabonete liquido",
   ],
-  moda: ["camiseta", "calça", "vestido", "jaqueta", "blusa", "jeans", "bermuda"],
+  moda: [
+    "camiseta", "calça", "vestido", "jaqueta", "blusa", "jeans", "bermuda", "calcinha", "sutiã",
+    "sutia", "legging", "camisola", "pijama", "lingerie", "cinta modeladora", "bolsa feminina",
+    "bolsa de ombro", "bolsa tote", "bolsa feminina de ombro", "bolsa estilosa", "meia", "cueca",
+    "bota", "coturno",
+  ],
   // Achado real (2026-09-22, debate com o Heber sobre variedade no
   // grupo WhatsApp): papelaria, alimentos, viagem e livros tinham 0
   // produto no catálogo inteiro — nem a busca diária ia atrás delas,
@@ -54,7 +67,11 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   pet: ["cachorro", "gato", "pet ", "ração", "coleira"],
   games: ["controle", "playstation", "xbox", "console", "gamer"],
   automotivo: ["automotivo", "carro", "pneu", "farol"],
-  saude: ["vitamina", "suplemento", "termômetro", "massageador"],
+  saude: [
+    "vitamina", "suplemento", "termômetro", "termometro", "massageador", "massagem", "cápsula",
+    "capsula", "comprimido", "melatonina", "magnésio", "magnesio", "inositol", "whey protein",
+    "colágeno", "colageno", "seringa de insulina", "creatina", "oxímetro", "oximetro",
+  ],
   ferramentas: ["furadeira", "parafusadeira", "ferramenta", "chave de fenda"],
   // "mesa" sozinho é ambíguo demais — acha "fogão de mesa" (é
   // eletrodoméstico, não móvel). Achado real testando (2026-09-23,
