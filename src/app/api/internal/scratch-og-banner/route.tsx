@@ -59,16 +59,15 @@ export async function GET() {
             flexDirection: "column",
             fontFamily: "Poppins",
             fontWeight: 800,
-            fontSize: 74,
-            lineHeight: 1.12,
+            fontSize: 62,
+            lineHeight: 1.18,
             color: NAVY,
-            maxWidth: 1500,
+            maxWidth: 1400,
           }}
         >
           <span>Os menores preços dos</span>
-          <span>
-            maiores marketplaces, <span style={{ color: BRAND }}>tudo em um só lugar</span>.
-          </span>
+          <span>maiores marketplaces,</span>
+          <span style={{ color: BRAND }}>tudo em um só lugar.</span>
         </div>
         <div
           style={{
