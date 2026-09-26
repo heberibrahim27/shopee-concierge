@@ -25,7 +25,7 @@ export default function CategoriasPage() {
         <section className="dc-section">
           <div className="dc-cat-page-grid">
             {CATEGORY_TILES.filter((tile) => tile.slug !== "outros").map((tile) => (
-              <a key={tile.slug} href={`/categoria/${tile.slug}`} className="dc-featured-cat-tile">
+              <a key={tile.slug} href={tile.href ?? `/categoria/${tile.slug}`} className="dc-featured-cat-tile">
                 <div className="dc-featured-cat-photo">
                   {tile.photoUrl ? <img src={tile.photoUrl} alt={tile.label} loading="lazy" /> : null}
                 </div>
