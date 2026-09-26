@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "../../../../lib/db/client";
-import { searchProductsByKeyword, generateAffiliateShortLink } from "../../../../lib/shopee/queries";
+import { searchProductsByKeyword, getBestSellerOffers, generateAffiliateShortLink } from "../../../../lib/shopee/queries";
 import { ShopeeSortType } from "../../../../lib/shopee/types";
 import { persistOfferSnapshot, createDealCandidate, saveAffiliateLink } from "../../../../lib/db/snapshots";
 import { selectTopCandidates, scoreOffer, DEFAULT_HARD_CUTS, type ScoredCandidate } from "../../../../lib/growth/dealScoring";
@@ -159,6 +159,32 @@ export async function GET(request: NextRequest) {
       }
     } catch (err) {
       console.error(`[cron/source-deals] falha busca "${keyword}":`, err);
+    }
+  }
+
+  // Feed de "mais vendidos" da Shopee inteira (achado 2026-09-26, Heber:
+  // "não consegue puxar o catálogo por essa aba?" -- ver getBestSellerOffers).
+  // Sem keyword nenhuma, então sem cohort de comparáveis pra
+  // `precoRelativoComparaveis` -- mas com milhares de vendas reais e nota
+  // 4.7+ já embutidas, passa fácil nos cortes duros e pontua alto mesmo só
+  // com nota+vendas+comissão. É sinal de qualidade mais forte que qualquer
+  // busca por palavra-chave, então entra no mesmo funil de score/publicação,
+  // sem tratamento especial -- só mais oferta candidata pro topo.
+  const BEST_SELLER_PAGES = 3;
+  for (let page = 1; page <= BEST_SELLER_PAGES; page++) {
+    try {
+      const offers = await getBestSellerOffers({ page, limit: 20 });
+      if (offers.length === 0) break;
+      for (const o of offers) {
+        const itemId = String(o.itemId);
+        if (!seen.has(itemId)) {
+          seen.add(itemId);
+          allOffers.push({ ...o, itemId, shopId: String(o.shopId) });
+        }
+      }
+    } catch (err) {
+      console.error(`[cron/source-deals] falha busca mais-vendidos página ${page}:`, err);
+      break;
     }
   }
 

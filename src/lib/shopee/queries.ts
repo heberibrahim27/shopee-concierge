@@ -74,6 +74,43 @@ export async function searchProductsByKeyword(params: {
 }
 
 /**
+ * Feed de "mais vendidos" da Shopee inteira, sem keyword nenhuma --
+ * mesmo conteúdo da aba "Mais Procurados"/"Mais Vendidos" do app Shopee
+ * Affiliate (Heber, 2026-09-26: "não consegue puxar o catálogo por essa
+ * aba?"). `listType: 2` é um argumento de `productOfferV2` que não
+ * aparece na documentação pública -- achado por introspecção ao vivo do
+ * schema real (`__type(name: "Query")`), testado e confirmado: devolve
+ * produtos com milhares de vendas reais e nota 4.7-4.9 (bem acima do
+ * corte de qualidade do `dealScoring`), com paginação de verdade (página
+ * 2 traz itens diferentes). `sortType` não parece afetar a ordem deste
+ * feed (testado 1-5, resultado idêntico) -- listType já define sua
+ * própria ordenação interna, mantido só por consistência de assinatura.
+ * `listType: 1` devolve lista vazia; 3 em diante dá erro -- só 2 é válido.
+ */
+export async function getBestSellerOffers(params: {
+  page?: number;
+  limit?: number;
+}): Promise<ShopeeProductOffer[]> {
+  const { page = 1, limit = 20 } = params;
+
+  const query = `
+    query BestSellers($listType: Int, $page: Int, $limit: Int) {
+      productOfferV2(listType: $listType, page: $page, limit: $limit) {
+        nodes { ${PRODUCT_FIELDS} }
+        pageInfo { page limit hasNextPage }
+      }
+    }
+  `;
+
+  const data = await shopeeGraphQL<ProductOfferV2Response>({
+    query,
+    variables: { listType: 2, page, limit },
+  });
+
+  return data.productOfferV2.nodes.map(normalizeShopeeProductOfferIds);
+}
+
+/**
  * Busca produtos de UMA loja específica (productOfferV2 aceita `shopId`,
  * confirmado por introspecção ao vivo, 2026-09-21 — não documentado
  * publicamente, achado testando o schema real). Pedido do Heber: divulgar
