@@ -52,6 +52,19 @@ export async function GET() {
         >
           COMPARE E ECONOMIZE
         </div>
+        <div
+          style={{
+            display: "flex",
+            position: "absolute",
+            right: 90,
+            top: 200,
+            fontSize: 420,
+            opacity: 0.12,
+            transform: "rotate(-12deg)",
+          }}
+        >
+          🏷️
+        </div>
         <img src={logoDataUri} width={620} height={207} style={{ marginBottom: 46 }} />
         <div
           style={{
