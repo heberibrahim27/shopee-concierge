@@ -4,6 +4,10 @@
 > primeiro). Complementa o [CONTINUIDADE.md](CONTINUIDADE.md), que lista o que
 > ainda falta. Quando resolver algo do CONTINUIDADE.md, registre aqui com a data.
 
+## 2026-09-25 — Guias de compra na home viram cards de scroll horizontal
+
+Heber, depois de ver a lista vertical nova com foto: "não tá legal, poderia ser cards tbm com scroll horizontal? Quero opinião" -- concordei (lista empilhada de 6 itens grandes destoava do resto da home, que é tudo scroll horizontal: Ofertas de hoje, Mais vendidos, Achados). `GuideListItem` ganhou `variant="card"` (foto em cima, título/descrição truncados por line-clamp), usado só na home dentro de `.dc-guide-scroll`. `/guia` (listagem completa) e os guias relacionados de categoria/produto (1-3 itens) continuam na lista vertical original (`variant="row"`, padrão), onde faz mais sentido.
+
 ## 2026-09-25 — Home menos vazia, guias com foto, logo real da loja nos cupons
 
 3 pedidos do Heber num print da home:

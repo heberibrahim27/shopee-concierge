@@ -92,11 +92,11 @@ export default async function HomePage() {
         {/* Achado real (2026-09-25): Heber não viu os guias porque não
             tinham NENHUM ponto de entrada visível na home -- só rodapé
             (texto pequeno) e fim de 2 páginas de categoria. */}
-        <section className="dc-section">
+        <section className="dc-section" style={{ paddingBlock: "6px 4px" }}>
           <h2 className="dc-icon-inline">📖 Guias de compra</h2>
-          <div className="dc-guide-list">
+          <div className="dc-guide-scroll">
             {GUIDES.map((guide) => (
-              <GuideListItem key={guide.slug} guide={guide} />
+              <GuideListItem key={guide.slug} guide={guide} variant="card" />
             ))}
           </div>
         </section>

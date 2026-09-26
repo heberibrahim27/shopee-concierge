@@ -454,7 +454,8 @@ img {
 .dc-featured-cat-grid,
 .dc-promo-scroll,
 .dc-grid-scroll,
-.dc-coupon-scroll {
+.dc-coupon-scroll,
+.dc-guide-scroll {
   scrollbar-width: none;
 }
 
@@ -463,7 +464,8 @@ img {
 .dc-featured-cat-grid::-webkit-scrollbar,
 .dc-promo-scroll::-webkit-scrollbar,
 .dc-grid-scroll::-webkit-scrollbar,
-.dc-coupon-scroll::-webkit-scrollbar {
+.dc-coupon-scroll::-webkit-scrollbar,
+.dc-guide-scroll::-webkit-scrollbar {
   display: none;
 }
 
@@ -2457,6 +2459,82 @@ img {
   font-size: 13px;
   color: var(--dc-text-muted);
   margin: 0;
+}
+
+/* Guias na home -- card vertical em linha de scroll horizontal (Heber,
+   2026-09-25: a lista empilhada dos 6 guias "não tá legal", destoava do
+   resto da home que é tudo scroll horizontal). Mesmo padrão de
+   .dc-featured-cat-grid (scrollbar escondida, ver regra em conjunto
+   perto do topo do arquivo). */
+.dc-guide-scroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  padding-bottom: 4px;
+  margin: 0 -18px;
+  padding-inline: 18px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dc-guide-card {
+  flex: 0 0 168px;
+  width: 168px;
+  scroll-snap-align: start;
+  display: block;
+  background: var(--dc-card-bg);
+  border: 1px solid var(--dc-border);
+  border-radius: var(--dc-radius);
+  overflow: hidden;
+  text-decoration: none;
+  color: var(--dc-text);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+@media (hover: hover) {
+  .dc-guide-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--dc-brand-deep);
+  }
+}
+
+.dc-guide-card-thumb {
+  aspect-ratio: 1 / 1;
+  background: #ffffff;
+  border-bottom: 1px solid var(--dc-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+}
+
+.dc-guide-card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.dc-guide-card h3 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.3;
+  margin: 8px 10px 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.dc-guide-card p {
+  font-size: 11.5px;
+  color: var(--dc-text-muted);
+  line-height: 1.3;
+  margin: 0 10px 10px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* ---------- Lojas Parceiras ---------- */
