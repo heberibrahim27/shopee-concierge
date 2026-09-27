@@ -36,6 +36,24 @@ fixadora, serra, esmerilhadeira, lixadeira, solda, multímetro, nível a
 laser, trena) e rodado `backfill-recategorize-casa.ts` de novo --
 confirmado os 18 movidos pra "ferramentas".
 
+## 2026-09-27 — Grupo ficou ~15h sem postar: duas regras de rotação brigando entre si
+
+**"Sem envios no grupo hoje ainda, alguma falha! Verifique!"** (Heber):
+confirmado -- último post real às 23h10 de ontem, nada desde então
+(15h+). Causa: a trava antiga `BUCKET_ROTATION_STREAK` (nasceu em
+25/09 pra impedir Awin/Kabum de dominar) não distinguia QUAL bucket
+tava repetindo -- com a regra nova de maioria Shopee (25/09, mesmo dia)
+funcionando bem (192 Shopee elegível dentro do teto de preço, ótimo!),
+a Shopee virou justamente o que repete 3x seguidas com frequência --
+e a trava antiga disparava CONTRA a Shopee também, empurrando pro pool
+de Awin dentro do teto (só ~13 candidatos, boa parte já deduplicada
+recentemente) até esgotar tudo e não sobrar candidato nenhum.
+
+Corrigido: `forceNonBucket` só dispara quando o bucket repetido NÃO é
+Shopee -- o objetivo dessa trava sempre foi impedir OUTRA rede de
+dominar, nunca impedir a própria Shopee (que é o resultado que a regra
+de maioria já garante de propósito).
+
 ## 2026-09-26 — Grupo: exceção controlada pra item caro com descontão de verdade
 
 **"Grupo de achadinho quero tudo do mais barato para atrair clique e

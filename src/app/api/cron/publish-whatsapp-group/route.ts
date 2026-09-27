@@ -394,9 +394,22 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>, excludeProdu
 
   // postedHistory já vem ordenado por posted_at desc (fetchPostedHistory) --
   // os N mais recentes são só um slice, sem query extra.
+  //
+  // Achado real (2026-09-27, zero posts em ~15h -- essa trava e a nova
+  // regra de maioria Shopee estavam brigando entre si): essa trava nasceu
+  // (2026-09-25) pra impedir Awin/Kabum de dominar, mas não distinguia
+  // QUAL bucket estava repetindo -- com Shopee virando maioria de
+  // propósito (ver MIN_SHOPEE_IN_LAST_5), ela disparava TAMBÉM contra
+  // sequência de Shopee, forçando o próximo pro pool de Awin dentro do
+  // teto de preço (pequeno, ~13 candidatos, boa parte já postada/deduplicada
+  // recentemente) -- ficando sem candidato nenhum. Corrigido: só força
+  // saída do bucket repetido quando esse bucket NÃO é Shopee (o objetivo
+  // aqui sempre foi impedir OUTRA rede de dominar, nunca impedir a Shopee).
   const recentBuckets = postedHistory.slice(0, BUCKET_ROTATION_STREAK).map((r) => platformBucket(r.platform));
   const forceNonBucket =
-    recentBuckets.length === BUCKET_ROTATION_STREAK && recentBuckets.every((b) => b === recentBuckets[0])
+    recentBuckets.length === BUCKET_ROTATION_STREAK &&
+    recentBuckets.every((b) => b === recentBuckets[0]) &&
+    recentBuckets[0] !== "shopee"
       ? recentBuckets[0]
       : null;
 
