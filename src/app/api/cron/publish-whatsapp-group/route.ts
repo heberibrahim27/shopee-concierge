@@ -6,6 +6,7 @@ import { computeDemandSignal, type DemandSignal } from "../../../../lib/growth/d
 import { generateEvidenceCopy } from "../../../../lib/growth/offerCopy";
 import { scrapeFeaturedProduct } from "../../../../lib/mercadolivre/scrape";
 import { isDuplicateOfPosted, type PostedProductRecord } from "../../../../lib/growth/productDedupe";
+import { fetchUnpostedByScore } from "../../../../lib/growth/unpostedCandidates";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -239,37 +240,31 @@ function candidateFromRow(row: any): Candidate | null {
 const CANDIDATE_POOL_LIMIT_PER_BUCKET = 200;
 
 async function fetchAvailableCandidateRows(db: ReturnType<typeof getDbFresh>, postedProductIds: string[]): Promise<any[]> {
+  // Exclusão dos já postados feita EM MEMÓRIA (fetchUnpostedByScore) --
+  // mandar a lista na URL (`.not("product_id","in",...)`) estourou o limite
+  // de tamanho com ~630 postados e travou o grupo por 4 dias (2026-10-04).
+  const posted = new Set(postedProductIds);
+
   // `!inner` garante que products vem sempre presente (nunca null) —
   // necessário pro agrupamento por categoria/plataforma abaixo.
   function baseQuery() {
-    let query = db
-      .from("deal_candidates")
-      .select(
-        "id, score, score_breakdown, product_id, products!inner(product_name, platform, category_slug), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
-      )
-      // Nunca reconsidera um candidato marcado "unavailable" (re-checagem
-      // de disponibilidade real, ver GET abaixo) — sem isso o candidato
-      // indisponível voltaria a competir de novo a cada execução do cron.
-      .neq("status", "unavailable");
-    if (postedProductIds.length > 0) {
-      query = query.not("product_id", "in", `(${postedProductIds.join(",")})`);
-    }
-    return query;
+    return (
+      db
+        .from("deal_candidates")
+        .select(
+          "id, score, score_breakdown, product_id, products!inner(product_name, platform, category_slug), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
+        )
+        // Nunca reconsidera um candidato marcado "unavailable" (re-checagem
+        // de disponibilidade real, ver GET abaixo) — sem isso o candidato
+        // indisponível voltaria a competir de novo a cada execução do cron.
+        .neq("status", "unavailable")
+    );
   }
 
-  const [shopeeResult, otherResult] = await Promise.all([
-    baseQuery()
-      .eq("products.platform", "shopee")
-      .order("score", { ascending: false, nullsFirst: false })
-      .limit(CANDIDATE_POOL_LIMIT_PER_BUCKET),
-    baseQuery()
-      .neq("products.platform", "shopee")
-      .order("score", { ascending: false, nullsFirst: false })
-      .limit(CANDIDATE_POOL_LIMIT_PER_BUCKET),
+  const [shopeeRows, otherRows] = await Promise.all([
+    fetchUnpostedByScore(() => baseQuery().eq("products.platform", "shopee"), posted, CANDIDATE_POOL_LIMIT_PER_BUCKET, { label: "shopee" }),
+    fetchUnpostedByScore(() => baseQuery().neq("products.platform", "shopee"), posted, CANDIDATE_POOL_LIMIT_PER_BUCKET, { label: "outros" }),
   ]);
-
-  const shopeeRows = shopeeResult.error || !shopeeResult.data ? [] : (shopeeResult.data as any[]);
-  const otherRows = otherResult.error || !otherResult.data ? [] : (otherResult.data as any[]);
   return [...shopeeRows, ...otherRows];
 }
 

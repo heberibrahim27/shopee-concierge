@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDbFresh } from "../../../../lib/db/client";
+import { fetchUnpostedByScore } from "../../../../lib/growth/unpostedCandidates";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -46,17 +47,20 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>): Promise<Can
     ),
   ];
 
-  let query = db
-    .from("deal_candidates")
-    .select(
-      "id, score, product_id, products(product_name, platform), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
-    );
-  if (postedProductIds.length > 0) {
-    query = query.not("product_id", "in", `(${postedProductIds.join(",")})`);
-  }
-  const { data, error } = await query.order("score", { ascending: false, nullsFirst: false }).limit(50);
-
-  if (error || !data) return null;
+  // Exclusão em memória, não na URL (mesmo bug que travou o grupo do
+  // WhatsApp por 4 dias em 2026-10-04: lista longa em `.not(...,"in",...)`
+  // estoura o limite de URL e a consulta falha inteira, sem sinal).
+  const data = await fetchUnpostedByScore(
+    () =>
+      db
+        .from("deal_candidates")
+        .select(
+          "id, score, product_id, products(product_name, platform), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
+        ),
+    new Set(postedProductIds as string[]),
+    50,
+    { label: "instagram" }
+  );
 
   for (const row of data as any[]) {
     const snap = row.offer_snapshots;

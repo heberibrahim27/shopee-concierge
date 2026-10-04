@@ -36,6 +36,26 @@ fixadora, serra, esmerilhadeira, lixadeira, solda, multímetro, nível a
 laser, trena) e rodado `backfill-recategorize-casa.ts` de novo --
 confirmado os 18 movidos pra "ferramentas".
 
+## 2026-10-04 — Grupo 4 dias sem produto (só cupom): URL da consulta estourou o limite
+
+**"SÓ CUPONS NO GRUPO TEM ALGUNS DIAS"** (Heber): confirmado -- último
+post de produto em 30/09 18h40 UTC, só `whatsapp-coupon` desde então.
+Dry-run voltava "sem candidato novo" (mesmo sintoma de 27/09), mas a
+causa era outra e muito mais traiçoeira: o filtro "excluir já postados"
+ia DENTRO da URL (`.not("product_id","in","(id1,id2,…)")`). Com 634
+produtos postados (~23KB de URL) o PostgREST/proxy rejeita e a consulta
+inteira volta `TypeError: fetch failed`; o código tratava erro como lista
+vazia (`error || !data ? []`) -> "sem candidato", sem log nenhum. Piorava
+a cada post -- não tinha como não acontecer, só não tinha dado a hora.
+
+Corrigido: novo helper `src/lib/growth/unpostedCandidates.ts`
+(`fetchUnpostedByScore`) pagina por score e exclui os já postados EM
+MEMÓRIA, e agora LOGA erro de consulta em vez de engolir. Aplicado no
+cron do grupo e no do Instagram (`publish-product`), que tinha o mesmo
+padrão (pior: lista de todos os canais). Os `.not(...in...)` restantes
+em `source-*` são listas curtas (campanhas/ofertas ativas), não crescem
+com o histórico.
+
 ## 2026-09-27 — Grupo ficou ~15h sem postar: duas regras de rotação brigando entre si
 
 **"Sem envios no grupo hoje ainda, alguma falha! Verifique!"** (Heber):
