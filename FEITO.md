@@ -36,6 +36,25 @@ fixadora, serra, esmerilhadeira, lixadeira, solda, multímetro, nível a
 laser, trena) e rodado `backfill-recategorize-casa.ts` de novo --
 confirmado os 18 movidos pra "ferramentas".
 
+## 2026-10-08 (parte 2) — Causa real do "só cupom": acabou o produto novo da Shopee
+
+Depois de corrigir o corte do pool (abaixo), medi o que SOBRAVA de
+verdade: dos 227 candidatos Shopee ainda não postados, **187 eram o
+mesmo produto de outro vendedor** (dedupe por nome, que o Heber exige),
+**40 passavam de R$150** e **0 eram postáveis**. Não era mais bug --
+era falta de oferta: o grupo consome até ~78 posts/dia e `source-deals`
+cria só ~30 candidatos/dia, sempre da PÁGINA 1 das mesmas 10 keywords
+(top 10 mais vendidos). Depois de uma rotação do pool os resultados
+repetem e nada novo entra.
+
+Novo cron `source-group-fill` (2x/dia, 10h40 e 17h40 UTC, `?slot=0|1`):
+mesmas keywords (pool movido pra `src/lib/growth/keywordPool.ts`,
+compartilhado), mas varrendo PÁGINAS MAIS FUNDAS a cada ciclo completo
+do pool (1-3, 4-6, 7-9, 10-12). Só produto até R$150 com nota ≥4.5 e
+≥50 vendas, que ainda não exista no catálogo e que não seja clone por
+nome de algo já postado. Cria deal_candidate + link de afiliado
+(subId `wg`) + publica no site. `?dryRun=1` mostra o que entraria.
+
 ## 2026-10-08 — Grupo parou de novo às 8h30 (só cupom): corte do pool vinha ANTES do dedupe
 
 **"Analise pq o grupo não mandou mais mensagens desde 8:30"** (Heber):
