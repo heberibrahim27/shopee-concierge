@@ -17,7 +17,19 @@ export async function fetchUnpostedByScore(
   buildQuery: () => any,
   postedProductIds: Set<string>,
   want: number,
-  opts: { pageSize?: number; maxPages?: number; label?: string } = {}
+  opts: {
+    pageSize?: number;
+    maxPages?: number;
+    label?: string;
+    /**
+     * Filtro extra aplicado ANTES de contar a linha pro `want`. Necessário
+     * pra qualquer corte que dependa do histórico (ex.: dedupe por nome,
+     * teto de preço): se rodar só depois do `want`, o topo do ranking vira
+     * 100% clone de coisa já postada e os candidatos bons mais abaixo nunca
+     * entram no pool (achado 2026-10-08, grupo parou às 8h30 de novo).
+     */
+    accept?: (row: any) => boolean;
+  } = {}
 ): Promise<any[]> {
   const pageSize = opts.pageSize ?? 1000; // teto padrão de linhas por request no PostgREST
   const maxPages = opts.maxPages ?? 15;
@@ -34,6 +46,7 @@ export async function fetchUnpostedByScore(
     const rows = (data ?? []) as any[];
     for (const row of rows) {
       if (postedProductIds.has(row.product_id)) continue;
+      if (opts.accept && !opts.accept(row)) continue;
       collected.push(row);
       if (collected.length >= want) break;
     }

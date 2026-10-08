@@ -239,11 +239,39 @@ function candidateFromRow(row: any): Candidate | null {
 // como o score global se compara entre plataformas.
 const CANDIDATE_POOL_LIMIT_PER_BUCKET = 200;
 
-async function fetchAvailableCandidateRows(db: ReturnType<typeof getDbFresh>, postedProductIds: string[]): Promise<any[]> {
+async function fetchAvailableCandidateRows(
+  db: ReturnType<typeof getDbFresh>,
+  postedProductIds: string[],
+  postedHistory: PostedRecord[]
+): Promise<any[]> {
   // Exclusão dos já postados feita EM MEMÓRIA (fetchUnpostedByScore) --
   // mandar a lista na URL (`.not("product_id","in",...)`) estourou o limite
   // de tamanho com ~630 postados e travou o grupo por 4 dias (2026-10-04).
   const posted = new Set(postedProductIds);
+
+  // Achado real (2026-10-08, grupo parou às 8h30 de novo, só cupom):
+  // o corte em CANDIDATE_POOL_LIMIT_PER_BUCKET (200) acontecia ANTES do
+  // teto de preço e do dedupe por nome. Medido: dos 200 melhores Shopee
+  // ainda não postados, 164 cabiam no preço e NENHUM passava no dedupe
+  // (mesmo produto físico, outro vendedor, outro product_id) -- o topo
+  // do ranking virava 100% clone do que já foi postado, e os candidatos
+  // bons mais abaixo nunca entravam no pool. Piora sozinho com o
+  // histórico crescendo. Agora o filtro roda DENTRO da paginação: só
+  // conta pro limite quem realmente poderia ser postado.
+  const historyByBucket = new Map<string, PostedRecord[]>();
+  for (const rec of postedHistory) {
+    const b = platformBucket(rec.platform);
+    const list = historyByBucket.get(b);
+    if (list) list.push(rec);
+    else historyByBucket.set(b, [rec]);
+  }
+  const accept = (row: any): boolean => {
+    if (!withinPriceCeiling(row) && !isHighValueException(row)) return false;
+    const candidate = candidateFromRow(row);
+    if (!candidate) return false;
+    const bucket = platformBucket(candidate.platform);
+    return !isDuplicateOfPosted(candidate.productName, candidate.categorySlug, historyByBucket.get(bucket) ?? []);
+  };
 
   // `!inner` garante que products vem sempre presente (nunca null) —
   // necessário pro agrupamento por categoria/plataforma abaixo.
@@ -262,8 +290,8 @@ async function fetchAvailableCandidateRows(db: ReturnType<typeof getDbFresh>, po
   }
 
   const [shopeeRows, otherRows] = await Promise.all([
-    fetchUnpostedByScore(() => baseQuery().eq("products.platform", "shopee"), posted, CANDIDATE_POOL_LIMIT_PER_BUCKET, { label: "shopee" }),
-    fetchUnpostedByScore(() => baseQuery().neq("products.platform", "shopee"), posted, CANDIDATE_POOL_LIMIT_PER_BUCKET, { label: "outros" }),
+    fetchUnpostedByScore(() => baseQuery().eq("products.platform", "shopee"), posted, CANDIDATE_POOL_LIMIT_PER_BUCKET, { label: "shopee", accept }),
+    fetchUnpostedByScore(() => baseQuery().neq("products.platform", "shopee"), posted, CANDIDATE_POOL_LIMIT_PER_BUCKET, { label: "outros", accept }),
   ]);
   return [...shopeeRows, ...otherRows];
 }
@@ -415,7 +443,7 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>, excludeProdu
   const nonShopeeInLast5 = last5Buckets.filter((b) => b !== "shopee").length;
   const forceShopee = last5Buckets.length === SHOPEE_WINDOW && nonShopeeInLast5 >= SHOPEE_WINDOW - MIN_SHOPEE_IN_LAST_5;
 
-  const allRows = await fetchAvailableCandidateRows(db, postedProductIds);
+  const allRows = await fetchAvailableCandidateRows(db, postedProductIds, postedHistory);
 
   // Válvula de exceção (ver isHighValueException acima) -- checa ANTES
   // do teto de preço de propósito: se existe um descontão real e a

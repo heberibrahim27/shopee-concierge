@@ -36,6 +36,22 @@ fixadora, serra, esmerilhadeira, lixadeira, solda, multímetro, nível a
 laser, trena) e rodado `backfill-recategorize-casa.ts` de novo --
 confirmado os 18 movidos pra "ferramentas".
 
+## 2026-10-08 — Grupo parou de novo às 8h30 (só cupom): corte do pool vinha ANTES do dedupe
+
+**"Analise pq o grupo não mandou mais mensagens desde 8:30"** (Heber):
+último produto às 11:30 UTC de 07/10 (8:30 BRT), dry-run "sem candidato".
+Medido com dado real: dos 200 melhores Shopee ainda não postados, 164
+cabiam no teto de preço e **0 passavam no dedupe por nome** ("mesmo
+produto, outro vendedor" -- product_id diferente, nome quase igual).
+O pool era cortado em 200 por score ANTES do teto de preço e do dedupe,
+então com o histórico crescendo (810 postados) o topo do ranking virou
+100% clone do que já saiu e os candidatos bons mais abaixo nunca
+entravam. Mesma família do bug de 04/10: corte por quantidade antes de
+filtros que dependem do histórico. Corrigido: `fetchUnpostedByScore`
+ganhou `accept` e o filtro (preço/exceção + imagem/link + dedupe do
+próprio bucket) roda DENTRO da paginação -- só conta pro limite quem
+realmente poderia ser postado.
+
 ## 2026-10-04 — Grupo 4 dias sem produto (só cupom): URL da consulta estourou o limite
 
 **"SÓ CUPONS NO GRUPO TEM ALGUNS DIAS"** (Heber): confirmado -- último
