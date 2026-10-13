@@ -36,6 +36,19 @@ fixadora, serra, esmerilhadeira, lixadeira, solda, multímetro, nível a
 laser, trena) e rodado `backfill-recategorize-casa.ts` de novo --
 confirmado os 18 movidos pra "ferramentas".
 
+## 2026-10-13 — Pinterest: API aprovada, publicador pronto (dormente até o token)
+
+Heber avisou que a API do Pinterest (app 1612260 "Desconto Chegando
+Publicador") foi aprovada. Pronto no repo, sem depender de nada além do
+token: `src/lib/pinterest/client.ts` (API v5: `listBoards`, `createPin`,
+base configurável via `PINTEREST_API_BASE` pra sandbox/Trial),
+`src/app/api/cron/publish-pinterest` (1 Pin/execução, destino = página
+do produto no NOSSO site com UTM, texto só com dado real, `?boards=1`
+lista boards, `?dryRun=1` mostra o Pin) e tabela `pinterest_pins`
+(migration aplicada). Fora do `vercel.json` de propósito até existirem
+`PINTEREST_ACCESS_TOKEN` e `PINTEREST_BOARD_ID`; sem eles responde
+"skipped". Dedupe em memória (sem lista-na-URL, lição de 04/10).
+
 ## 2026-10-08 (parte 2) — Causa real do "só cupom": acabou o produto novo da Shopee
 
 Depois de corrigir o corte do pool (abaixo), medi o que SOBRAVA de
