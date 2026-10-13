@@ -1,33 +1,27 @@
 /**
  * Cliente mínimo pra API v5 do Pinterest -- sem SDK, só fetch.
  *
+ * Token: vem do login OAuth salvo em `pinterest_auth` (auth.ts, renova
+ *    sozinho) ou, sem login, de PINTEREST_ACCESS_TOKEN (token de sandbox).
  * Env:
- *  - PINTEREST_ACCESS_TOKEN  (obrigatório; token OAuth com escopos
- *    boards:read, pins:read, pins:write)
  *  - PINTEREST_BOARD_ID      (board de destino dos Pins)
  *  - PINTEREST_API_BASE      (opcional; default produção. Com acesso Trial
  *    use https://api-sandbox.pinterest.com/v5 -- Pins de sandbox não são
  *    públicos, só validam a integração)
  */
+import { getValidAccessToken } from "./auth";
+
 const DEFAULT_BASE = "https://api.pinterest.com/v5";
 
 function base(): string {
   return (process.env.PINTEREST_API_BASE || DEFAULT_BASE).replace(/\/$/, "");
 }
 
-function requireToken(): string {
-  const token = process.env.PINTEREST_ACCESS_TOKEN;
-  if (!token) {
-    throw new Error("PINTEREST_ACCESS_TOKEN não configurado -- gere o token OAuth do app 1612260 e adicione como variável de ambiente.");
-  }
-  return token;
-}
-
 async function pinterestFetch(path: string, init: RequestInit = {}): Promise<any> {
   const resp = await fetch(`${base()}${path}`, {
     ...init,
     headers: {
-      Authorization: `Bearer ${requireToken()}`,
+      Authorization: `Bearer ${await getValidAccessToken()}`,
       "Content-Type": "application/json",
       ...(init.headers ?? {}),
     },

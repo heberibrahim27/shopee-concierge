@@ -18,6 +18,15 @@ export default function AdminMorePage() {
 
       <section className="dc-admin-section">
         <div className="dc-admin-card">
+          <AdminSectionHeader title="Pinterest" subtitle="Conectar a conta, ver boards e criar Pin de teste." />
+          <a href="/admin/pinterest" className="dc-admin-issue-action" style={{ width: "fit-content", padding: "9px 16px" }}>
+            Abrir painel do Pinterest
+          </a>
+        </div>
+      </section>
+
+      <section className="dc-admin-section">
+        <div className="dc-admin-card">
           <AdminSectionHeader title="Conta" />
           <a
             href="/api/admin/logout"

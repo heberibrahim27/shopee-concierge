@@ -49,6 +49,24 @@ lista boards, `?dryRun=1` mostra o Pin) e tabela `pinterest_pins`
 `PINTEREST_ACCESS_TOKEN` e `PINTEREST_BOARD_ID`; sem eles responde
 "skipped". Dedupe em memória (sem lista-na-URL, lição de 04/10).
 
+## 2026-10-13 (parte 2) — Pinterest: login OAuth + painel admin, e o que o upgrade pra Standard exige
+
+Conferida a página `developers.pinterest.com/apps/1612260/upgrade/`
+(Heber pediu): o app está em **Trial** (Pins criados só aparecem pro
+dono, como sandbox). O formulário de Standard já vem preenchido (nome,
+empresa, site, privacidade, finalidade) -- o único item faltando é o
+**vídeo de demonstração** (.mp4, <2GB, 20-60 fps) que "mostre como o app
+autentica usuários do Pinterest" e "os principais recursos usados".
+Por isso foi construído o login OAuth de verdade: `src/lib/pinterest/auth.ts`
+(authorization code + refresh automático, tokens em `pinterest_auth`),
+rotas `/api/admin/pinterest/{connect,callback,test-pin}` (só admin logado,
+`state` anti-CSRF em cookie) e a página `/admin/pinterest` (conectar,
+listar boards, "Criar Pin de teste"; atalho em /admin/mais). Lógica de
+publicar movida pra `lib/pinterest/publishNext.ts` (cron e botão usam a
+mesma). Pendente: `PINTEREST_APP_SECRET` (Heber) e cadastrar
+`https://descontochegando.com.br/api/admin/pinterest/callback` como
+redirect URI no app.
+
 ## 2026-10-08 (parte 2) — Causa real do "só cupom": acabou o produto novo da Shopee
 
 Depois de corrigir o corte do pool (abaixo), medi o que SOBRAVA de
