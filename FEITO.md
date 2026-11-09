@@ -49,6 +49,26 @@ lista boards, `?dryRun=1` mostra o Pin) e tabela `pinterest_pins`
 `PINTEREST_ACCESS_TOKEN` e `PINTEREST_BOARD_ID`; sem eles responde
 "skipped". Dedupe em memória (sem lista-na-URL, lição de 04/10).
 
+## 2026-11-09 — Loja própria "Para o Lar": importação + modo exclusivo do Instagram
+
+Heber: "quero postar produtos apenas da loja para o lar" (loja dele na
+Shopee, ~502 itens hoje, deve passar de 1.000; a conta de afiliado é a
+mesma da loja). Link curto `s.shopee.com.br/40hy97z7Ka` -> username
+`lojaparaolar`; **shopId 337479662** achado pela rede real da página da loja
+(`get_shop_base_v2`, name "Loja Para O Lar", item_count 502). Novo cron
+`source-para-o-lar` (2x/dia, 10h20 e 16h20 UTC; `?dryRun=1` só conta):
+molde da Farmácia Uruguai, mas PAGINADO e idempotente (só cria candidato de
+item ainda não importado, origem `loja-propria-para-o-lar`, score 85 --
+não fura fila como a Farmácia). Instagram: `publish-product` ganhou o modo
+exclusivo via env `INSTAGRAM_ONLY_ORIGEM=loja-propria-para-o-lar` (sem a
+variável nada muda; com ela, só candidato dessa origem sai e, sem
+candidato, o cron NÃO posta). Deliberadamente NÃO ligado ainda.
+**Bloqueio achado:** `productOfferV2(shopId: 337479662)` devolve 0 itens
+enquanto a Farmácia Uruguai (1738181230) devolve normalmente -- hipótese
+mais provável: produtos da loja sem o Programa de Afiliados ativado no
+Seller Centre (ou ainda não indexados, itens novos). Grupo do WhatsApp:
+decisão pendente do Heber (não alterado).
+
 ## 2026-10-13 (parte 2) — Pinterest: login OAuth + painel admin, e o que o upgrade pra Standard exige
 
 Conferida a página `developers.pinterest.com/apps/1612260/upgrade/`

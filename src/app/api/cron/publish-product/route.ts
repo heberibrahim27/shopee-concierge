@@ -5,6 +5,7 @@ import { fetchUnpostedByScore } from "../../../../lib/growth/unpostedCandidates"
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+const ONLY_ORIGEM = process.env.INSTAGRAM_ONLY_ORIGEM || null;
 const SITE_URL = "https://descontochegando.com.br";
 const WINDSOR_ENDPOINT = "https://connectors.windsor.ai/instagram/actions";
 // Conta @descontoschegando — ver reference_shopee_concierge_infra na memória do projeto.
@@ -55,11 +56,19 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>): Promise<Can
       db
         .from("deal_candidates")
         .select(
-          "id, score, product_id, products(product_name, platform), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
+          "id, score, score_breakdown, product_id, products(product_name, platform), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
         ),
     new Set(postedProductIds as string[]),
     50,
-    { label: "instagram" }
+    {
+      label: "instagram",
+      // Modo exclusivo (pedido do Heber, 2026-11-09: "quero postar produtos
+      // apenas da loja para o lar"): com INSTAGRAM_ONLY_ORIGEM definida, só
+      // candidato daquela origem (score_breakdown.origem) pode sair. Sem a
+      // variável, o comportamento é o de sempre. Se a origem não tiver
+      // nenhum candidato novo, o cron NÃO posta (é o "apenas").
+      accept: ONLY_ORIGEM ? (row: any) => row.score_breakdown?.origem === ONLY_ORIGEM : undefined,
+    }
   );
 
   for (const row of data as any[]) {
