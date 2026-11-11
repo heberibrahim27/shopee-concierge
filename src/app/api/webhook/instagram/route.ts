@@ -22,7 +22,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { sendInstagramMessage } from "@/lib/channel/instagramGraph";
+import { sendInstagramMessage, sendPrivateReplyToComment } from "@/lib/channel/instagramGraph";
 import { isDuplicate } from "@/lib/dedupe";
 import { getDbFresh } from "@/lib/db/client";
 
@@ -93,9 +93,56 @@ async function buildReplyText(storyMediaId: string | undefined): Promise<string>
   return FALLBACK_REPLY_TEXT;
 }
 
+// Evento de COMENTARIO (campo "comments" do webhook): chega em entry[].changes[].
+interface InstagramCommentChange {
+  field?: string;
+  value?: {
+    id?: string; // id do comentario
+    text?: string;
+    parent_id?: string; // presente quando e resposta a outro comentario
+    from?: { id?: string; username?: string };
+    media?: { id?: string; media_product_type?: string };
+  };
+}
+
 interface InstagramWebhookBody {
   object?: string;
-  entry?: Array<{ id?: string; messaging?: InstagramMessagingEvent[] }>;
+  entry?: Array<{ id?: string; messaging?: InstagramMessagingEvent[]; changes?: InstagramCommentChange[] }>;
+}
+
+// Resposta por DM a comentario pedindo o link. DESLIGADO por padrao: so
+// liga com INSTAGRAM_COMMENT_DM=1, depois que o app da Meta estiver ativo
+// (fora do modo de desenvolvimento) e o campo "comments" assinado -- antes
+// disso a Meta so entrega comentarios de contas testadoras.
+const COMMENT_DM_ENABLED = process.env.INSTAGRAM_COMMENT_DM === "1";
+
+function normalize(text: string): string {
+  return text.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+}
+
+// Palavras que significam "me manda o link". Comentario so de elogio ou
+// emoji nao dispara nada (nao queremos DM pra todo mundo que comentar).
+const COMMENT_TRIGGER = /\b(quero+|link|onde|comprar|compro|manda|mande|passa|passe|me envia|envia|valor|preco)\b/;
+
+// Produto do POST comentado (feed/reel) pelo media_id guardado em
+// social_posts; sem match cai no link generico de /hoje.
+async function buildCommentReplyText(mediaId: string | undefined): Promise<string> {
+  if (!mediaId) return FALLBACK_REPLY_TEXT;
+  try {
+    const db = getDbFresh();
+    const { data } = await db
+      .from("social_posts")
+      .select("deal_candidates(products(product_name), offer_snapshots(offer_link))")
+      .eq("media_id", mediaId)
+      .limit(1);
+    const dc = (data as any)?.[0]?.deal_candidates;
+    const link = dc?.offer_snapshots?.offer_link;
+    const name = dc?.products?.product_name;
+    if (link) return `Oi! 🎁 Aqui está o link do ${name ?? "produto"}: ${link}`;
+  } catch (err) {
+    console.error("[webhook/instagram] falha ao buscar produto do post:", err);
+  }
+  return FALLBACK_REPLY_TEXT;
 }
 
 // GET: verificação do webhook exigida pela Meta ao configurar a URL —
@@ -128,6 +175,25 @@ export async function POST(request: NextRequest) {
   }
 
   for (const entry of body.entry ?? []) {
+    if (COMMENT_DM_ENABLED) {
+      for (const change of entry.changes ?? []) {
+        if (change.field !== "comments") continue;
+        const v = change.value;
+        const commentId = v?.id;
+        const text = v?.text;
+        // Ignora: comentario sem texto, resposta a outro comentario, e o
+        // PROPRIO comentario da conta (o publish-product comenta nos posts).
+        if (!commentId || !text || v?.parent_id) continue;
+        if (v?.from?.id && v.from.id === entry.id) continue;
+        if (isDuplicate(`c:${commentId}`)) continue;
+        if (!COMMENT_TRIGGER.test(normalize(text))) continue;
+        try {
+          await sendPrivateReplyToComment({ commentId, text: await buildCommentReplyText(v?.media?.id) });
+        } catch (err) {
+          console.error("[webhook/instagram] falha ao responder comentario:", err);
+        }
+      }
+    }
     for (const event of entry.messaging ?? []) {
       const senderId = event.sender?.id;
       const text = event.message?.text;

@@ -49,6 +49,27 @@ lista boards, `?dryRun=1` mostra o Pin) e tabela `pinterest_pins`
 `PINTEREST_ACCESS_TOKEN` e `PINTEREST_BOARD_ID`; sem eles responde
 "skipped". Dedupe em memória (sem lista-na-URL, lição de 04/10).
 
+## 2026-11-11 — Instagram: resposta por DM a comentário pedindo o link (pronta, desligada)
+
+Heber: "a API do Desconto Chegando pra responder via direct quando alguém
+comentar pedindo o link, acho que já podemos usar". Verificado: o token
+`INSTAGRAM_PAGE_ACCESS_TOKEN` está VÁLIDO (conta @descontoschegando,
+MEDIA_CREATOR, 1.581 seguidores, `/me/conversations` responde) -- mas é
+token `IGAA...` (login direto do Instagram), que só vale em
+**graph.instagram.com**. O código chamava graph.facebook.com ("Cannot parse
+access token"), então nenhuma resposta teria saído nem pra testers.
+Corrigido em `lib/channel/instagramGraph.ts` (+ `sendPrivateReplyToComment`,
+a "resposta privada" da Meta: 1 DM por comentário, até 7 dias).
+`webhook/instagram` agora trata o campo **comments**: comentário (não
+resposta, não da própria conta) com palavra de pedido de link (quero, link,
+onde, comprar, preço…) -> DM com o link de afiliado do produto do post (via
+`social_posts.media_id`, 200/200 dos últimos feed/story têm), senão /hoje.
+**Desligado por padrão** (`INSTAGRAM_COMMENT_DM=1` liga). Falta, fora do
+código: (1) o app da Meta estar ativo/sem modo de desenvolvimento (só dá pra
+confirmar no painel; antes só testers recebem), (2) assinar o campo
+`comments` no webhook (hoje só `messages`). Cuidado: ReplyRush já responde
+"quero" em DM/Story -- não duplicar; comentário público ele não cobre no grátis.
+
 ## 2026-11-09 — Loja própria "Para o Lar": importação + modo exclusivo do Instagram
 
 Heber: "quero postar produtos apenas da loja para o lar" (loja dele na
