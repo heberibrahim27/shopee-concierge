@@ -21,8 +21,6 @@
       "schedule": "28 11 * * *"
     },
     { "path": "/api/cron/source-shopee-offers", "schedule": "26 11 * * *" },
-    { "path": "/api/cron/source-para-o-lar", "schedule": "20 10 * * *" },
-    { "path": "/api/cron/source-para-o-lar", "schedule": "20 16 * * *" },
     { "path": "/api/cron/source-group-fill?slot=0", "schedule": "40 10 * * *" },
     { "path": "/api/cron/source-group-fill?slot=1", "schedule": "40 17 * * *" },
     { "path": "/api/cron/publish-product", "schedule": "30 11 * * *" },

@@ -106,6 +106,17 @@ const MARKETPLACE_ROTATION_ORDER = ["shopee", "mercadolivre", "awin"];
 // eletrônico caro; ajustar aqui se o valor certo for outro.
 const GROUP_PRICE_CEILING = 150;
 
+// Modo exclusivo (Heber, 2026-11-12: "agora eu quero que só mande os produtos
+// da loja para o lar"): com WHATSAPP_GROUP_ONLY_ORIGEM definida (ex.:
+// "loja-propria-para-o-lar"), SÓ candidato daquela origem
+// (score_breakdown.origem) pode sair no grupo. Nesse modo: (1) o teto de
+// preço e a válvula de descontão não se aplicam (é o catálogo próprio dele
+// inteiro); (2) o dedupe permanente vira janela de N dias, porque o catálogo
+// é finito e, sem reciclar, o grupo ficaria mudo quando todos já tivessem
+// saído uma vez. Sem a variável, nada muda.
+const ONLY_ORIGEM = process.env.WHATSAPP_GROUP_ONLY_ORIGEM || null;
+const ONLY_ORIGEM_REPOST_DAYS = 20;
+
 function withinPriceCeiling(row: any): boolean {
   const price = row.offer_snapshots?.price_min;
   return price != null && Number(price) <= GROUP_PRICE_CEILING;
@@ -266,7 +277,11 @@ async function fetchAvailableCandidateRows(
     else historyByBucket.set(b, [rec]);
   }
   const accept = (row: any): boolean => {
-    if (!withinPriceCeiling(row) && !isHighValueException(row)) return false;
+    if (ONLY_ORIGEM) {
+      if (row.score_breakdown?.origem !== ONLY_ORIGEM) return false;
+    } else if (!withinPriceCeiling(row) && !isHighValueException(row)) {
+      return false;
+    }
     const candidate = candidateFromRow(row);
     if (!candidate) return false;
     const bucket = platformBucket(candidate.platform);
@@ -276,17 +291,17 @@ async function fetchAvailableCandidateRows(
   // `!inner` garante que products vem sempre presente (nunca null) —
   // necessário pro agrupamento por categoria/plataforma abaixo.
   function baseQuery() {
-    return (
-      db
-        .from("deal_candidates")
-        .select(
-          "id, score, score_breakdown, product_id, products!inner(product_name, platform, category_slug), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
-        )
-        // Nunca reconsidera um candidato marcado "unavailable" (re-checagem
-        // de disponibilidade real, ver GET abaixo) — sem isso o candidato
-        // indisponível voltaria a competir de novo a cada execução do cron.
-        .neq("status", "unavailable")
-    );
+    const q = db
+      .from("deal_candidates")
+      .select(
+        "id, score, score_breakdown, product_id, products!inner(product_name, platform, category_slug), offer_snapshots(image_url, price_min, price_discount_rate, offer_link)"
+      )
+      // Nunca reconsidera um candidato marcado "unavailable" (re-checagem
+      // de disponibilidade real, ver GET abaixo) — sem isso o candidato
+      // indisponível voltaria a competir de novo a cada execução do cron.
+      .neq("status", "unavailable");
+    // Modo exclusivo: filtra a origem no banco (não varre o catálogo todo).
+    return ONLY_ORIGEM ? q.eq("score_breakdown->>origem", ONLY_ORIGEM) : q;
   }
 
   const [shopeeRows, otherRows] = await Promise.all([
@@ -400,7 +415,11 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>, excludeProdu
   // alimenta isDuplicateOfPosted SEMPRE escopado por bucket de
   // marketplace (ver platformBucket acima) -- nunca compara Nike com
   // Shopee, só dentro do mesmo catálogo.
-  const postedHistory = await fetchPostedHistory(db);
+  const fullHistory = await fetchPostedHistory(db);
+  // Modo exclusivo: só os últimos ONLY_ORIGEM_REPOST_DAYS dias contam como "já postado".
+  const postedHistory = ONLY_ORIGEM
+    ? fullHistory.filter((r) => Date.now() - new Date(r.postedAt).getTime() < ONLY_ORIGEM_REPOST_DAYS * 86400000)
+    : fullHistory;
   const postedProductIds = [
     ...new Set([...postedHistory.map((r) => r.productId), ...excludeProductIds]),
   ];
@@ -451,7 +470,7 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>, excludeProdu
   // esse item específico vence a seleção normal por completo (é
   // justamente o "aí sim é bom enviar" que o Heber descreveu -- não
   // compete por score/rotação, é prioridade quando existe de verdade).
-  const highValueCandidates = allRows.filter(isHighValueException);
+  const highValueCandidates = ONLY_ORIGEM ? [] : allRows.filter(isHighValueException);
   if (highValueCandidates.length > 0 && !(await hasRecentHighValueException(db))) {
     const best = [...highValueCandidates].sort(
       (a, b) => Number(b.offer_snapshots?.price_discount_rate ?? 0) - Number(a.offer_snapshots?.price_discount_rate ?? 0)
@@ -460,7 +479,7 @@ async function pickNextCandidate(db: ReturnType<typeof getDbFresh>, excludeProdu
     if (candidate) return { candidate, demand: await computeDemandSignal(db, candidate.productId) };
   }
 
-  const rows = allRows.filter(withinPriceCeiling);
+  const rows = ONLY_ORIGEM ? allRows : allRows.filter(withinPriceCeiling);
   const groups = groupByCategoryAndBucket(rows);
   const lastPosted = lastPostedAtByCategoryBucket(postedHistory);
 

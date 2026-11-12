@@ -49,6 +49,20 @@ lista boards, `?dryRun=1` mostra o Pin) e tabela `pinterest_pins`
 `PINTEREST_ACCESS_TOKEN` e `PINTEREST_BOARD_ID`; sem eles responde
 "skipped". Dedupe em memória (sem lista-na-URL, lição de 04/10).
 
+## 2026-11-12 (parte 2) — Só produtos da Loja Para O Lar: modo exclusivo (pronto, falta o catálogo)
+
+Heber: "agora eu quero que só mande os produtos da loja para o lar" (catálogo de
+dropshipping com +1.000 produtos; a vitrine da Shopee mostra ~1,3 mil). Grupo:
+`WHATSAPP_GROUP_ONLY_ORIGEM=loja-propria-para-o-lar` em publish-whatsapp-group
+-> só candidato com `score_breakdown.origem` igual sai; sem teto de R$150 nem
+válvula de descontão; dedupe vira janela de 20 dias (catálogo finito recicla).
+Instagram: `INSTAGRAM_ONLY_ORIGEM` (já existia). Sem as variáveis, nada muda.
+**Catálogo ainda NÃO está no banco:** a API de afiliado não devolve produtos da
+própria loja (conta de afiliado = conta da loja) e a leitura da vitrine pública
+esbarra no anti-robô da Shopee (/verify/captcha já na página 2) -- não
+contornado, de propósito. Caminho: exportação do Seller Centre (planilha) ->
+importador. Removido o cron `source-para-o-lar` (dependia da API de afiliado).
+
 ## 2026-11-12 — WhatsApp sem Z-API: fila + sender local gratuito (pronto, desligado)
 
 Descoberto: a Z-API NÃO está mais assinada ("you must subscribe to this
