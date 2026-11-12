@@ -49,6 +49,24 @@ lista boards, `?dryRun=1` mostra o Pin) e tabela `pinterest_pins`
 `PINTEREST_ACCESS_TOKEN` e `PINTEREST_BOARD_ID`; sem eles responde
 "skipped". Dedupe em memória (sem lista-na-URL, lição de 04/10).
 
+## 2026-11-12 (parte 3) — Reels com vídeos da WeDrop + produto de afiliado de maior comissão
+
+Heber: usar os vídeos do pack da WeDrop (D:\WEDROP-pack-videos, ~1.756 vídeos, 720x1280,
+~15 s) para postar Reels com o link de AFILIADO de um produto equivalente de outro
+vendedor (a Shopee não paga comissão na própria loja; ele edita e marca o produto
+pelo celular). "Pegue as comissões mais altas." Novo `scripts/wedrop-reel.ts`
+(--listar, --varrer, --dry, --postar [--item código]); posta por Windsor
+create_video_post (vídeo hospedado no bucket público reels-media e apagado depois),
+registra em social_posts (reel) e anota em _postados.json. **Aprendizados:** (1) nomes de
+arquivo e _indice.csv vêm com acentos corrompidos (U+FFFD) na origem -- tratados como
+prefixo; (2) o _candidatos-por-texto.csv casa por texto parecido (tamanho/cor podem diferir):
+só serve p/ consertar acento; (3) só palavras em comum acerta a CATEGORIA, não o produto
+(cadeira verde de tela casou com cadeira preta de braços) -- agora exige números iguais
+(778 L, 180 cm) e o tipo do produto no início do nome, e o --dry gera folha de conferência
+visual (quadro + fotos dos candidatos); (4) a API de afiliado dá "System Error [10000]"
+intermitente por consulta -- várias versões da busca + novas tentativas. Primeiro Reel
+real: pote hermético 370 ml (media id 18132337876867314).
+
 ## 2026-11-12 (parte 2) — Só produtos da Loja Para O Lar: modo exclusivo (pronto, falta o catálogo)
 
 Heber: "agora eu quero que só mande os produtos da loja para o lar" (catálogo de
