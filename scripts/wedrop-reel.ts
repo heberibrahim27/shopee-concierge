@@ -131,8 +131,23 @@ type Spec = { exact: string[]; prefixes: string[]; numbers: string[]; query: str
 
 /** Números de 2+ dígitos do texto; "1,80m" vira "180" pra casar com "180cm". */
 function numbersIn(text: string): Set<string> {
-  const t = text.replace(/(\d)[.,](\d)/g, "$1$2");
-  return new Set(t.match(/\d{2,}/g) ?? []);
+  const out = new Set<string>();
+  const plain = text.replace(/(\d)[.,](\d)/g, "$1$2");
+  for (const n of plain.match(/\d{2,}/g) ?? []) out.add(n);
+  // Medidas com unidade, normalizadas (3L != 13L; 1,80m == 180cm; 500ml == 0.5L):
+  const norm = text.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+  for (const m of norm.matchAll(/(\d+(?:[.,]\d+)?)\s*(litros?|ml|l|cm|mm|m|kg|g|v|w|pecas?|pcs?)(?![a-z])/g)) {
+    let v = parseFloat(m[1].replace(",", "."));
+    let u = m[2];
+    if (/^litros?$/.test(u)) u = "l";
+    else if (u === "ml") { v /= 1000; u = "l"; }
+    else if (u === "m") { v *= 100; u = "cm"; }
+    else if (u === "mm") { v /= 10; u = "cm"; }
+    else if (u === "g") { v /= 1000; u = "kg"; }
+    else if (/^(pecas?|pcs?)$/.test(u)) u = "pc";
+    if (Number.isFinite(v)) out.add(`${Math.round(v * 1000) / 1000}${u}`);
+  }
+  return out;
 }
 
 function buildSpec(title: string): Spec {
@@ -163,13 +178,15 @@ async function findMatches(title: string): Promise<Match[]> {
   const words = spec.exact;
   const queries = [...new Set([words.slice(0, 6).join(" "), words.slice(0, 4).join(" "), words.slice(0, 3).join(" ")])].filter(Boolean);
   const seen = new Map<string, ShopeeProductOffer>();
-  for (let round = 0; round < 3 && seen.size === 0; round++) {
+  let okCalls = 0; // consultas que a API respondeu (mesmo com 0 resultados); só repete se TODAS deram erro
+  for (let round = 0; round < 3 && okCalls === 0; round++) {
     if (round > 0) await new Promise((r) => setTimeout(r, 2500)); // a API some por instantes; tenta de novo
     for (const [qi, keyword] of queries.entries()) {
       const sorts = qi === 0 ? [ShopeeSortType.ITEM_SOLD_DESC, ShopeeSortType.RELEVANCE_DESC] : [ShopeeSortType.ITEM_SOLD_DESC];
       for (const sortType of sorts) {
         try {
           const offers = await searchProductsByKeyword({ keyword, limit: 30, sortType });
+          okCalls++;
           for (const o of offers) seen.set(String(o.itemId), { ...o, itemId: String(o.itemId), shopId: String(o.shopId) });
         } catch {
           /* consulta recusada: as outras versões cobrem */
@@ -177,6 +194,8 @@ async function findMatches(title: string): Promise<Match[]> {
       }
     }
   }
+  // Se NENHUMA consulta foi respondida, a API estava fora -- isso NÃO é "não existe produto equivalente".
+  if (okCalls === 0) throw new Error("API de afiliado da Shopee indisponível agora (todas as consultas deram erro)");
   const out: Match[] = [];
   for (const o of seen.values()) {
     if (String(o.shopId) === OWN_SHOP_ID) continue;
@@ -292,6 +311,23 @@ function searchTitle(file: string): { title: string; fonte: string } {
   return { title, fonte: repaired ? `nome do arquivo (${repaired} acento(s) consertado(s) pelo anúncio)` : "nome do arquivo" };
 }
 
+/** Folha de conferência: quadro do vídeo + foto de cada candidato, lado a lado (candidato [1] logo após o quadro). */
+async function makeSheet(file: string, matches: Match[], sheet: string): Promise<void> {
+  fs.mkdirSync(path.dirname(sheet), { recursive: true });
+  const frame = sheet.replace(/\.jpg$/, "-quadro.jpg");
+  execFileSync("ffmpeg", ["-y", "-v", "error", "-ss", "3", "-i", file, "-frames:v", "1", "-q:v", "3", frame]);
+  const inputs = [frame];
+  for (const [i, m] of matches.entries()) {
+    if (!m.offer.imageUrl) continue;
+    const img = await fetch(m.offer.imageUrl);
+    const p = sheet.replace(/\.jpg$/, `-c${i + 1}.jpg`);
+    fs.writeFileSync(p, Buffer.from(await img.arrayBuffer()));
+    inputs.push(p);
+  }
+  const filters = inputs.map((_, i) => (i === 0 ? `[0]scale=-2:420[v0]` : `[${i}]scale=420:420:force_original_aspect_ratio=decrease,pad=420:420:(ow-iw)/2:(oh-ih)/2:white[v${i}]`));
+  execFileSync("ffmpeg", ["-y", "-v", "error", ...inputs.flatMap((f) => ["-i", f]), "-filter_complex", `${filters.join(";")};${inputs.map((_, i) => `[v${i}]`).join("")}hstack=inputs=${inputs.length}`, "-frames:v", "1", "-q:v", "4", sheet]);
+}
+
 async function main() {
   const all = walk(PACK_DIR);
   const ledger = readJson(LEDGER);
@@ -305,7 +341,8 @@ async function main() {
 
   if (flag("--varrer")) {
     const cache = readJson(CACHE);
-    const todo = pending(all).filter((f) => !cache[path.basename(f)]);
+    // refaz os que deram erro de API; "sem equivalente" confirmado (melhor = null, sem erro) fica.
+    const todo = pending(all).filter((f) => !cache[path.basename(f)] || cache[path.basename(f)].erro);
     console.log(`varrendo ${todo.length} vídeos novos (${Object.keys(cache).length} já no cache)...`);
     let n = 0;
     for (const f of todo) {
@@ -336,6 +373,92 @@ async function main() {
     console.log(`\n${ranked.length} vídeos com produto de afiliado equivalente | ${semMatch} sem equivalente (ficam de fora)`);
     console.log("\nTOP 25 por comissão:");
     ranked.slice(0, 25).forEach((c: any, i: number) => console.log(`${String(i + 1).padStart(2)}. ${(c.melhor.comissao * 100).toFixed(0)}% R$${c.melhor.preco} ${c.melhor.vendas}v | ${c.titulo.slice(0, 46)}  =>  ${c.melhor.nome.slice(0, 55)}`));
+    return;
+  }
+
+  // ---------- fila aprovada (5 Reels/dia, cada produto conferido a olho antes) ----------
+  const FILA_DIR = path.join(SCRATCH, "fila");
+  const FILA_JSON = path.join(FILA_DIR, "fila.json");
+  const APPROVED = path.join(PACK_DIR, "_aprovados.json");
+  const REJECTED = path.join(PACK_DIR, "_rejeitados.json");
+
+  if (flag("--fila")) {
+    // Pega os N vídeos de MAIOR comissão ainda não tratados e monta uma folha de conferência de cada.
+    const n = Number(argVal("--fila") ?? 5);
+    const cache = readJson(CACHE);
+    const approved = readJson(APPROVED);
+    const rejected = readJson(REJECTED);
+    const ranked = Object.entries(cache)
+      .filter(([k, c]: [string, any]) => c.melhor && !ledger[k] && !approved[k] && !rejected[k])
+      .sort((a: any, b: any) => b[1].melhor.comissao - a[1].melhor.comissao)
+      .slice(0, n);
+    fs.mkdirSync(FILA_DIR, { recursive: true });
+    const fila: Record<string, Match[]> = readJson(FILA_JSON);
+    let idx = 0;
+    for (const [k, c] of ranked as [string, any][]) {
+      idx++;
+      const f = path.join(PACK_DIR, c.video);
+      const { title } = searchTitle(f);
+      let ms: Match[] = [];
+      try {
+        ms = await findMatches(title);
+      } catch (e: any) {
+        console.log(`${idx}. ${c.video}: ${String(e?.message ?? e)} -- pulei`);
+        continue;
+      }
+      if (ms.length === 0) {
+        console.log(`${idx}. ${c.video}: nenhum candidato passou nos cortes (com as regras novas de medida) -- pulei`);
+        continue;
+      }
+      fila[k] = ms;
+      const sheet = path.join(FILA_DIR, `${String(idx).padStart(2, "0")}.jpg`);
+      await makeSheet(f, ms, sheet);
+      console.log(`\n${idx}. ${c.video}\n   título: ${title}\n   folha: ${sheet}`);
+      ms.forEach((m, i) => console.log(describe(m, i)));
+    }
+    fs.writeFileSync(FILA_JSON, JSON.stringify(fila));
+    console.log("\nConfira as folhas. Depois: --aprovar <trecho> <item>  ou  --rejeitar <trecho>");
+    return;
+  }
+
+  if (flag("--aprovar")) {
+    const i = args.indexOf("--aprovar");
+    const sel = args[i + 1];
+    const itemId = args[i + 2];
+    if (!sel || !itemId) throw new Error("uso: --aprovar <trecho do vídeo> <código do item>");
+    const f = resolveVideo(sel, all);
+    const k = path.basename(f);
+    const hit = (readJson(FILA_JSON)[k] as Match[] | undefined)?.find((m) => String(m.offer.itemId) === itemId);
+    if (!hit) throw new Error(`o item ${itemId} não está na fila deste vídeo (rode --fila)`);
+    const approved = readJson(APPROVED);
+    approved[k] = { video: path.relative(PACK_DIR, f), offer: hit.offer, aprovadoEm: new Date().toISOString() };
+    fs.writeFileSync(APPROVED, JSON.stringify(approved, null, 1));
+    console.log(`aprovado: ${k} -> ${hit.offer.productName.slice(0, 70)} (${(Number(hit.offer.commissionRate ?? 0) * 100).toFixed(0)}%)`);
+    return;
+  }
+
+  if (flag("--rejeitar")) {
+    const f = resolveVideo(args[args.indexOf("--rejeitar") + 1], all);
+    const rejected = readJson(REJECTED);
+    rejected[path.basename(f)] = "nenhum candidato é o mesmo produto do vídeo";
+    fs.writeFileSync(REJECTED, JSON.stringify(rejected, null, 1));
+    console.log("rejeitado (não volta pra fila):", path.basename(f));
+    return;
+  }
+
+  if (flag("--proximo")) {
+    const approved = readJson(APPROVED);
+    const next = Object.entries(approved)
+      .filter(([k]) => !ledger[k])
+      .sort((a: any, b: any) => String(a[1].aprovadoEm).localeCompare(String(b[1].aprovadoEm)))[0] as [string, any] | undefined;
+    if (!next) {
+      console.log("Nenhum vídeo aprovado na fila. Rode --fila e aprove alguns.");
+      process.exitCode = 3;
+      return;
+    }
+    const f = path.join(PACK_DIR, next[1].video);
+    console.log("Postando o próximo aprovado:", next[1].video);
+    await publishReel(f, next[1].offer as ShopeeProductOffer, ledger);
     return;
   }
 
@@ -411,7 +534,10 @@ async function main() {
   }
 
   // ----- postar -----
-  const offer = chosen.offer;
+  await publishReel(file, chosen.offer, ledger);
+}
+
+async function publishReel(file: string, offer: ShopeeProductOffer, ledger: Record<string, any>): Promise<void> {
   const db = getDb();
   const { productId, snapshotId } = await persistOfferSnapshot(offer);
   const token = `w${crypto.createHash("sha1").update(file).digest("hex").slice(0, 6)}`;

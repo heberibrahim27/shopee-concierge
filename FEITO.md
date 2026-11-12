@@ -49,6 +49,20 @@ lista boards, `?dryRun=1` mostra o Pin) e tabela `pinterest_pins`
 `PINTEREST_ACCESS_TOKEN` e `PINTEREST_BOARD_ID`; sem eles responde
 "skipped". Dedupe em memória (sem lista-na-URL, lição de 04/10).
 
+## 2026-11-12 (parte 4) — Reels da WeDrop: 5/dia automáticos com fila aprovada
+
+Heber: 5 Reels/dia, comissão mais alta; PC fica ligado 24 h; uso do pack liberado (pagou).
+Criadas 5 tarefas no Agendador do Windows (`DescontoChegando-Reel-1..5`: 09:30, 12:15, 15:00,
+18:00, 20:30) que chamam `scripts/wedrop-proximo.cmd` -> `wedrop-reel.ts --proximo` (posta o próximo
+vídeo APROVADO; sem aprovado só registra em D:\WEDROP-pack-videos\_agendador.log; roda com o usuário
+logado). Fila: `--varrer` ranqueia por comissão, `--fila N` monta folhas de conferência, `--aprovar` /
+`--rejeitar` decidem (arquivos _aprovados.json / _rejeitados.json em D:). Aprendizados novos: (1) regra
+de medidas com unidade normalizada (3 L != 13 L; 1,80 m = 180 cm); (2) falha da API de afiliado
+NÃO é "sem produto equivalente" -- agora vira erro e é refeita; (3) conferência visual segue sendo
+obrigatória: aprovados até aqui = capa de máquina de lavar, kit de 3 cestos de bambu (candidato 3,
+11%, e não o cesto de roupa de 18%, que é outro produto), lixeira de pedal 6 L; rejeitado armário
+(candidato não era o mesmo produto).
+
 ## 2026-11-12 (parte 3) — Reels com vídeos da WeDrop + produto de afiliado de maior comissão
 
 Heber: usar os vídeos do pack da WeDrop (D:\WEDROP-pack-videos, ~1.756 vídeos, 720x1280,
