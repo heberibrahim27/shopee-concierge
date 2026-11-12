@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDbFresh } from "../../../../lib/db/client";
-import { createZApiConnector } from "../../../../lib/channel/zapi";
+import { createWhatsAppConnector, getGroupInviteLink } from "../../../../lib/channel/whatsapp";
 import { getPlatformInfo, getAdvertiserLogo } from "../../../../lib/site/platforms";
 import { parseCouponRule, describeRule } from "../../../../lib/site/couponRules";
 
@@ -193,20 +193,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: true, skipped: true, reason: "sem cupom elegível (código real, sem restrição de elegibilidade)" });
   }
 
-  const zapi = createZApiConnector();
+  const zapi = createWhatsAppConnector();
 
   let inviteLink: string;
   try {
-    const instanceId = process.env.ZAPI_INSTANCE_ID;
-    const token = process.env.ZAPI_TOKEN;
-    const clientToken = process.env.ZAPI_CLIENT_TOKEN;
-    const resp = await fetch(
-      `https://api.z-api.io/instances/${instanceId}/token/${token}/group-invitation-link/${WHATSAPP_GROUP_ID}`,
-      { headers: { "Client-Token": clientToken ?? "" } }
-    );
-    const json = await resp.json();
-    if (!resp.ok || !json?.invitationLink) throw new Error(`sem invitationLink: ${JSON.stringify(json)}`);
-    inviteLink = json.invitationLink;
+    inviteLink = await getGroupInviteLink(WHATSAPP_GROUP_ID);
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: `falha ao buscar link de convite: ${err instanceof Error ? err.message : String(err)}` },

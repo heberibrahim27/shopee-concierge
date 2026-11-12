@@ -49,6 +49,24 @@ lista boards, `?dryRun=1` mostra o Pin) e tabela `pinterest_pins`
 `PINTEREST_ACCESS_TOKEN` e `PINTEREST_BOARD_ID`; sem eles responde
 "skipped". Dedupe em memória (sem lista-na-URL, lição de 04/10).
 
+## 2026-11-12 — WhatsApp sem Z-API: fila + sender local gratuito (pronto, desligado)
+
+Descoberto: a Z-API NÃO está mais assinada ("you must subscribe to this
+instance again") -- último post do grupo em 22/10 23h50 UTC, ~3 semanas
+silencioso, sem erro registrado em lugar nenhum (e eu tinha dito que o grupo
+estava "ativo": a contagem de 30 dias ainda incluía outubro). Heber: quer
+solução GRATUITA e em WhatsApp (o público está lá); Telegram descartado.
+Docker/Evolution API descartados: **virtualização desligada na BIOS** deste
+computador (systeminfo: "Virtualização Habilitada no Firmware: Não").
+Solução sem servidor: `WHATSAPP_PROVIDER=outbox` -> `lib/channel/outbox.ts`
+grava em `whatsapp_outbox` (migration aplicada) e `tools/whatsapp-sender`
+(Baileys 7, Node, roda no PC) lê a fila e envia. Todos os pontos de envio
+(grupo, cupom, alerta de preço, ML discovery) passaram pela fábrica
+`lib/channel/whatsapp.ts`; sem a variável, comportamento idêntico ao
+anterior (Z-API). Falta: Heber parear o número (código de 8 letras no celular),
+validar `npm run grupos`/`teste`, e só então ligar a variável na Vercel.
+Limites: PC precisa ficar ligado; bot de foto (webhook) segue parado.
+
 ## 2026-11-11 — Instagram: resposta por DM a comentário pedindo o link (pronta, desligada)
 
 Heber: "a API do Desconto Chegando pra responder via direct quando alguém

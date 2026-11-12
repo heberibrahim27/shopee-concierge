@@ -12,3 +12,7 @@ tsconfig.tsbuildinfo
 public/ICONES BRANCOS/
 public/ICONES/
 public/ICONES-CATEGORIAS.png
+
+# sender local do WhatsApp (sessao e dependencias)
+tools/whatsapp-sender/auth/
+tools/whatsapp-sender/node_modules/

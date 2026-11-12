@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "../../../../lib/db/client";
 import { discoverWeeklyPicks } from "../../../../lib/mercadolivre/weeklyDiscovery";
-import { createZApiConnector } from "../../../../lib/channel/zapi";
+import { createWhatsAppConnector } from "../../../../lib/channel/whatsapp";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
   let notified = false;
   if (heberPhone) {
     try {
-      const zapi = createZApiConnector();
+      const zapi = createWhatsAppConnector();
       const byCategory = novos.reduce<Record<string, number>>((acc, p) => {
         acc[p.categorySlug] = (acc[p.categorySlug] ?? 0) + 1;
         return acc;

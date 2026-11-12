@@ -1,0 +1,18 @@
+{
+  "name": "whatsapp-sender",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Envia a fila whatsapp_outbox pelo WhatsApp do dono (Baileys, gratuito). Roda no computador, fora da Vercel.",
+  "type": "module",
+  "scripts": {
+    "start": "node sender.mjs",
+    "grupos": "node sender.mjs --grupos",
+    "teste": "node sender.mjs --teste"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "@whiskeysockets/baileys": "7.0.0-rc14",
+    "dotenv": "^16.4.5",
+    "pino": "^9.0.0"
+  }
+}

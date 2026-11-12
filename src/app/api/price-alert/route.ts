@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 import { getDb } from "../../../lib/db/client";
-import { createZApiConnector } from "../../../lib/channel/zapi";
+import { createWhatsAppConnector, whatsappConfigured } from "../../../lib/channel/whatsapp";
 import {
   MAX_ACTIVE_ALERTS_PER_PHONE,
   buildWelcomeMessage,
@@ -130,9 +130,9 @@ export async function POST(request: NextRequest) {
     }
 
     const isFirstAlertForPhone = (anyCount ?? 0) === 0;
-    if (isFirstAlertForPhone && process.env.ZAPI_INSTANCE_ID) {
+    if (isFirstAlertForPhone && whatsappConfigured()) {
       try {
-        await createZApiConnector().sendText({
+        await createWhatsAppConnector().sendText({
           chatId: phone,
           text: buildWelcomeMessage({
             productName: String(product.product_name),

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDbFresh } from "../../../../lib/db/client";
-import { createZApiConnector } from "../../../../lib/channel/zapi";
+import { createWhatsAppConnector, whatsappConfigured } from "../../../../lib/channel/whatsapp";
 import { getPlatformInfo } from "../../../../lib/site/platforms";
 import { buildAlertTrackedLink, buildPriceDropMessage } from "../../../../lib/site/priceAlerts";
 
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
     return candidates.reduce((best, c) => (Number(c.price_min) < Number(best.price_min) ? c : best));
   }
 
-  const zapi = process.env.ZAPI_INSTANCE_ID ? createZApiConnector() : null;
+  const zapi = whatsappConfigured() ? createWhatsAppConnector() : null;
   const nowIso = new Date().toISOString();
   let sent = 0;
   let cancelled = 0;
