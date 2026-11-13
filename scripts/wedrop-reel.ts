@@ -328,6 +328,47 @@ async function makeSheet(file: string, matches: Match[], sheet: string): Promise
   execFileSync("ffmpeg", ["-y", "-v", "error", ...inputs.flatMap((f) => ["-i", f]), "-filter_complex", `${filters.join(";")};${inputs.map((_, i) => `[v${i}]`).join("")}hstack=inputs=${inputs.length}`, "-frames:v", "1", "-q:v", "4", sheet]);
 }
 
+// ---------- conferência visual automática (modelo de visão da OpenAI) ----------
+const VISION_MODEL = process.env.WEDROP_VISION_MODEL || "gpt-4o-mini";
+type Verdict = { mesmos: number[]; confianca: string; motivo: string };
+
+async function aiVerify(file: string, matches: Match[]): Promise<Verdict> {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) throw new Error("OPENAI_API_KEY não configurada");
+  fs.mkdirSync(SCRATCH, { recursive: true });
+  const frame = path.join(SCRATCH, "ia-quadro.jpg");
+  execFileSync("ffmpeg", ["-y", "-v", "error", "-ss", "3", "-i", file, "-frames:v", "1", "-vf", "scale=640:-2", "-q:v", "4", frame]);
+  const content: any[] = [
+    {
+      type: "text",
+      text:
+        "A primeira imagem é um quadro de um vídeo de divulgação de UM produto. As imagens seguintes são fotos de anúncios candidatos (1, 2, 3...). " +
+        "Diga quais candidatos mostram O MESMO PRODUTO do vídeo: mesmo tipo, formato, estrutura e função (a cor, a marca e o fundo podem variar). " +
+        "Um produto parecido mas de outro formato (ex.: cadeira com braços x cadeira de encosto alto com tela; organizador de arame x giratório de acrílico; barra de ganchos x suporte de vassoura) NÃO é o mesmo. " +
+        'Responda SOMENTE JSON: {"mesmos":[números dos candidatos],"confianca":"alta|media|baixa","motivo":"uma frase"}. Se nenhum for o mesmo produto, "mesmos":[].',
+    },
+    { type: "text", text: "QUADRO DO VÍDEO:" },
+    { type: "image_url", image_url: { url: `data:image/jpeg;base64,${fs.readFileSync(frame).toString("base64")}` } },
+  ];
+  for (const [i, m] of matches.entries()) {
+    if (!m.offer.imageUrl) continue;
+    const r = await fetch(m.offer.imageUrl);
+    const mime = r.headers.get("content-type") || "image/jpeg";
+    content.push({ type: "text", text: `CANDIDATO ${i + 1}:` });
+    content.push({ type: "image_url", image_url: { url: `data:${mime};base64,${Buffer.from(await r.arrayBuffer()).toString("base64")}` } });
+  }
+  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    body: JSON.stringify({ model: VISION_MODEL, temperature: 0, response_format: { type: "json_object" }, messages: [{ role: "user", content }] }),
+  });
+  const json: any = await resp.json();
+  if (!resp.ok) throw new Error(`OpenAI ${resp.status}: ${JSON.stringify(json).slice(0, 200)}`);
+  const parsed = JSON.parse(json.choices[0].message.content);
+  const mesmos = (Array.isArray(parsed.mesmos) ? parsed.mesmos : []).map(Number).filter((n: number) => n >= 1 && n <= matches.length);
+  return { mesmos, confianca: String(parsed.confianca ?? "baixa"), motivo: String(parsed.motivo ?? "").slice(0, 160) };
+}
+
 async function main() {
   const all = walk(PACK_DIR);
   const ledger = readJson(LEDGER);
@@ -381,6 +422,19 @@ async function main() {
   const FILA_JSON = path.join(FILA_DIR, "fila.json");
   const APPROVED = path.join(PACK_DIR, "_aprovados.json");
   const REJECTED = path.join(PACK_DIR, "_rejeitados.json");
+
+  if (flag("--ia")) {
+    // Teste da conferência automática em UM vídeo (não grava nada).
+    const f = resolveVideo(args[args.indexOf("--ia") + 1], all);
+    const { title } = searchTitle(f);
+    const ms = await findMatches(title);
+    console.log("Vídeo:", path.basename(f), "| candidatos:", ms.length);
+    if (ms.length === 0) return;
+    const v = await aiVerify(f, ms);
+    ms.forEach((m, i) => console.log(`  ${v.mesmos.includes(i + 1) ? "✔" : " "} [${i + 1}] item ${m.offer.itemId} ${(Number(m.offer.commissionRate ?? 0) * 100).toFixed(0)}% ${m.offer.productName.slice(0, 60)}`));
+    console.log(`IA (${VISION_MODEL}): mesmos=[${v.mesmos}] confiança=${v.confianca} | ${v.motivo}`);
+    return;
+  }
 
   if (flag("--fila")) {
     // Pega os N vídeos de MAIOR comissão ainda não tratados e monta uma folha de conferência de cada.
